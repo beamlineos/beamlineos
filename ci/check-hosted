@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Hosted checks use the same YAML dependency as the builder, in an isolated environment.
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+cd "$REPO"
+check_env="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/beamline-check.XXXXXX")"
+trap 'rm -rf "$check_env"' EXIT HUP INT TERM
+python3 -m venv "$check_env"
+"$check_env/bin/python3" -m pip --disable-pip-version-check install -r ci/check-requirements.txt
+PATH="$check_env/bin:$PATH" ./ci/check

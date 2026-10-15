@@ -13,7 +13,9 @@
 . "$(dirname "$0")/lib.sh"
 
 disk="${1:-}"
-[ -n "$disk" ] && [ -f "$disk" ] || die "usage: ci/daily-telemetry PATH/TO/MACHINE-DISK [report-name]"
+if [ -z "$disk" ] || [ ! -f "$disk" ]; then
+    die "usage: ci/daily-telemetry PATH/TO/MACHINE-DISK [report-name]"
+fi
 name="${2:-$(date -u +%Y%m%d.%H%M)}"
 daily="$REPO/out/$ARCH/daily"
 mkdir -p "$daily/reports"
