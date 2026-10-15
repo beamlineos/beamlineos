@@ -1,0 +1,57 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Negative security tests on the checked-out Virt image (docs/security.md §15, §16; docs/decisions.md
+# D59), on the enforcing production boot: P0 runs its own unsigned ELF; P0 cannot change /usr; P0
+# and admin_t cannot write outside /etc's allowlist, admin_t can write a setting; P0 cannot enter
+# the updater's or the admin domain; the updater cannot execute a helper from /var/tmp; admin_t
+# can neither switch SELinux off nor load a module; alice cannot read dev's home. The tampered and
+# unsigned extensions (ci/test-posix), rollback (ci/test-update) and the unauthorized update
+# request (ci/test-run0) are tested elsewhere. Every denial these checks provoke must be listed in
+# policy/selinux-expected.toml. The image itself is never modified.
+#   ./ci/test-security [path/to/installed.qcow2]
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+log "security: the negative tests, enforcing"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+    --credential-file "beamline.test.security-script=$REPO/tests/vm/security-check.sh" \
+    --credential-file "beamline.test.transient-edges=$REPO/tests/vm/transient-edges.sh" \
+    --extra-unit "$REPO/tests/vm/beamline-security-check.service" \
+    --wants beamline-security-check.service \
+    --kernel-arg systemd.mask=systemd-sysext.service \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --serial-script "$REPO/tests/vm/transient.script" \
+    --require BEAMLINE_SELINUX_OK --require TRANSIENT_UID=0 --expect BEAMLINE_TRANSIENT_BOUND_OK \
+    --require 'SECURITY verified-cli-domain: ok' \
+    --require 'SECURITY mls-levels: ok' --require 'SECURITY init-alone: ok' \
+    --require 'SECURITY system-roothash-signed: ok' \
+    --require 'SECURITY ipe-data-module: ok' --require 'SECURITY ipe-system-module: ok' \
+    --require 'SECURITY ipe-boot-policy: ok' \
+    --require 'SECURITY mls-p0-writes-run: ok' --require 'SECURITY mls-admin-writes-run: ok' \
+    --require 'SECURITY mls-p0-writes-p3-tmp: ok' --require 'SECURITY unit-linked-refused: ok' \
+    --require 'SECURITY platform-writes-unit: ok' --require 'SECURITY admin-writes-unit: ok' \
+    --require 'SECURITY generator-units-load: ok' \
+    --require 'SECURITY domain-systemd-journald: ok' --require 'SECURITY domain-systemd-udevd: ok' \
+    --require 'SECURITY domain-dbus-broker: ok' --require 'SECURITY domain-polkit: ok' \
+    --require 'SECURITY domain-systemd-logind: ok' --require 'SECURITY domain-systemd-networkd: ok' \
+    --require 'SECURITY domain-systemd-resolved: ok' --require 'SECURITY domain-avahi-daemon: ok' \
+    --fail-on BEAMLINE_SECURITY_FAILED --timeout 600 \
+    --log "$OUT/serial-security.log"
+
+# Root's generic AccessDenied reply alone cannot identify the refusing layer. Require
+# the actual userspace SELinux transition audits from the new property check too.
+python3 - "$OUT/serial-security.log" <<'PY_AUDIT'
+import re, sys
+lines = open(sys.argv[1], errors='replace').read().splitlines()
+for source in ('user_t', 'admin_t'):
+    pattern = (r'avc:\s+denied\s+\{\s*transition\s*\}.*'
+               r'function="mac_selinux_transient_transition".*'
+               rf'scontext=[^ ]*:{source}:.*tcontext=[^ ]*:init_t:.*tclass=process')
+    if not any(re.search(pattern, line) for line in lines):
+        sys.exit(f'security: missing {source} -> init_t transition refusal audit')
+print('security: both explicit init_t refusals came from the SELinux transition check')
+PY_AUDIT

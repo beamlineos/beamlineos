@@ -1,0 +1,63 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Every VM test, in parallel lanes (docs/decisions.md D92, D113). ci/test-install runs first: it
+# installs the medium, and prepares the reference disk the other tests boot. Then each test boots
+# its own throwaway overlay of that disk and writes its own serial log, and the update test picks a
+# free port, so the tests are independent. Lanes run at once, the tests of a lane one after
+# another; the longest lane decides the time. The host needs memory for seven VMs (2-6 GB each).
+#
+# Every test runs even when another fails, so one failure does not hide another. Each test's
+# output goes to <image dir>/ci-<test>.log; the summary names every failure.
+#   ./ci/test-vms
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+[ -f "$OUT/install/install.raw" ] || die "$OUT/install/install.raw not found; run ./ci/image first"
+reference="$OUT/installed/reference.qcow2"
+
+# A lane: the ci/ scripts it runs, in order. "test-combos:A,B" runs those combinations.
+lane() {
+    status=0
+    for test in "$@"; do
+        name="${test%%:*}"
+        args=""
+        case "$test" in *:*) args="$(printf %s "${test#*:}" | tr , ' ')" ;; esac
+        label="$name${args:+ $args}"
+        logfile="$OUT/ci-$(printf %s "$label" | tr ' ' -).log"
+        # shellcheck disable=SC2086 # the combinations are separate arguments
+        if "$REPO/ci/$name" ${args:+"$reference"} $args > "$logfile" 2>&1; then
+            printf '%s: passed\n' "$label"
+        else
+            printf '%s: FAILED (%s)\n' "$label" "$logfile"
+            status=1
+        fi
+    done
+    return "$status"
+}
+
+log "VM tests: the installation first (log: $OUT/ci-test-install.log)"
+summary="$(mktemp)"
+if ! lane test-install >> "$summary"; then
+    sort "$summary" >&2
+    rm -f "$summary"
+    die "the installation failed; the other VM tests need its disk"
+fi
+log "VM tests in parallel lanes (logs: $OUT/ci-*.log)"
+lane boot test-reboot test-verity test-boot-entries >> "$summary" & a=$!
+lane test-shell test-run0 test-settings test-security >> "$summary" & b=$!
+lane test-posix test-devel test-printing test-beamlinectl >> "$summary" & c=$!
+lane test-desktop >> "$summary" & d=$!
+lane test-combos:posix,printing >> "$summary" & e=$!
+lane test-combos:devel,all >> "$summary" & f=$!
+# The update test installs `latest` from its own medium first.
+lane test-update >> "$summary" & g=$!
+failed=0
+for pid in $a $b $c $d $e $f $g; do
+    wait "$pid" || failed=1
+done
+sort "$summary" >&2
+rm -f "$summary"
+[ "$failed" = 0 ] || die "VM tests failed (see the logs above)"
+log "VM tests passed"

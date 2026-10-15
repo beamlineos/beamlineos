@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+#
+# Virt profile networking (docs/spec.md §10.2). Generic matching until the virtual
+# hardware contract settles; then narrow to virtio-net.
+
+[Match]
+Type=ether
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes

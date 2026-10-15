@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-boot-entries, docs/decisions.md D48, D59): walk the boot entries. The default
+# boot must be the production UKI (no enforcing=0), and enforce; it selects the development UKI
+# for the next boot. The development boot must carry enforcing=0 and be permissive; it selects
+# the RecoveryOS stub,
+# which reports BEAMLINE_RECOVERY_STUB from its initrd and powers off. Injected through a
+# systemd.extra-unit credential; never part of an image, so it may use dash.
+
+[Unit]
+Description=Walk the boot entries: production, development, RecoveryOS stub
+ConditionPathExists=!/etc/initrd-release
+After=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/sh -c '. /usr/lib/os-release; read -r cmdline < /proc/cmdline; read -r enforce < /sys/fs/selinux/enforce; case " $cmdline " in *" enforcing=0 "*) [ "$enforce" = 0 ] || { echo "the development boot enforces"; exit 1; }; echo BEAMLINE_ENTRY_DEVELOPMENT_OK; next=beamline-recovery.efi ;; *" roothash="*) [ "$enforce" = 1 ] || { echo "the production boot does not enforce"; exit 1; }; echo BEAMLINE_ENTRY_PRODUCTION_OK; next="beamline-dev_$IMAGE_VERSION.efi" ;; *) echo "unexpected command line: $cmdline"; exit 1 ;; esac; bootctl set-oneshot "$next"; systemctl --no-block reboot'

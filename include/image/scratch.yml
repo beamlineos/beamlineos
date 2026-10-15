@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# Scratch space for elements that build filesystem and disk images (docs/decisions.md D57).
+# The sandbox root is staged by buildbox-fuse, so every byte written there goes through a
+# userspace filesystem and is then hashed into the CAS as action output. The sandbox's /tmp
+# is a tmpfs: no FUSE, never captured. Intermediate trees and images belong there; only the
+# finished images go to %{install-root}.
+
+variables:
+  image-scratch: /tmp/work

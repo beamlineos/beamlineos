@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: MIT
+# GNU Emacs master, resolved only by integration; etags is built without the editor (D69).
+variables:
+  emacs-commit: d11b70dd95fba48b94a8ec7918890a520727317d

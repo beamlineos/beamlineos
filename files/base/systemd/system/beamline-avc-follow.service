@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+#
+# Keeps reporting SELinux AVC denials on the console after boot (docs/security.md §15, §16):
+# sessions, run0 and the desktop deny after beamline-avc-report.service has run. Starts at that
+# report's cursor, so nothing is missed or printed twice.
+
+[Unit]
+Description=Follow SELinux AVC denials on the console
+ConditionSecurity=selinux
+# Ordered after multi-user.target explicitly: a unit the target wants is otherwise ordered before
+# it, which with the report's After=multi-user.target is a cycle systemd breaks by skipping one.
+After=multi-user.target beamline-avc-report.service
+
+[Service]
+Type=exec
+RuntimeDirectory=beamline-avc
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/journalctl --boot --follow --no-pager --output=cat --grep=avc: --cursor-file=/run/beamline-avc/cursor
+# Console only: printed back into the journal, the lines would match again.
+StandardOutput=tty
+
+[Install]
+WantedBy=multi-user.target

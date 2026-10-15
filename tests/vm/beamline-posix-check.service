@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-posix): merge the posix extension and use it. Injected through a
+# systemd.extra-unit credential; never part of an image.
+
+[Unit]
+Description=Check the posix system extension
+After=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/beamlinectl --no-ask-password activate posix
+ExecStart=/usr/bin/bash --version
+ExecStart=/usr/bin/ls --version
+ExecStart=/usr/bin/grep ^ID=beamline /etc/os-release
+ExecStart=/usr/bin/sed -n 1p /etc/os-release
+ExecStart=/usr/bin/awk "BEGIN { print 6 * 7; if (6 * 7 != 42) exit 1 }"
+ExecStart=/usr/bin/cmp /etc/os-release /etc/os-release
+ExecStart=/usr/bin/diff /etc/os-release /etc/os-release
+ExecStart=/usr/bin/find /usr/lib/extension-release.d -name extension-release.posix -print -quit
+ExecStart=/usr/bin/ps -p 1
+ExecStart=/usr/bin/strings /usr/lib/extension-release.d/extension-release.posix
+ExecStart=/usr/bin/man -w ls
+ExecStart=/usr/bin/systemd-escape BEAMLINE_POSIX_OK

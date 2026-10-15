@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+# Removed from the base and from every extension (0.0.4.2 step 2B, docs/decisions.md D89). Every
+# extension's tree contains the base's files, so each extension prunes these too.
+# Patterns: see tools/prune-tree.py.
+
+# The SSH server's leftovers (K11): Beamline ships no sshd (D67), so its PAM stack, systemd's userdb
+# drop-in for it and systemd's SSH-over-vsock generator have nothing to serve. The client side stays:
+# systemd-ssh-proxy and its ssh_config.d drop-in let ssh reach vsock and machine hosts.
+/etc/pam.d/sshd
+/etc/pam.d/sshd.license
+/etc/ssh/sshd_config.d/**
+/usr/lib/systemd/sshd_config.d/**
+/usr/lib/systemd/system-generators/systemd-ssh-generator
+/usr/lib/systemd/system/ssh-access.target
+/usr/lib/systemd/systemd-ssh-issue
+/usr/lib/tmpfiles.d/20-systemd-ssh-generator.conf

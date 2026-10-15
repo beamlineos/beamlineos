@@ -1,0 +1,24 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Extension control on an overlay of the installed reference; no image is modified.
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+    --gpu 2d --memory 4G --reboot \
+    --credential-file "beamline.test.ctl=$REPO/tests/vm/beamlinectl-check.sh" \
+    --extra-unit "$REPO/tests/vm/beamlinectl-check.service" \
+    --wants beamlinectl-check.service \
+    --serial-script "$REPO/tests/vm/beamlinectl.script" \
+    --require BEAMLINE_SELINUX_OK --require BEAMLINE_CTL_DAEMON_CONTEXT_OK \
+    --require BEAMLINE_CTL_CLIENT_CONTEXT_OK --expect BEAMLINE_CTL_OK \
+    --require BEAMLINE_CTL_UNIT_LABELS_OK --require BEAMLINE_CTL_DEFAULTS_OK --require BEAMLINE_CTL_POSIX_BOOT_OK \
+    --require BEAMLINE_CTL_DESKTOP_OFF_OK --require BEAMLINE_CTL_STATE_PROTECTED_OK \
+    --require CTL_GUARD_STATUS=1 --require CTL_ALICE_STATUS=1 \
+    --require BEAMLINE_CTL_LIVE_GUARD_OK --require BEAMLINE_CTL_PRINTING_STOP_OK \
+    --require BEAMLINE_CTL_FAILURE_POLICY_OK --require BEAMLINE_CTL_MISSING_IMAGES_OK \
+    --require BEAMLINE_CTL_CONCURRENT_GUARD_OK --require BEAMLINE_CTL_INACTIVE_REQUEUE_OK \
+    --require BEAMLINE_CTL_UNLINK_RETRY_OK --require BEAMLINE_CTL_OVERRIDE_REBOOT_OK \
+    --fail-on BEAMLINE_CTL_FAILED --timeout 1500 --log "$OUT/serial-beamlinectl.log"
+in_builder python3 tools/integrate.py classify "$OUT/serial-beamlinectl.log"

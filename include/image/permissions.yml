@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+#
+# Restores file modes that BuildStream artifacts cannot carry (files/image/permissions,
+# docs/decisions.md D31). An element that creates a filesystem includes this, build-depends
+# on image/permissions.bst, and runs on a writable copy of its tree:
+#   %{apply-permissions}
+#   apply_permissions "%{image-scratch}/root"
+# Paths absent from the tree are skipped, so one list serves the root and its subsets.
+
+variables:
+  apply-permissions: |-
+    apply_permissions() {
+      while read -r mode path; do
+        case "${mode}" in ''|'#'*) continue ;; esac
+        if [ -e "$1${path}" ]; then chmod "${mode}" "$1${path}"; fi
+      done < "%{datadir}/%{os-id}/image/permissions"
+    }

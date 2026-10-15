@@ -1,0 +1,2 @@
+# Unit files exempt from the base shell-construct rule (docs/spec.md §6).
+# One unit file name per line, followed by a justification. Keep this list short.

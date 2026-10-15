@@ -1,0 +1,223 @@
+# SPDX-License-Identifier: MIT
+#
+# Expected SELinux denials (docs/security.md §15, §16; docs/decisions.md D58). Only the
+# negative tests may provoke a denial, and each denial they provoke is listed here with its test
+# and reason. Every other denial an integration cycle records is unexpected: Stage 1 permissive
+# (0.0.3 step 10) reports them, Stage 1 enforcing (step 11) fails the cycle on them.
+#
+# A denial matches an entry when its source domain, target type and class are equal, its
+# permissions are among `perms`, and, when the entry names one, its command is `comm`:
+#
+#   [[denial]]
+#   scontext = "user_t"
+#   tcontext = "etc_t"
+#   tclass = "file"
+#   perms = ["write", "open"]
+#   comm = "sh"
+#   test = "ci/test-security"
+#   reason = "P0 writes a file outside /etc's allowlist"
+#
+[[denial]]
+scontext = "user_t"
+tcontext = "beamlinectl_state_t"
+tclass = "dir"
+perms = ["search"]
+comm = "sh"
+test = "ci/test-beamlinectl"
+reason = "P0, as the marker's owning UID, cannot traverse the privileged state directory to alter a choice; DAC permits it"
+
+[[denial]]
+scontext = "admin_t"
+tcontext = "beamlinectl_state_t"
+tclass = "file"
+perms = ["append", "write", "open"]
+comm = "sh"
+test = "ci/test-beamlinectl"
+reason = "P2 root cannot alter a P3 extension choice directly, even though it can bypass DAC"
+
+# ci/test-settings writes a file outside the allowlist into /etc (security §9.5). The writer is
+# checked first; overlayfs then creates the file in the mutable layer with the credentials of the
+# overlay's mounter, the initrd's merge, which counts as kernel_t.
+[[denial]]
+scontext = "platform_service_t"
+tcontext = "etc_t"
+tclass = "file"
+perms = ["create", "write", "open"]
+comm = "systemd-tmpfile"
+test = "ci/test-settings"
+reason = "a platform service writes /etc/beamline-forbidden, outside /etc's allowlist"
+
+[[denial]]
+scontext = "kernel_t"
+tcontext = "etc_t"
+tclass = "file"
+perms = ["create", "write", "open"]
+comm = "systemd-tmpfile"
+test = "ci/test-settings"
+reason = "the same write, as overlayfs repeats it in the mutable layer for the overlay's mounter"
+
+# ci/test-security (tests/vm/security-check.sh). Checks that must be refused run as root, so that
+# SELinux is what refuses them.
+[[denial]]
+scontext = "user_t"
+tcontext = "etc_t"
+tclass = "file"
+perms = ["append", "write", "open"]
+comm = "sh"
+test = "ci/test-security"
+reason = "p0-writes-etc: P0, as root, appends to /etc/pam.d/login, outside /etc's allowlist"
+
+[[denial]]
+scontext = "user_t"
+tcontext = "etc_t"
+tclass = "dir"
+perms = ["write", "add_name"]
+comm = "sh"
+test = "ci/test-security"
+reason = "p0-writes-etc: the same write, as overlayfs prepares the copy-up into the mutable layer"
+
+[[denial]]
+scontext = "user_t"
+tcontext = "user_t"
+tclass = "capability"
+perms = ["dac_override", "dac_read_search", "fowner"]
+comm = "sh"
+test = "ci/test-security"
+reason = "P0 checks run as root, and user_t has no capabilities"
+
+[[denial]]
+scontext = "admin_t"
+tcontext = "etc_t"
+tclass = "file"
+perms = ["append", "write", "open"]
+comm = "sh"
+test = "ci/test-security"
+reason = "admin-writes-etc: admin_t appends to /etc/pam.d/login, outside /etc's allowlist"
+
+[[denial]]
+scontext = "user_t"
+tcontext = "sysupdate_t"
+tclass = "process"
+perms = ["transition"]
+comm = "sh"
+test = "ci/test-security"
+reason = "p0-enters-sysupdate: P0 sets /proc/self/attr/exec to the updater's domain and executes"
+
+[[denial]]
+scontext = "user_t"
+tcontext = "admin_t"
+tclass = "process"
+perms = ["transition"]
+comm = "sh"
+test = "ci/test-security"
+reason = "p0-enters-admin: P0 sets /proc/self/attr/exec to admin_t and executes"
+
+[[denial]]
+scontext = "sysupdate_t"
+tcontext = "tmp_t"
+tclass = "file"
+perms = ["execute", "execute_no_trans", "map"]
+comm = "sh"
+test = "ci/test-security"
+reason = "updater-runs-tmp-helper: the updater executes /var/tmp/p0-elf"
+
+[[denial]]
+scontext = "admin_t"
+tcontext = "security_t"
+tclass = "file"
+perms = ["write", "open"]
+comm = "setenforce"
+test = "ci/test-security"
+reason = "admin-setenforce: admin_t writes 0 to /sys/fs/selinux/enforce"
+
+[[denial]]
+scontext = "admin_t"
+tcontext = "admin_t"
+tclass = "capability"
+perms = ["sys_module"]
+comm = "insmod"
+test = "ci/test-security"
+reason = "admin-loads-module: admin_t loads a kernel module"
+
+[[denial]]
+scontext = "user_t"
+tcontext = "user_t"
+tclass = "capability"
+perms = ["net_bind_service"]
+test = "ci/test-security"
+reason = "p0-binds-reserved: P0, as root, binds TCP port 80; ports below 1024 stay closed to sessions (D84)"
+
+[[denial]]
+scontext = "admin_t"
+tcontext = "device_t"
+tclass = "blk_file"
+perms = ["write"]
+comm = "dd"
+test = "ci/test-security"
+reason = "admin-writes-disk: admin_t opens the disk for writing; it may read disks, never write them (D84)"
+
+[[denial]]
+scontext = "user_t"
+tcontext = "init_t"
+tclass = "process"
+perms = ["transition"]
+test = "ci/test-security"
+reason = "transient-explicit-init: a lower-integrity authenticated creator requests init_t, including the ignore prefix"
+
+[[denial]]
+scontext = "admin_t"
+tcontext = "init_t"
+tclass = "process"
+perms = ["transition"]
+test = "ci/test-security"
+reason = "transient-explicit-init: a lower-integrity authenticated creator requests init_t, including the ignore prefix"
+
+# 0.0.4.2 step 5 (D97): unit definitions load only from labels PID 1 trusts.
+[[denial]]
+scontext = "init_t"
+tcontext = "tmp_t"
+tclass = "service"
+perms = ["load"]
+test = "ci/test-security"
+reason = "unit-linked-refused: PID 1 refuses to load a unit file linked from /var/tmp"
+
+[[denial]]
+scontext = "platform_service_t"
+tcontext = "init_unit_runtime_t"
+tclass = "dir"
+perms = ["write", "add_name"]
+test = "ci/test-security"
+reason = "platform-writes-unit: a platform service writes a unit into /run/systemd/system"
+
+[[denial]]
+scontext = "admin_t"
+tcontext = "init_unit_runtime_t"
+tclass = "dir"
+perms = ["write", "add_name"]
+test = "ci/test-security"
+reason = "admin-writes-unit: a run0 session writes a unit into /run/systemd/system"
+
+# 0.0.4.2 step 6C (D100): writes that Type Enforcement allows and the MLS constraints refuse.
+[[denial]]
+scontext = "user_t"
+tcontext = "run_t"
+tclass = "dir"
+perms = ["write", "add_name"]
+test = "ci/test-security"
+reason = "mls-p0-writes-run: P0 (root) creates a file in /run/systemd, which is P3"
+
+[[denial]]
+scontext = "admin_t"
+tcontext = "run_t"
+tclass = "dir"
+perms = ["write", "add_name"]
+test = "ci/test-security"
+reason = "mls-admin-writes-run: a run0 session (P2) creates a FIFO in a P3 run_t directory"
+
+[[denial]]
+scontext = "user_t"
+tcontext = "tmp_t"
+tclass = "file"
+perms = ["write", "append", "open"]
+test = "ci/test-security"
+reason = "mls-p0-writes-p3-tmp: P0 (root) writes a file a platform service created in /tmp"

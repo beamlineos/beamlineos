@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-reboot): reboot once, after the test's first boot has reached its marker and
+# tmpfiles has saved the machine ID on DATA. Injected through a systemd.extra-unit
+# credential; never part of an image.
+# The test's two boots are told apart by a marker on DATA, not by ConditionFirstBoot: the tests
+# boot the installed reference disk, whose first boot is long past (D113).
+
+[Unit]
+Description=Reboot once after the test's first boot
+ConditionPathExists=!/var/lib/beamline-test/rebooted
+After=beamline-boot-ok.service systemd-tmpfiles-setup.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-tmpfiles --create --inline "d /var/lib/beamline-test 0755 root root -" "f /var/lib/beamline-test/rebooted 0644 root root -"
+ExecStart=/usr/bin/systemctl --no-block reboot

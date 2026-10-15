@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT
+# Vendor awk HEAD's exact lockfile Git dependency for the Cargo source plugin (D63).
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -571,7 +571,6 @@
+ [[package]]
+ name = "indexmap-allocator-api"
+ version = "2.7.1"
+-source = "git+https://github.com/Hans-Halverson/indexmap-allocator-api.git?rev=36852f985c01fb9f58f2d9e510655ca1dbb1f4d0#36852f985c01fb9f58f2d9e510655ca1dbb1f4d0"
+ dependencies = [
+  "allocator-api2 0.2.21",
+  "equivalent",
+--- a/interpreter/Cargo.toml
++++ b/interpreter/Cargo.toml
+@@ -25,7 +25,7 @@
+ # I'm not particularly happy about this, but it's crucial for performance, and
+ # I have audited the two commits. It's pinned to that hash to avoid possible
+ # supply-chain attacks. Hopefully upstream maintainers will change their mind.
+-indexmap-allocator-api = { git = 'https://github.com/Hans-Halverson/indexmap-allocator-api.git', rev = "36852f985c01fb9f58f2d9e510655ca1dbb1f4d0" }
++indexmap-allocator-api = { path = "../vendor/indexmap" }
+ 
+ [lints]
+ workspace = true
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -14,6 +14,7 @@
+ edition = "2024"
+ 
+ [workspace]
++exclude = ["vendor/indexmap"]
+ resolver = "3"
+ members = ["interpreter","lexer", "parser"]
+ 

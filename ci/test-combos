@@ -1,0 +1,56 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# The desktop combined with extensions (§39.1, docs/decisions.md D75). Each combination boots the
+# checked-out image with desktop-gnome merged and a 2D GPU, so GDM runs, then merges more
+# extensions under it:
+#   posix       bash, uutils, manuals (the posix check)
+#   printing    printing-scanning: a virtual IPP printer, a job through CUPS, SANE's test backend
+#   devel       posix-devel: the development workflow, as dev in user_t
+#   all         the three together
+# The desktop must survive every refresh, no unit may fail, and no boot may record an
+# unexpected AVC denial (policy/selinux-expected.toml). The image itself is never modified.
+#   ./ci/test-combos [path/to/installed.qcow2 [combination...]]
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+[ $# -gt 0 ] && shift
+combos="${*:-posix printing devel all}"
+
+logs=""
+failed=""
+for combo in $combos; do
+    case "$combo" in
+        all) extensions="posix printing devel" ;;
+        posix | printing | devel) extensions="$combo" ;;
+        *) die "unknown combination $combo" ;;
+    esac
+    serial="$OUT/serial-combo-$combo.log"
+    log "combination: desktop + $extensions"
+    # Every combination runs, so one failure does not hide another.
+    python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+        --gpu 2d --memory 6G --timeout 900 \
+        --credential "beamline.test.combo=$extensions" \
+        --credential-file "beamline.test.combo-script=$REPO/tests/vm/combo-check.sh" \
+        --credential-file "beamline.test.devel=$REPO/tests/vm/devel-check.sh" \
+        --extra-unit "$REPO/tests/vm/beamline-combo-check.service" \
+        --extra-unit "$REPO/tests/vm/beamline-posix-check.service" \
+        --extra-unit "$REPO/tests/vm/beamline-devel-check.service" \
+        --extra-unit "$REPO/tests/vm/beamline-devel-activate.service" \
+        --wants beamline-combo-check.service \
+        --require BEAMLINE_SELINUX_OK --expect BEAMLINE_COMBO_OK \
+        --fail-on BEAMLINE_COMBO_FAILED --log "$serial" || failed="$failed $combo"
+    logs="$logs $serial"
+done
+
+log "classifying AVC denials"
+# One file per run: ci/test-vms runs two sets of combinations at once.
+denials="$OUT/combo-denials-$(printf %s "$combos" | tr ' ' -).json"
+# shellcheck disable=SC2086 # one argument per log
+in_builder python3 tools/integrate.py classify $logs > "$denials" ||
+    failed="$failed unexpected-denials"
+[ -z "$failed" ] || die "failed:$failed (serial logs and $denials)"
+log "combinations passed with no unexpected AVC denials"

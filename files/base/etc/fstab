@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+#
+# DATA (docs/spec.md §14, §15). The root is SYSTEM, read-only, from the kernel command line.
+# /data is grown to the end of the disk by systemd-repart, then by systemd-growfs.
+
+PARTLABEL=data  /data  ext4  defaults,x-systemd.growfs,x-systemd.after=systemd-repart.service  0 0
+/data/var       /var   none  bind,x-systemd.requires-mounts-for=/data  0 0
+/data/home      /home  none  bind,x-systemd.requires-mounts-for=/data  0 0

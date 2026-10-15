@@ -1,0 +1,253 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Beamline: remove Shell extension loading at build time (§7.1, 0.0.4 step 5).
+# Baseline: GNOME Shell 29380c2662daaed660cd6d0115cdfe370510d8f6.
+# -Dextensions=false compiles inert API implementations instead of the loader/downloader,
+# omits extension preferences and the CLI, and reports support as disabled on D-Bus.
+# The default remains the upstream behavior for a future separate advanced desktop.
+
+diff --git a/data/meson.build b/data/meson.build
+--- a/data/meson.build
++++ b/data/meson.build
+@@ -137,6 +137,8 @@
+ if have_systemd
+   unitconf = configuration_data()
+   unitconf.set('bindir', bindir)
++  unitconf.set('extension_failure_unit',
++    have_extensions ? 'org.gnome.Shell-disable-extensions.service ' : '')
+   configure_file(
+     input: 'org.gnome.Shell@.service.in',
+     output: 'org.gnome.Shell@.service',
+@@ -144,10 +146,12 @@
+     install_dir: systemduserunitdir
+   )
+ 
+-  install_data (
+-    'org.gnome.Shell-disable-extensions.service',
+-    install_dir: systemduserunitdir,
+-  )
++  if have_extensions
++    install_data (
++      'org.gnome.Shell-disable-extensions.service',
++      install_dir: systemduserunitdir,
++    )
++  endif
+ endif
+ 
+ # for unit tests - gnome.compile_schemas() only looks in srcdir
+diff --git a/data/org.gnome.Shell@.service.in b/data/org.gnome.Shell@.service.in
+--- a/data/org.gnome.Shell@.service.in
++++ b/data/org.gnome.Shell@.service.in
+@@ -1,6 +1,6 @@
+ [Unit]
+ Description=GNOME Shell
+-OnFailure=org.gnome.Shell-disable-extensions.service gnome-session-shutdown.target
++OnFailure=@extension_failure_unit@gnome-session-shutdown.target
+ OnFailureJobMode=replace-irreversibly
+ CollectMode=inactive-or-failed
+ RefuseManualStart=on
+diff --git a/js/dbusServices/meson.build b/js/dbusServices/meson.build
+--- a/js/dbusServices/meson.build
++++ b/js/dbusServices/meson.build
+@@ -4,11 +4,14 @@
+ launcherconf.set('libdir', libdir)
+ 
+ dbus_services = {
+-  'org.gnome.Shell.Extensions': 'extensions',
+   'org.gnome.Shell.Notifications': 'notifications',
+   'org.gnome.Shell.Screencast': 'screencast',
+   'org.gnome.ScreenSaver': 'screensaver',
+ }
++
++if have_extensions
++  dbus_services += {'org.gnome.Shell.Extensions': 'extensions'}
++endif
+ 
+ config_dir = '@0@/..'.format(meson.current_build_dir())
+ 
+diff --git a/js/js-resources.gresource.xml b/js/js-resources.gresource.xml
+--- a/js/js-resources.gresource.xml
++++ b/js/js-resources.gresource.xml
+@@ -78,8 +78,8 @@
+     <file>ui/dnd.js</file>
+     <file>ui/endSessionDialog.js</file>
+     <file>ui/environment.js</file>
+-    <file>ui/extensionDownloader.js</file>
+-    <file>ui/extensionSystem.js</file>
++    <file alias="ui/extensionDownloader.js">ui/@EXTENSION_DOWNLOADER@.js</file>
++    <file alias="ui/extensionSystem.js">ui/@EXTENSION_SYSTEM@.js</file>
+     <file>ui/focusCaretTracker.js</file>
+     <file>ui/grabHelper.js</file>
+     <file>ui/ibusCandidatePopup.js</file>
+diff --git a/js/meson.build b/js/meson.build
+--- a/js/meson.build
++++ b/js/meson.build
+@@ -1,8 +1,19 @@
+ subdir('misc')
+ subdir('dbusServices')
+ 
++extensionconf = configuration_data()
++extensionconf.set('EXTENSION_SYSTEM',
++  have_extensions ? 'extensionSystem' : 'extensionSystemDisabled')
++extensionconf.set('EXTENSION_DOWNLOADER',
++  have_extensions ? 'extensionDownloader' : 'extensionDownloaderDisabled')
++js_resources_xml = configure_file(
++  input: 'js-resources.gresource.xml',
++  output: 'js-resources.gresource.xml',
++  configuration: extensionconf,
++)
++
+ js_resources = gnome.compile_resources(
+-  'js-resources', 'js-resources.gresource.xml',
++  'js-resources', js_resources_xml,
+   source_dir: ['.', meson.current_build_dir()],
+   c_name: 'shell_js_resources',
+   dependencies: [config_js]
+diff --git a/js/misc/config.js.in b/js/misc/config.js.in
+--- a/js/misc/config.js.in
++++ b/js/misc/config.js.in
+@@ -8,6 +8,8 @@
+ export const HAVE_NETWORKMANAGER = @HAVE_NETWORKMANAGER@;
+ /* 1 if portal helper is enabled, 0 otherwise */
+ export const HAVE_PORTAL_HELPER = @HAVE_PORTAL_HELPER@;
++/* 1 if Shell extension loading is compiled in, 0 otherwise */
++export const HAVE_EXTENSIONS = @HAVE_EXTENSIONS@;
+ /* gettext package */
+ export const GETTEXT_PACKAGE = '@GETTEXT_PACKAGE@';
+ /* locale dir */
+diff --git a/js/misc/meson.build b/js/misc/meson.build
+--- a/js/misc/meson.build
++++ b/js/misc/meson.build
+@@ -5,6 +5,7 @@
+ jsconf.set('LIBMUTTER_API_VERSION', mutter_api_version)
+ jsconf.set10('HAVE_NETWORKMANAGER', have_networkmanager)
+ jsconf.set10('HAVE_PORTAL_HELPER', have_portal_helper)
++jsconf.set10('HAVE_EXTENSIONS', have_extensions)
+ jsconf.set('UTILS_FOLDER_APPS', run_command(
+   generate_app_list, '../../data/default-apps/utilities-folder.txt',
+   check: true,
+diff --git a/js/ui/extensionDownloaderDisabled.js b/js/ui/extensionDownloaderDisabled.js
+new file mode 100644
+--- /dev/null
++++ b/js/ui/extensionDownloaderDisabled.js
+@@ -0,0 +1,19 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++// No downloader, installer, updates or user directory access in this build.
++import {ExtensionErrors, ExtensionError} from '../misc/dbusErrors.js';
++
++export function init() {
++}
++
++export function installExtension(uuid, invocation) {
++    invocation.return_error_literal(
++        ExtensionErrors, ExtensionError.NOT_ALLOWED,
++        'Shell extension support is disabled in this build');
++}
++
++export function uninstallExtension() {
++    return false;
++}
++
++export function checkForUpdates() {
++}
+diff --git a/js/ui/extensionSystemDisabled.js b/js/ui/extensionSystemDisabled.js
+new file mode 100644
+--- /dev/null
++++ b/js/ui/extensionSystemDisabled.js
+@@ -0,0 +1,33 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++// The extension loader is absent from builds configured with -Dextensions=false.
++// Keep the public Shell API available to clients without inspecting any extension files.
++import * as Signals from '../misc/signals.js';
++
++export class ExtensionManager extends Signals.EventEmitter {
++    init() {
++    }
++
++    get updatesSupported() {
++        return false;
++    }
++
++    lookup() {
++        return undefined;
++    }
++
++    getUuids() {
++        return [];
++    }
++
++    enableExtension() {
++        return false;
++    }
++
++    disableExtension() {
++        return false;
++    }
++
++    openExtensionPrefs() {
++        throw new Error('Shell extension support is disabled in this build');
++    }
++}
+diff --git a/js/ui/shellDBus.js b/js/ui/shellDBus.js
+--- a/js/ui/shellDBus.js
++++ b/js/ui/shellDBus.js
+@@ -498,10 +498,13 @@
+     }
+ 
+     get UserExtensionsEnabled() {
+-        return !global.settings.get_boolean('disable-user-extensions');
++        return Config.HAVE_EXTENSIONS &&
++            !global.settings.get_boolean('disable-user-extensions');
+     }
+ 
+     set UserExtensionsEnabled(enable) {
++        if (!Config.HAVE_EXTENSIONS)
++            return;
+         global.settings.set_boolean('disable-user-extensions', !enable);
+     }
+ 
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -117,6 +117,7 @@
+   have_networkmanager = false
+ endif
+ 
++have_extensions = get_option('extensions')
+ have_portal_helper = get_option('portal_helper')
+ if have_portal_helper and not have_networkmanager
+   error('Portal helper requires networkmanager support')
+@@ -291,7 +292,7 @@
+   ]
+ )
+ 
+-if get_option('extensions_tool')
++if have_extensions and get_option('extensions_tool')
+   extension_tool = subproject('extensions-tool',
+     default_options: [
+       'package_name=@0@'.format(meson.project_name()),
+@@ -356,7 +357,8 @@
+   'camera_monitor': get_option('camera_monitor'),
+   'networkmanager': get_option('networkmanager'),
+   'systemd': get_option('systemd'),
+-  'extensions_tool': get_option('extensions_tool'),
++  'extensions': have_extensions,
++  'extensions_tool': have_extensions and get_option('extensions_tool'),
+   'man': get_option('man'),
+   'gtk_doc': get_option('gtk_doc'),
+ }
+diff --git a/meson.options b/meson.options
+--- a/meson.options
++++ b/meson.options
+@@ -2,6 +2,12 @@
+   type: 'boolean',
+   value: true,
+   description: 'Enable the camera monitor'
++)
++
++option('extensions',
++  type: 'boolean',
++  value: true,
++  description: 'Build Shell extension loading and installation support'
+ )
+ 
+ option('extensions_tool',

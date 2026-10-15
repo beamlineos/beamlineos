@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+#
+# One resource-pressure sample for the 0.0.4.1 evaluation (docs/decisions.md D75); the script
+# arrives as the beamline.test.telemetry-sample credential. Injected through a systemd.extra-unit
+# credential; never part of an image, so it may use dash.
+
+[Unit]
+Description=Resource-pressure sample for the 0.0.4.1 evaluation
+ConditionPathExists=!/etc/initrd-release
+
+[Service]
+Type=oneshot
+ImportCredential=beamline.test.telemetry-sample
+SyslogIdentifier=beamline-telemetry
+ExecStart=/usr/bin/sh %d/beamline.test.telemetry-sample

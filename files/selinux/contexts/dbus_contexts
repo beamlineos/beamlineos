@@ -1,0 +1,10 @@
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<!-- SPDX-License-Identifier: MIT -->
+<!-- SELinux settings of the system bus (dbus-broker requires this file when built with
+     SELinux, docs/decisions.md D35). No per-name contexts: bus names take the context
+     of the bus itself until Stage 1 assigns them. -->
+<busconfig>
+  <selinux>
+  </selinux>
+</busconfig>

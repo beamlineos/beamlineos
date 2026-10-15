@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT
+//
+// Beamline's polkit rules (docs/spec.md §19, docs/security.md §9.4, docs/decisions.md D55).
+// They are platform code: polkit only reads rules from SYSTEM, and /etc/polkit-1/rules.d stays
+// empty.
+
+// Administrators are the members of wheel; an admin prompt asks one of them.
+polkit.addAdminRule(function(action, subject) {
+    return ["unix-group:wheel"];
+});
+
+// The daemon has no root privileges. This rule must precede the general non-wheel refusal.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" && subject.user == "beamline-ctl") {
+        var units = ["beamline-extensions-refresh.service", "beamline-extension@desktop-gnome.service",
+                     "beamline-extension@posix.service", "beamline-extension@posix-devel.service",
+                     "beamline-extension@printing-scanning.service", "beamline-extension-unlink@posix.service",
+                     "beamline-extension-unlink@posix-devel.service", "beamline-extension-unlink@printing-scanning.service"];
+        var verbs = ["start", "stop", "restart"];
+        return units.indexOf(action.lookup("unit")) >= 0 && verbs.indexOf(action.lookup("verb")) >= 0
+            ? polkit.Result.YES : polkit.Result.NO;
+    }
+});
+
+// run0 and unit management (org.freedesktop.systemd1.manage-units), and updates: members of
+// wheel authenticate with their own password, which is kept for a few minutes; everyone else
+// is refused without a prompt. polkit sees run0 only as a transient unit, never the command;
+// the SELinux domain of run0 sessions decides what the command may do.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" ||
+        action.id.indexOf("org.freedesktop.sysupdate1.") == 0 ||
+        action.id.indexOf("org.beamline.") == 0) {
+        return subject.isInGroup("wheel") ? polkit.Result.AUTH_ADMIN_KEEP : polkit.Result.NO;
+    }
+});

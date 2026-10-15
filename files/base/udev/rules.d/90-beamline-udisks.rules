@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: MIT
+#
+# Keep Beamline's own block devices out of the desktop's volume lists. udisks2, which GNOME's Files
+# uses, otherwise offers every one of them to the user (0.0.4.1, docs/decisions.md D83):
+#   - the boot disk's partitions;
+#   - each extension image's loop device, and its partitions (verity hash partitions show as
+#     "Encrypted");
+#   - the dm-verity targets;
+#   - the homes' LUKS loops and their dm-crypt targets.
+# The system mounts them, or nothing does; no user should mount, format or unlock them. udisks2
+# reads UDISKS_IGNORE from the udev database, so the order after its own rules (80-) is only for
+# clarity. This file is in the base because the rules describe devices, not the desktop.
+
+ACTION=="remove", GOTO="beamline_udisks_end"
+SUBSYSTEM!="block", GOTO="beamline_udisks_end"
+
+# The boot disk's partitions, by GPT type (docs/spec.md §15, files/repart/virt): ESP, XBOOTLDR,
+# SYSTEM and its verity tree (arm64, x86-64), RECOVERY and its verity tree. On the Hardware
+# profile (0.1) these must be limited to the boot disk: another disk may carry the same types.
+ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_TYPE}=="c12a7328-f81f-11d2-ba4b-00a0c93ec93b|bc13c2ff-59e6-4262-a352-b275fd6f7172", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_TYPE}=="b921b045-1df0-41c3-af44-4c6f280d3fae|df3300ce-d69f-4c92-978c-9bfb0f38d820|6db69de6-29f4-4758-a7a5-962190f00ce3", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_TYPE}=="4f68bce3-e8cd-4db1-96e7-fbcaf984b709|2c7357ed-ebd2-46d9-aec1-23d437ec2bf5|41092b05-9fc8-4523-994f-2def0408b176", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_TYPE}=="a4708229-1df3-4eab-9d2e-7dd7533115a6|87d71729-4bda-4fcb-9261-42854652aef9", ENV{UDISKS_IGNORE}="1"
+# DATA: a generic Linux partition, recognised by its label.
+ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_TYPE}=="0fc63daf-8483-4772-8e79-3d69d8477de4", ENV{ID_PART_ENTRY_NAME}=="data", ENV{UDISKS_IGNORE}="1"
+
+# Loop devices backed by extension images (/var/lib/beamline/{extensions,confexts}, D50) or by
+# homed's LUKS images (<user>.home), and the partitions on them.
+KERNEL=="loop*", ATTR{loop/backing_file}=="*/beamline/extensions/*|*/beamline/confexts/*|*.home", ENV{UDISKS_IGNORE}="1"
+KERNEL=="loop*", ATTRS{loop/backing_file}=="*/beamline/extensions/*|*/beamline/confexts/*|*.home", ENV{UDISKS_IGNORE}="1"
+
+# Device-mapper targets: dm-verity (SYSTEM and the extensions; libcryptsetup's UUID prefix) and
+# the homes' dm-crypt targets (homed names them home-<user>).
+ENV{DM_UUID}=="CRYPT-VERITY-*", ENV{UDISKS_IGNORE}="1"
+ENV{DM_NAME}=="home-*", ENV{UDISKS_IGNORE}="1"
+
+LABEL="beamline_udisks_end"

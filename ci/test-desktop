@@ -1,0 +1,38 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Desktop test on the checked-out Virt image (docs/spec.md §29, §30): boot with a 2D
+# virtio-gpu, sign dev in at the GDM greeter with keystrokes (homed needs the password; the
+# greeter lists Alice first, then Developer), and check GNOME Shell, PipeWire,
+# WirePlumber, the portal, a Flatpak sandbox and unlocking; then capture the screen and fail if
+# it is blank. The image itself is never modified.
+#   ./ci/test-desktop [path/to/installed.qcow2]
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+    --gpu 2d --memory 4G --timeout 900 \
+    --extra-unit "$REPO/tests/vm/beamline-default-shell@.service" \
+    --wants beamline-default-shell@dev.service \
+    --require 'Finished .*Give dev the default login shell' \
+    --extra-unit "$REPO/tests/vm/beamline-shell-extension-fixture.service" \
+    --wants beamline-shell-extension-fixture.service \
+    --credential-file "beamline.test.shell-extension.fixture=$REPO/tests/vm/shell-extension-fixture.sh" \
+    --credential-file "beamline.test.shell-extension.metadata=$REPO/tests/vm/shell-extension-metadata.json" \
+    --credential-file "beamline.test.shell-extension.code=$REPO/tests/vm/shell-extension.js" \
+    --credential-file "beamline.test.shell-extension.check=$REPO/tests/vm/desktop-shell-extension-check.sh" \
+    --extra-unit "$REPO/tests/vm/beamline-desktop-check.timer" \
+    --extra-unit "$REPO/tests/vm/beamline-desktop-check.service" \
+    --extra-unit "$REPO/tests/vm/beamline-desktop-flatpak-check.service" \
+    --extra-unit "$REPO/tests/vm/beamline-desktop-unlock-check.service" \
+    --credential-file "beamline.test.desktop.unlock=$REPO/tests/vm/desktop-unlock.js" \
+    --wants beamline-desktop-check.timer \
+    --type 'Started GNOME Display Manager::35::{down}{ret}' \
+    --type 'Started GNOME Display Manager::42::dev{ret}' \
+    --require BEAMLINE_SELINUX_OK --expect BEAMLINE_DESKTOP_OK \
+    --fail-on BEAMLINE_DESKTOP_FAILED \
+    --screendump "$OUT/desktop.ppm" \
+    --log "$OUT/serial-desktop.log"

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+# Known unresolved DT_NEEDED entries that tools/check-libraries.py accepts (docs/decisions.md D88).
+# Format: path soname, with the reason in a comment. Prefer removing the object over listing it.
+
+# Linux-PAM's userdb module; no PAM stack names it, and gdbm left the base with posix (D63).
+/usr/lib/aarch64-linux-gnu/security/pam_userdb.so libgdbm.so.6
+/usr/lib/x86_64-linux-gnu/security/pam_userdb.so libgdbm.so.6

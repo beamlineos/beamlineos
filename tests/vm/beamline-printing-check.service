@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT
+# VM test only: printing-scanning works with the base alone (D65).
+
+[Unit]
+Description=Check the printing-scanning extension
+After=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/systemctl is-active avahi-daemon.service
+ExecStart=/usr/bin/beamlinectl --no-ask-password activate printing-scanning
+ExecStart=/usr/bin/lpstat -r
+ExecStart=/usr/bin/systemctl is-active cups.service
+ExecStart=/usr/bin/scanimage --version
+ExecStart=/usr/bin/sh -c 'test ! -e /usr/bin/bash && test ! -e /usr/bin/gnome-shell && test ! -e /usr/lib/cups/backend/hp'
+ExecStart=/usr/bin/beamlinectl --no-ask-password deactivate printing-scanning
+ExecStart=/usr/bin/sh -c '! systemctl is-active --quiet cups.service && ! systemctl is-active --quiet cups.socket && ! systemctl is-active --quiet cups.path'
+ExecStart=/usr/bin/sh -c 'test ! -e /usr/bin/lp; test ! -e /usr/bin/scanimage'
+ExecStart=/usr/bin/systemctl is-active avahi-daemon.service
+ExecStart=/usr/bin/systemd-escape BEAMLINE_PRINTING_OK

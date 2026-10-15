@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Beamline extension control socket
+ConditionPathExists=!/etc/initrd-release
+
+[Socket]
+ListenStream=/run/beamline/org.beamline.Extensions
+Symlinks=/run/varlink/registry/org.beamline.Extensions
+FileDescriptorName=varlink
+SocketMode=0666
+Accept=yes
+MaxConnectionsPerSource=16
+
+[Install]
+WantedBy=sockets.target

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Refresh the signed extension set
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-sysext refresh --image-policy=root=signed+absent:usr=signed+absent
+ExecStart=/usr/bin/systemd-tmpfiles --create --prefix=/var/lib/extensions.mutable/etc
+ExecStart=/usr/bin/systemd-confext refresh --always-refresh=yes --mutable=yes --image-policy=root=signed+absent:usr=signed+absent
+ExecStartPost=/usr/bin/systemd-tmpfiles --create --prefix=/run --prefix=/var
+ExecStartPost=/usr/bin/systemctl start beamline-printing-start.service
+ExecStartPost=/usr/bin/systemctl start --no-block default.target

@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MIT
+#
+# Pinned system UIDs and GIDs (0.0.4.3 step 0, docs/decisions.md D86, D106). DATA outlives every
+# update and keeps its owners, so a system account's number never changes once a snapshot has
+# shipped it. image/root-virt.bst writes these numbers into every sysusers.d line before
+# systemd-sysusers runs (tools/pin-sysusers.py), then checks /etc/passwd and /etc/group against
+# this table: an account missing here, or a stale line, fails the build.
+#
+# Seeded from snapshot 20261014.0331's allocation. A new account takes a free number below the
+# lowest one in use (sysusers' own range counts down from 999); never reuse a number.
+#
+#   u NAME UID GID    a user and its primary group of the same name
+#   g NAME GID        a group without a user
+
+u root 0 0
+u nobody 65534 65534
+u lp 988 988
+u avahi 980 980
+u flatpak 979 979
+u rtkit 978 978
+u tss 977 977
+u messagebus 976 976
+u polkitd 975 975
+u systemd-coredump 974 974
+u systemd-imds 973 973
+u systemd-network 972 972
+u systemd-oom 971 971
+u systemd-resolve 970 970
+u systemd-timesync 969 969
+u beamline-ctl 968 968
+
+g tty 5
+g users 100
+g adm 999
+g wheel 998
+g utmp 997
+g audio 996
+g cdrom 995
+g clock 994
+g dialout 993
+g disk 992
+g input 991
+g kmem 990
+g kvm 989
+g render 987
+g sgx 986
+g tape 985
+g video 984
+g gdm 983
+g scanner 982
+g systemd-journal 981

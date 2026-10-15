@@ -1,0 +1,66 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Fast static checks; no build. Runs on macOS, in the builder and in hosted CI.
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+cd "$REPO"
+
+log "policy: project-owned unit files"
+python3 tools/check-policy.py --units files --allowlist policy/unit-shell-allowlist.txt \
+    --selinux-policy files/selinux/policy --extensions-policy files/base
+
+log "python: tools compile"
+python3 - tools/*.py <<'PY'
+import sys
+for path in sys.argv[1:]:
+    with open(path, encoding="utf-8") as f:
+        compile(f.read(), path, "exec")
+PY
+
+log "policy helper regression checks"
+python3 tests/tools/test-check-policy.py
+python3 tests/tools/test-pin-sysusers.py
+python3 tests/tools/test-make-enrollment.py
+# The export tool and its regression checks stay in the private repository.
+if [ -f tools/export-public.py ]; then
+    python3 tests/tools/test-export-public.py
+fi
+if python3 -c "import ruamel.yaml" 2>/dev/null; then
+    python3 tests/tools/test-source-intake.py
+    python3 tools/integrate.py check-lockfiles
+else
+    log "warning: Cargo ref verification needs ruamel.yaml (available in the builder)"
+fi
+
+log "yaml: project.conf, project.refs, include/, elements/"
+python3 - <<'PY'
+import glob, sys
+try:
+    from ruamel.yaml import YAML
+    load = YAML(typ="safe").load
+except ImportError:
+    try:
+        import yaml
+        load = yaml.safe_load
+    except ImportError:
+        print("warning: no YAML module for python3; skipping (the builder has one)", file=sys.stderr)
+        sys.exit(0)
+files = ["project.conf", "project.refs"] + glob.glob("include/**/*.yml", recursive=True) \
+    + glob.glob("elements/**/*.bst", recursive=True) + glob.glob("lima/*.yaml")
+for path in files:
+    with open(path, encoding="utf-8") as f:
+        load(f)
+print(f"{len(files)} files parsed")
+PY
+
+log "shellcheck: ci/"
+if command -v shellcheck >/dev/null; then
+    shellcheck --external-sources ci/lib.sh ci/bootstrap ci/check ci/build ci/build-kernel \
+        ci/image ci/boot ci/test-reboot ci/test-verity ci/test-boot-entries ci/test-update ci/test-shell ci/test-run0 ci/test-settings ci/test-security ci/test-base ci/test-posix ci/test-devel ci/test-printing ci/test-desktop ci/test-combos ci/test-beamlinectl ci/test-vms ci/daily-telemetry ci/content-inventory ci/test-all ci/integrate
+elif [ "${CI:-}" = true ]; then
+    die "shellcheck is required in CI"
+else
+    log "warning: shellcheck not installed; skipping (brew install shellcheck)"
+fi

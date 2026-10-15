@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-install, 0.0.4.3 step 5, docs/decisions.md D112): on the boot after an installed
+# system's first, once the console created the first account and the extensions arrived, report
+# wheel's members, each extension image of this snapshot on DATA, and whether the desktop merged.
+# Injected through a systemd.extra-unit credential; never part of an image, so it may use dash.
+
+[Unit]
+Description=Report the installed system's first boot on the console
+ConditionPathExists=!/etc/initrd-release
+# The boot after the first: the first one fetches the extensions and reboots.
+ConditionFirstBoot=no
+After=beamline-first-user.service beamline-extensions-fetch.service
+Before=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/userdbctl users-in-group wheel --no-legend
+ExecStart=/usr/bin/sh -c 'for n in desktop-gnome posix posix-devel printing-scanning; do [ -e "/var/lib/beamline/extensions/$${n}_%A.raw" ] && [ -e "/var/lib/beamline/confexts/$${n}_%A.raw" ] && echo "BEAMLINE_EXTENSION $$n"; done; [ -x /usr/bin/gnome-shell ] && echo BEAMLINE_DESKTOP_MERGED; echo BEAMLINE_FIRSTBOOT_CHECKED'

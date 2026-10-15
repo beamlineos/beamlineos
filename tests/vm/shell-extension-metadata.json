@@ -1,0 +1,7 @@
+{
+  "SPDX-License-Identifier": "MIT",
+  "uuid": "beamline-test@example.test",
+  "name": "Beamline forbidden extension fixture",
+  "description": "The desktop test must refuse to discover or enable this extension",
+  "shell-version": ["51"]
+}

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+#
+# SELinux records AVC denials (docs/security.md §15, §16): print this boot's denials on the
+# console before the boot marker, where tools/integrate.py collects them into the snapshot
+# manifest. Every transport: the kernel's and root object managers' denials arrive through
+# audit, user managers log theirs as journal messages (docs/decisions.md D59). beamline-avc-follow.service continues from the cursor this writes, so a test's later
+# denials reach the console too, each exactly once.
+
+[Unit]
+Description=Report SELinux AVC denials on the console
+ConditionSecurity=selinux
+After=multi-user.target beamline-selinux-ok.service
+Before=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+RuntimeDirectory=beamline-avc
+RuntimeDirectoryPreserve=yes
+ExecStart=-/usr/bin/journalctl --boot --no-pager --output=cat --grep=avc: --cursor-file=/run/beamline-avc/cursor
+# Console only: printed back into the journal, the lines would match again.
+StandardOutput=tty
+
+[Install]
+WantedBy=multi-user.target

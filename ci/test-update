@@ -1,0 +1,150 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Upgrade and rollback test (docs/spec.md §16, docs/security.md §14.1, §15; docs/decisions.md
+# D52, D113). Installs the snapshot `latest` from its published medium and prepares it with its own
+# channel, as ci/test-install does (ci/lib-install.sh, on firmware without Secure Boot), then boots
+# it and serves the candidate's update artifacts
+# (out/<arch>/virt/update, a signed channel directory) over HTTP on this host. The old system
+# updates itself with systemd-sysupdate and reboots into the candidate, which must find DATA
+# intact and its own extensions. The candidate's boots are then made to fail, until boot
+# counting falls back to the old snapshot. Neither image is modified (§28).
+#
+# A `latest` without update artifacts predates sysupdate support: the test is skipped, and
+# says so in its log.
+#   ./ci/test-update
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+# shellcheck source=ci/lib-install.sh
+. "$REPO/ci/lib-install.sh"
+
+channel="$OUT/update"
+log_file="$OUT/serial-update.log"
+[ -f "$channel/SHA256SUMS.gpg" ] || die "$channel has no signed SHA256SUMS; run ./ci/image first"
+
+snapshots="$REPO/out/snapshots"
+old="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["snapshot"])' "$snapshots/latest.json")"
+if [ ! -d "$snapshots/$old/update" ]; then
+    log "update: SKIPPED, snapshot $old has no update artifacts (it predates sysupdate support)"
+    echo "SKIPPED: snapshot $old has no update artifacts (it predates sysupdate support)" > "$log_file"
+    exit 0
+fi
+new="$(cd "$channel" && for f in beamline_*.efi; do v="${f#beamline_}"; echo "${v%.efi}"; done)"
+if [ "$new" = dev ]; then
+    # Outside an integration cycle the candidate's version is `dev`, which version ordering puts
+    # before every snapshot (digits sort after letters): sysupdate finds nothing newer.
+    log "update: SKIPPED, the candidate is a development build (dev); integration cycles run this test"
+    echo "SKIPPED: the candidate is a development build (dev); integration cycles run this test" > "$log_file"
+    exit 0
+fi
+[ "$new" != "$old" ] || die "the candidate has the same version as latest ($old)"
+log "update: $old -> $new, then rollback"
+
+work="$(mktemp -d "${TMPDIR:-/tmp}/beamline-update.XXXXXX")"
+server=
+cleanup() {
+    [ -z "$server" ] || kill "$server" 2>/dev/null || true
+    rm -rf "$work"
+}
+trap cleanup EXIT INT TERM
+
+old_medium="$snapshots/$old/virt-$ARCH.install.raw.zst"
+[ -f "$old_medium" ] || die "snapshot $old has no installer medium"
+zstd -q -d "$old_medium" -o "$work/old-install.raw"
+DIR_WORK="$work/prepare"
+mkdir -p "$DIR_WORK" "$work/old"
+log "update: installing $old from its medium"
+install_medium "$work/old-install.raw" "$work/old" plain "$OUT/serial-update-install.log"
+serve_channel "$snapshots/$old/update"
+log "update: $old's first boot, with its own channel"
+prepare_reference "$work/old" plain "$OUT/serial-update-reference.log"
+kill "$server" 2>/dev/null || true
+server=
+
+port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+python3 -m http.server --bind 127.0.0.1 --directory "$channel" "$port" >"$work/http.log" 2>&1 &
+server=$!
+
+# The candidate's transfer definitions, pointed at this host (QEMU's user network reaches it as
+# 10.0.2.2), as a tmpfiles.extra credential that writes them to /run/sysupdate.d.
+python3 - "$REPO/files/base/sysupdate.d" "http://10.0.2.2:$port/" "$snapshots/$old/update" "$work/tmpfiles-new.conf" > "$work/tmpfiles.extra" <<'EOF'
+import glob, os, sys
+src, url, old_channel, candidate_conf = sys.argv[1:]
+candidate_lines = []
+legacy_admin = bool(glob.glob(os.path.join(old_channel, "admin_*.sysext.raw")))
+# Keep old clients' original image names, exercising the DATA migration bridge.
+# New snapshots also carry compatibility aliases; identify native posix by its absence
+# in the old channel, so later updates test the canonical definitions.
+legacy_admin = legacy_admin and not glob.glob(os.path.join(old_channel, "posix_*.sysext.raw"))
+for name in sorted(os.listdir(src)):
+    lines = []
+    for line in open(os.path.join(src, name)):
+        if line.startswith("#"):
+            continue
+        lines.append(f"Path={url}\n" if line.startswith("Path=https://") else line)
+    body = "".join(lines).replace("\\", "\\\\").replace("\n", "\\n").replace("%", "%%")
+    candidate_lines.append(f"f+ /run/sysupdate.d/{name} 0644 - - - {body}\n")
+    # The old immutable client only knows resources present in its snapshot.
+    # Candidate definitions appear after boot, where sysupdate repairs missing new resources.
+    resource = next(((name.split("-", 1)[1][:-len(f"-{kind}.transfer")], kind)
+                     for kind in ("sysext", "confext") if name.endswith(f"-{kind}.transfer")), None)
+    if resource:
+        extension, kind = resource
+        old_extension = "admin" if legacy_admin and extension == "posix" else extension
+        if not glob.glob(os.path.join(old_channel, f"{old_extension}_*.{kind}.raw")):
+            continue
+    if legacy_admin and name in ("71-posix-sysext.transfer", "81-posix-confext.transfer"):
+        name = name.replace("posix", "admin")
+        lines = [line.replace("posix_", "admin_") for line in lines]
+    body = "".join(lines).replace("\\", "\\\\").replace("\n", "\\n").replace("%", "%%")
+    print(f"f+ /run/sysupdate.d/{name} 0644 - - - {body}")
+with open(candidate_conf, "w") as stream:
+    stream.writelines(candidate_lines)
+EOF
+
+cat > "$work/beamline-update-new-transfers.service" <<EOF
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Point the candidate's own transfer definitions at the test channel
+ConditionOSRelease=IMAGE_VERSION=$new
+After=systemd-tmpfiles-setup.service
+Before=beamline-update-test.service
+[Service]
+Type=oneshot
+ImportCredential=beamline.test.update-transfers
+ExecStart=/usr/bin/systemd-tmpfiles --create %d/beamline.test.update-transfers
+EOF
+
+# Every boot of the candidate fails, so boot counting falls back to the old snapshot. A boot is
+# good once boot-complete.target is reached (systemd-bless-boot then removes the counter), so
+# that target must require the failing unit; on the old snapshot its condition skips it.
+printf '[Unit]\nRequires=beamline-update-fail.service\nAfter=beamline-update-fail.service\n' \
+    > "$work/boot-complete.dropin"
+cat > "$work/beamline-update-fail.service" <<EOF
+[Unit]
+Description=Fail every boot of the candidate snapshot (rollback test)
+ConditionOSRelease=IMAGE_VERSION=$new
+After=beamline-update-test.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sh -c 'echo failing this boot of $new; exit 1'
+FailureAction=reboot
+EOF
+
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$work/old/reference.qcow2" --gpu 2d --memory 4G --reboot --allow-failures \
+    --credential "beamline.test.old=$old" --credential "beamline.test.new=$new" \
+    --credential-file "beamline.test.update-script=$REPO/tests/vm/update-check.sh" \
+    --credential-file "tmpfiles.extra=$work/tmpfiles.extra" \
+    --credential-file "beamline.test.update-transfers=$work/tmpfiles-new.conf" \
+    --credential-file "systemd.unit-dropin.boot-complete.target~beamline-rollback-test=$work/boot-complete.dropin" \
+    --extra-unit "$work/beamline-update-new-transfers.service" \
+    --extra-unit "$REPO/tests/vm/beamline-update-test.service" \
+    --extra-unit "$work/beamline-update-fail.service" \
+    --wants beamline-update-new-transfers.service --wants beamline-update-test.service --wants beamline-update-fail.service \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --require BEAMLINE_CTL_UPDATE_CHOICE_OK --require BEAMLINE_CTL_ROLLBACK_CHOICE_OK \
+    --require BEAMLINE_UPDATED_OK --expect BEAMLINE_ROLLED_BACK --timeout 1500 \
+    --fail-on BEAMLINE_UPDATE_TEST_FAILED \
+    --log "$log_file"

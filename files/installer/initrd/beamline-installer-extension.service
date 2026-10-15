@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT
+#
+# The installer medium's initrd only (docs/decisions.md D113), started by the installer UKI's
+# command line: hand the installer extension, which systemd-stub put in /.extra/sysext/ from beside
+# the UKI, to the root through /run/extensions. The root's systemd-sysext merges it once the policy
+# is loaded: PID 1 relabels /run, and the merged /usr gets its label from the policy. A merge in the
+# initrd would leave the merged /usr labelled tmpfs_t, and journald, udevd and resolved could not
+# search it. Part of an extra initrd only the installer UKI carries.
+
+[Unit]
+Description=Hand the installer extension to the root
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+ConditionPathExists=/.extra/sysext/installer.sysext.raw
+After=systemd-sysext.service
+Before=initrd.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/systemd-tmpfiles --create --inline "d /run/extensions 0755 root root -" "C /run/extensions/installer.raw - - - - /.extra/sysext/installer.sysext.raw"

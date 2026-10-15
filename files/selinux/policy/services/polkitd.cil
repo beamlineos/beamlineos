@@ -1,0 +1,27 @@
+; SPDX-License-Identifier: MIT
+;
+; polkitd (0.0.4.2 step 4B, docs/decisions.md D93). It decides who may do what: run0's escalation,
+; the settings services, udisks. Its rules are JavaScript (duktape, an interpreter: no generated
+; code), read only from SYSTEM. polkit-agent-helper-1, which checks a password for an agent, is a
+; socket-activated service of its own and stays in platform_service_t.
+
+(type polkitd_t)
+(type polkitd_exec_t)
+(typeattributeset beamline_confined_service (polkitd_t))
+(typeattributeset beamline_confined_exec_type (polkitd_exec_t))
+(filecon "/usr/lib/polkit-1/polkitd" file (system_u object_r polkitd_exec_t lr_platform))
+(typetransition init_t polkitd_exec_t process polkitd_t)
+(allow polkitd_t polkitd_exec_t (file (entrypoint)))
+(typeattributeset beamline_bus_service (polkitd_t))
+
+; The subject of a check: /proc of any process (its user, start time, session), and its cgroup
+(allow polkitd_t beamline_domain (dir (getattr search)))
+(allow polkitd_t beamline_domain (file (getattr open read ioctl)))
+(allow polkitd_t beamline_domain (lnk_file (getattr read)))
+; Sessions and seats, read through sd-login (/run/systemd/{sessions,seats,users}), watched
+(allow polkitd_t run_t (dir (read open watch)))
+(allow polkitd_t run_t (file (getattr open read)))
+; Units' status, for subjects that are systemd units: any unit, transient and generated ones
+; included (a read; sessions may ask the same)
+(allow polkitd_t init_t (system (status)))
+(allow polkitd_t beamline_any_type (service (status)))

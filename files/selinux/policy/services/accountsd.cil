@@ -1,0 +1,31 @@
+; SPDX-License-Identifier: MIT
+;
+; accountsservice (0.0.4.2 step 4E, docs/decisions.md D96), from the desktop-gnome extension. It
+; tells GDM and Settings who the users are, and keeps their pictures and session choices on DATA
+; (/var/lib/AccountsService) in a type of its own, which only it writes and sessions read.
+
+(type accountsd_t)
+(type accountsd_exec_t)
+(type accountsd_state_t)
+(typeattributeset beamline_confined_service (accountsd_t))
+(typeattributeset beamline_confined_exec_type (accountsd_exec_t))
+(typeattributeset beamline_bus_service (accountsd_t))
+(typeattributeset beamline_untrusted_type (accountsd_state_t))
+(filecon "/usr/libexec/accounts-daemon" file (system_u object_r accountsd_exec_t lr_platform))
+(typetransition init_t accountsd_exec_t process accountsd_t)
+(allow accountsd_t accountsd_exec_t (file (entrypoint)))
+(filecon "/var/lib/AccountsService(/.*)?" any (system_u object_r accountsd_state_t lr_platform))
+(filecon "/data/var/lib/AccountsService(/.*)?" any (system_u object_r accountsd_state_t lr_platform))
+(typetransition accountsd_t var_lib_t dir "AccountsService" accountsd_state_t)
+(typetransition beamline_platform_broad_domain var_lib_t dir "AccountsService" accountsd_state_t)
+(allow accountsd_t accountsd_state_t (dir (getattr search read open write add_name remove_name create rmdir setattr)))
+(allow accountsd_t accountsd_state_t (file (getattr open read write create rename unlink setattr)))
+(allow accountsd_t var_lib_t (dir (getattr search)))
+(allow accountsd_t flatpak_var_lib_t (dir (getattr search)))
+; Login history (wtmp), watched; the machine ID
+(allow accountsd_t var_log_t (dir (getattr search read open watch)))
+(allow accountsd_t var_log_t (file (getattr open read lock)))
+(allow accountsd_t run_t (file (getattr open read)))
+; Sessions (the greeter, Settings) read the users' pictures
+(allow user_t accountsd_state_t (dir (getattr search read open)))
+(allow user_t accountsd_state_t (file (getattr open read map)))

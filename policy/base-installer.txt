@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT
+# Installation components (docs/decisions.md D113): removed from SYSTEM and from every extension but
+# the installer extension, which ships them. Paths are exact. systemd builds systemd-sysinstall;
+# the installer's own units, definitions and boot chain come from installer/installer.bst.
+/usr/bin/systemd-sysinstall
+/usr/lib/systemd/system/systemd-sysinstall.service
+/usr/lib/systemd/system/systemd-sysinstall.socket
+/usr/lib/systemd/system/systemd-sysinstall@.service
+/usr/lib/systemd/system/sockets.target.wants/systemd-sysinstall.socket
+/usr/lib/systemd/system/system-install.target.wants/systemd-sysinstall.service
+/usr/share/polkit-1/actions/io.systemd.sysinstall.policy
+/usr/share/bash-completion/completions/systemd-sysinstall
+/usr/share/zsh/site-functions/_systemd-sysinstall

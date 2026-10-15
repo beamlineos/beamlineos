@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+#
+# Serial script for ci/test-install (0.0.4.3, docs/decisions.md D106, D110): answers
+# systemd-sysinstall's prompts as a person would. The blank target disk is the only candidate,
+# which the prompt fills in. After the installation, sysinstall waits for a key before it reboots.
+expect Please enter target disk device: /dev/disk/by-id/virtio-target
+sleep 1
+send \n
+expect Please type 'yes' to confirm
+sleep 1
+send yes\n
+expect Press any key to proceed
+sleep 1
+send \n

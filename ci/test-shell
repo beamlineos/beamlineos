@@ -1,0 +1,23 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# A homed account created without a shell gets the C stub (§6, §18.3, D62).
+# Console login prints its instructions and exits; interpreter use is refused.
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+log "shell: homed's default stub, console instructions and interpreter refusal"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+    --extra-unit "$REPO/tests/vm/beamline-default-shell@.service" \
+    --wants beamline-default-shell@alice.service \
+    --require 'Finished .*Give alice the default login shell' \
+    --serial-script "$REPO/tests/vm/shell.script" \
+    --kernel-arg systemd.mask=systemd-sysext.service \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --require BEAMLINE_SELINUX_OK \
+    --require SHELL_COMMAND_STATUS=1 --require SHELL_SCRIPT_STATUS=1 \
+    --require SHELL_NONTERMINAL_STATUS=1 --expect 'login:' --timeout 420 \
+    --log "$OUT/serial-shell.log"

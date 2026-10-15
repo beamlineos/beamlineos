@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+#
+# The desktop-gnome confext image built with the snapshot (docs/decisions.md D50). DATA keeps two
+# snapshots' images, so after a rollback the older SYSTEM finds its own.
+
+[Transfer]
+ProtectVersion=%A
+Verify=yes
+
+[Source]
+Type=url-file
+Path=https://updates.beamline.invalid/channels/latest/
+MatchPattern=desktop-gnome_@v.confext.raw
+
+[Target]
+Type=regular-file
+Path=/var/lib/beamline/confexts
+MatchPattern=desktop-gnome_@v.raw
+Mode=0444
+InstancesMax=2

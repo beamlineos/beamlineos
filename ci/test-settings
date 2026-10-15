@@ -1,0 +1,25 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Scoped mutable /etc on the checked-out Virt image (docs/spec.md §14, docs/decisions.md D56):
+# the first boot changes the hostname, location, timezone and locale, which land in /etc's
+# mutable layer on DATA, and adds a file outside the allowlist. The second boot must start with
+# those settings (the initrd merged the layer, so PID 1 set the hostname) and without that file
+# (the initrd rebuilt the layer from the allowlist). systemd-confext runs; the extension images
+# stay unlinked and system extensions unmerged. The image itself is never modified.
+#   ./ci/test-settings [path/to/installed.qcow2]
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+log "settings: allowlisted /etc settings persist, nothing else does"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" --reboot \
+    --extra-unit "$REPO/tests/vm/beamline-settings-set.service" \
+    --extra-unit "$REPO/tests/vm/beamline-settings-check.service" \
+    --wants beamline-settings-set.service --wants beamline-settings-check.service \
+    --kernel-arg systemd.mask=systemd-sysext.service \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --require BEAMLINE_BOOT_OK --expect BEAMLINE_SETTINGS_OK \
+    --log "$OUT/serial-settings.log"

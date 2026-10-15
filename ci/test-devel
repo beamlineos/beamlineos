@@ -1,0 +1,17 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Native development work over base alone; neither desktop nor posix images are merged.
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+    --extra-unit "$REPO/tests/vm/beamline-devel-check.service" \
+    --extra-unit "$REPO/tests/vm/beamline-devel-activate.service" \
+    --wants beamline-devel-check.service \
+    --credential-file "beamline.test.devel=$REPO/tests/vm/devel-check.sh" \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --kernel-arg systemd.mask=systemd-sysext.service \
+    --kernel-arg systemd.mask=systemd-confext.service \
+    --timeout 240 --require BEAMLINE_SELINUX_OK --expect BEAMLINE_DEVEL_OK \
+    --fail-on BEAMLINE_DEVEL_FAILED --log "$OUT/serial-devel.log"

@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: Freedesktop-SDK Developers
+# SPDX-License-Identifier: MIT
+#
+# FDSDK's meson defaults (include/_private/meson-conf.yml at
+# c67967f99ce9aafd75bf5b3091f5d2da094bdd61), so FDSDK element overrides build with the same
+# flags. Including FDSDK's file through the junction does not resolve its variables.
+
+variables:
+  meson-lto-flags: >-
+    -Db_lto=true
+    -Db_lto_threads=${LTOJOBS}
+
+  meson-global: >-
+    --buildtype=plain
+    -Dauto_features=enabled
+    -Db_pie=true
+    -Ddefault_library=shared
+    %{meson-lto-flags}
+
+environment:
+  LTOJOBS: "%{max-jobs}"
+
+environment-nocache:
+  (>):
+  - LTOJOBS

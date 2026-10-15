@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT
+interface org.beamline.Extensions
+
+type Extension (
+    name: string,
+    description: string,
+    live: bool,
+    interactive: bool,
+    enabled: bool,
+    active: bool,
+    available: bool
+)
+
+method List() -> (extensions: []Extension)
+method Enable(name: string, now: ?bool, allowInteractiveAuthentication: ?bool) -> (active: bool, rebootRequired: bool)
+method Disable(name: string, now: ?bool, allowInteractiveAuthentication: ?bool) -> (active: bool, rebootRequired: bool)
+method Activate(name: string, allowInteractiveAuthentication: ?bool) -> ()
+method Deactivate(name: string, allowInteractiveAuthentication: ?bool) -> ()
+
+error NoSuchExtension(name: string)
+error ImageMissing(name: string, version: string)
+error NotLive(name: string)
+error WouldLeaveNoInteractiveEnvironment(name: string)
+error InteractiveAuthenticationRequired()
+error Busy()
+error StateUnavailable(message: string)
+error OperationFailed(name: string, stage: string, message: string, enabled: bool, active: bool, rebootRequired: bool)

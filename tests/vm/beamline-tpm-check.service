@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/boot, 0.0.4.3 step 1, docs/decisions.md D106): with the harness's swtpm attached, the
+# kernel finds the TPM, systemd reports full TPM 2.0 support (firmware, driver, system), and a
+# credential sealed with the TPM decrypts again, as systemd-sysinstall seals the installed system's.
+# Injected through a systemd.extra-unit credential; never part of an image, so it may use dash.
+
+[Unit]
+Description=Report TPM 2.0 support on the console
+ConditionPathExists=!/etc/initrd-release
+Before=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/sh -c 'set -e; [ -e /sys/class/tpm/tpm0 ]; systemd-creds has-tpm2; echo beamline | systemd-creds encrypt --with-key=tpm2 --name=beamline-tpm - /run/beamline-tpm.cred; v=$$(systemd-creds decrypt --name=beamline-tpm /run/beamline-tpm.cred -); [ "$$v" = beamline ]; echo BEAMLINE_TPM_OK'

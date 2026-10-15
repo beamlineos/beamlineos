@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Beamline: a manager loads a unit file only from a label the policy trusts for unit definitions.
+# PID 1 (and each user manager) asks the policy for the service class's "load" permission, its own
+# context against the fragment's and each drop-in's, after following symlinks (D97). Applies on top
+# of systemd-transient-selinux-bound.patch.
+
+diff --git a/src/core/load-dropin.c b/src/core/load-dropin.c
+index e02e0ed..0d358cf 100644
+--- a/src/core/load-dropin.c
++++ b/src/core/load-dropin.c
+@@ -8,6 +8,7 @@
+ #include "log.h"
+ #include "manager.h"
+ #include "path-util.h"
++#include "selinux-access.h"
+ #include "stat-util.h"
+ #include "strv.h"
+ #include "unit.h"
+@@ -138,6 +139,10 @@ int unit_load_dropin(Unit *u) {
+         STRV_FOREACH(f, u->dropin_paths) {
+                 struct stat st;
+ 
++                r = mac_selinux_unit_file_load_check(*f, /* file_context= */ NULL);
++                if (r < 0)
++                        return log_unit_error_errno(u, r, "SELinux policy refuses to load drop-in %s: %m", *f);
++
+                 r = config_parse(u->id, *f, NULL,
+                                  UNIT_VTABLE(u)->sections,
+                                  config_item_perf_lookup, load_fragment_gperf_lookup,
+diff --git a/src/core/load-fragment.c b/src/core/load-fragment.c
+index c1c6790..31b80bd 100644
+--- a/src/core/load-fragment.c
++++ b/src/core/load-fragment.c
+@@ -58,6 +58,7 @@
+ #include "reboot-util.h"
+ #include "seccomp-util.h"
+ #include "securebits-util.h"
++#include "selinux-access.h"
+ #include "selinux-util.h"               /* IWYU pragma: keep */
+ #include "set.h"
+ #include "show-status.h"
+@@ -6263,6 +6264,11 @@ int unit_load_fragment(Unit *u) {
+                                 r = free_and_strdup(&u->access_selinux_context, selcon);
+                                 if (r < 0)
+                                         return r;
++
++                                u->load_state = UNIT_LOADED;
++                                r = mac_selinux_unit_file_load_check(fragment, selcon);
++                                if (r < 0)
++                                        return log_unit_error_errno(u, r, "SELinux policy refuses to load unit file %s: %m", fragment);
+                         } else
+ #endif
+                                 u->access_selinux_context = mfree(u->access_selinux_context);
+diff --git a/src/core/selinux-access.c b/src/core/selinux-access.c
+index 14dc8e5..fb1d626 100644
+--- a/src/core/selinux-access.c
++++ b/src/core/selinux-access.c
+@@ -316,6 +316,37 @@ int mac_selinux_transient_context_varlink(sd_varlink *link, char **ret_context)
+         return free_and_strdup(ret_context, context);
+ }
+ 
++/* A manager loads a unit file, fragment or drop-in, only if the policy lets it: it asks for the
++ * "load" permission of the "service" class, its own context against the file's. The context is the
++ * file's after following symlinks, so a link from a unit directory to a writable location is judged
++ * by the file it points to. Pass the context when the caller already read it from the opened file. */
++int mac_selinux_unit_file_load_check(const char *path, const char *file_context) {
++        _cleanup_freecon_ char *scon = NULL, *fcon = NULL;
++        int r;
++
++        assert(path);
++
++        r = access_init(/* reterr_error= */ NULL);
++        if (r <= 0)
++                return r;
++
++        if (sym_getcon_raw(&scon) < 0)
++                return log_selinux_enforcing_errno(errno, "SELinux getcon_raw() failed: %m");
++
++        if (!file_context) {
++                if (sym_getfilecon_raw(path, &fcon) < 0)
++                        return log_selinux_enforcing_errno(errno, "Failed to read SELinux context of '%s': %m", path);
++                file_context = fcon;
++        }
++
++        struct audit_info audit_info = {
++                .path = path,
++                .function = __func__,
++        };
++
++        return check_access(scon, file_context, "service", "load", &audit_info, /* reterr_error= */ NULL);
++}
++
+ /*
+    This function communicates with the kernel to check whether or not it should
+    allow the access.
+@@ -468,6 +499,10 @@ int mac_selinux_transient_context_varlink(sd_varlink *link, char **ret_context)
+         return 0;
+ }
+ 
++int mac_selinux_unit_file_load_check(const char *path, const char *file_context) {
++        return 0;
++}
++
+ int mac_selinux_access_check_bus_internal(
+                 sd_bus_message *message,
+                 const Unit *unit,
+diff --git a/src/core/selinux-access.h b/src/core/selinux-access.h
+index 37269f5..76a3969 100644
+--- a/src/core/selinux-access.h
++++ b/src/core/selinux-access.h
+@@ -6,6 +6,7 @@
+ int mac_selinux_transient_context(sd_bus_message *message, char **ret_context, sd_bus_error *reterr_error);
+ int mac_selinux_transient_transition(sd_bus_message *message, const char *bound, const char *target, sd_bus_error *reterr_error);
+ int mac_selinux_transient_context_varlink(sd_varlink *link, char **ret_context);
++int mac_selinux_unit_file_load_check(const char *path, const char *file_context);
+ 
+ int mac_selinux_access_check_bus_internal(
+                 sd_bus_message *message,

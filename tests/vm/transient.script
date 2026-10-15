@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: MIT
+# Wheel authenticates and runs actual UID-0 commands whose context must remain P0.
+# No success pattern is satisfied by the console echo of the typed command.
+expect BEAMLINE_SECURITY_OK
+send \n
+expect [a-z0-9-]+ login:
+send dev\n
+expect Password:
+# Password agents may flush pending input while switching the terminal to noecho.
+sleep 0.5
+send dev\n
+expect \$ 
+send systemd-run --quiet --wait --pipe --collect /usr/bin/sh -c 'read -r c < /proc/self/attr/current; echo "TRANSIENT_DEFAULT_CONTEXT=$c"; while read -r k v r; do if [ "$k" = Uid: ]; then echo "TRANSIENT_UID=$v"; fi; done < /proc/self/status'\n
+expect Password:
+# Password agents may flush pending input while switching the terminal to noecho.
+sleep 0.5
+send dev\n
+expect TRANSIENT_DEFAULT_CONTEXT=user_u:user_r:user_t:s0:c0
+expect TRANSIENT_UID=0
+expect \$ 
+send systemd-run --quiet --wait --pipe --collect -p SELinuxContext=- /usr/bin/sh -c 'read -r c < /proc/self/attr/current; echo "TRANSIENT_EMPTY_CONTEXT=$c"'\n
+expect Password:
+# Password agents may flush pending input while switching the terminal to noecho.
+sleep 0.5
+send dev\n
+expect TRANSIENT_EMPTY_CONTEXT=user_u:user_r:user_t:s0:c0
+expect \$ 
+send systemd-run --quiet --wait --pipe --collect -p SELinuxContext=-system_u:system_r:init_t:s0 /usr/bin/sh -c 'echo ESCAPED_PLATFORM'; echo "TRANSIENT_DENIED_RC=$?"\n
+expect Password:
+# Password agents may flush pending input while switching the terminal to noecho.
+sleep 0.5
+send dev\n
+expect Failed to start transient service unit: Access denied
+expect TRANSIENT_DENIED_RC=[1-9]
+expect \$ 
+send printf 'BEAMLINE_TRANSIENT_%s' BOUND_OK; echo\n
+expect BEAMLINE_TRANSIENT_BOUND_OK

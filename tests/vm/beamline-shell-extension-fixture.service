@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+# Install a real user extension before GDM starts; never part of an image.
+[Unit]
+Description=Install the forbidden Shell extension fixture
+Requires=systemd-homed-firstboot.service
+After=systemd-homed-firstboot.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+StandardError=journal+console
+Environment=PASSWORD=dev
+ImportCredential=beamline.test.shell-extension.*
+ExecStart=/usr/bin/sh %d/beamline.test.shell-extension.fixture

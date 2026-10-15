@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# List what every image of a snapshot contains (0.0.4.2 step 2A, docs/decisions.md D76), read-only.
+#   ./ci/content-inventory [snapshot-id]
+#
+# Default: the `latest` snapshot. Writes out/<arch>/inventory/<snapshot-id>/: one path list per
+# image (<image>.tsv) and categories.md, the starting point for the pruning inspection.
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+snapshot="${1:-}"
+if [ -z "$snapshot" ]; then
+    snapshot="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["snapshot"])' \
+        "$REPO/out/snapshots/latest.json")"
+fi
+update="out/snapshots/$snapshot/update"
+[ -d "$REPO/$update" ] || die "$update not found"
+log "inventory of snapshot $snapshot"
+in_builder python3 tools/content-inventory.py "$update" "out/$ARCH/inventory/$snapshot"

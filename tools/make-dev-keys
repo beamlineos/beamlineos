@@ -1,0 +1,62 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Generate Beamline's development keys into files/keys/dev (docs/security.md §5.4, §19.4).
+# They are committed on purpose: development-only, trusted only by development boot
+# configurations, and they keep builds reproducible anywhere. Production keys never enter
+# the repository or a build worker.
+#
+# One key per scope:
+#   uki/             Secure Boot db key: signs UKIs and systemd-boot
+#   verity/          signs extension images' verity root hashes
+#   update/          OpenPGP key: signs SHA256SUMS of snapshot and channel directories
+#   kernel-modules/  module signing key (private key and certificate in one PEM)
+#
+# Run once, in the builder (openssl, gpg):
+#   limactl shell --workdir "$PWD" myos-builder -- tools/make-dev-keys
+# It refuses to overwrite existing keys.
+
+set -eu
+
+dir="$(cd "$(dirname "$0")/.." && pwd)/files/keys/dev"
+[ ! -e "$dir/uki" ] || { echo "make-dev-keys: $dir already has keys; refusing" >&2; exit 1; }
+for tool in openssl gpg; do
+    command -v "$tool" >/dev/null || { echo "make-dev-keys: $tool not found" >&2; exit 1; }
+done
+
+days=36500
+# CN is at most 64 characters; the organisational unit carries the warning.
+subject() { printf '/CN=Beamline development %s/OU=DEVELOPMENT ONLY, NOT TRUSTED/O=Beamline' "$1"; }
+
+mkdir -p "$dir/uki" "$dir/verity" "$dir/update" "$dir/kernel-modules"
+
+openssl req -new -x509 -newkey rsa:2048 -nodes -sha256 -days "$days" \
+    -subj "$(subject 'Secure Boot db')" \
+    -addext "keyUsage=critical,digitalSignature" -addext "extendedKeyUsage=codeSigning" \
+    -keyout "$dir/uki/db.key" -out "$dir/uki/db.crt"
+
+openssl req -new -x509 -newkey rsa:2048 -nodes -sha256 -days "$days" \
+    -subj "$(subject 'verity signing')" \
+    -addext "keyUsage=critical,digitalSignature" \
+    -keyout "$dir/verity/verity.key" -out "$dir/verity/verity.crt"
+
+# The kernel reads the private key and the certificate from one PEM (CONFIG_MODULE_SIG_KEY).
+openssl req -new -x509 -newkey rsa:4096 -nodes -sha256 -days "$days" \
+    -subj "$(subject 'module signing')" \
+    -addext "basicConstraints=critical,CA:FALSE" \
+    -addext "keyUsage=digitalSignature" -addext "extendedKeyUsage=codeSigning" \
+    -keyout "$dir/kernel-modules/key.pem" -out "$dir/kernel-modules/cert.pem"
+cat "$dir/kernel-modules/key.pem" "$dir/kernel-modules/cert.pem" > "$dir/kernel-modules/module-signing.pem"
+rm "$dir/kernel-modules/key.pem"
+
+gnupghome="$(mktemp -d)"
+trap 'rm -rf "$gnupghome"' EXIT
+GNUPGHOME="$gnupghome" gpg --batch --quiet --passphrase '' \
+    --quick-generate-key "Beamline development update signing (DEVELOPMENT ONLY) <dev@beamline.invalid>" \
+    ed25519 sign never
+GNUPGHOME="$gnupghome" gpg --batch --armor --export-secret-keys > "$dir/update/update-signing.sec.asc"
+# systemd-pull verifies against a binary keyring (import-pubring.pgp).
+GNUPGHOME="$gnupghome" gpg --batch --export > "$dir/update/import-pubring.pgp"
+
+chmod 0644 "$dir"/*/*
+echo "make-dev-keys: keys written to $dir"

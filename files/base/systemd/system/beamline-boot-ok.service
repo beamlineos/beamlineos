@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+#
+# Earliest boot-test protocol (docs/spec.md §29): print BEAMLINE_BOOT_OK on the console
+# once multi-user.target is reached. The base has no echo/cat and units must not use a
+# shell, so systemd-escape is the printer: it writes its argument back unchanged.
+
+[Unit]
+Description=Report boot success on the console
+After=multi-user.target beamline-selinux-ok.service beamline-avc-report.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-escape BEAMLINE_BOOT_OK
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

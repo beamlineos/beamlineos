@@ -1,0 +1,77 @@
+; SPDX-License-Identifier: MIT
+;
+; The sole temporary setuid helper (§22): a confined native FUSE mount broker.
+; The caller's arbitrary code stays in user_t. Only this immutable entrypoint may
+; acquire the helper's capabilities; it cannot execute mutable files or another program.
+
+(type fusermount_t)
+(type fusermount_exec_t)
+(type fuse_device_t)
+(typeattributeset beamline_domain (fusermount_t))
+(typeattributeset beamline_immutable_file_type (fusermount_exec_t))
+(roletype user_r fusermount_t)
+
+(typetransition user_t fusermount_exec_t process fusermount_t)
+(allow user_t fusermount_exec_t (file (getattr open read execute map)))
+(allow user_t fusermount_t (process (transition siginh rlimitinh signal signull)))
+; Keep AT_SECURE on the domain transition. This probe is intentionally refused,
+; as in refpolicy's domain_transition_pattern; never grant noatsecure to the caller.
+(dontaudit user_t fusermount_t (process (noatsecure)))
+(allow user_t fusermount_t (fd (use)))
+(allow fusermount_t fusermount_exec_t (file (entrypoint getattr open read execute map)))
+(allow fusermount_t self (process (fork sigchld signal signull getcap setcap)))
+; The root mount operation resolves the already checked, caller-owned mountpoint.
+; Search/read bypass is needed there; DAC write bypass is deliberately not granted.
+(allow fusermount_t self (capability (sys_admin setuid setgid dac_read_search)))
+(allow fusermount_t user_t (process (sigchld)))
+(allow fusermount_t user_t (fd (use)))
+(allow fusermount_t beamline_platform_domain (fd (use)))
+(allow fusermount_t self (fd (use)))
+(allow fusermount_t self (dir (getattr search read open)))
+(allow fusermount_t self (file (getattr read open)))
+(allow fusermount_t self (lnk_file (getattr read)))
+
+; Loader, immutable configuration, NSS and mountinfo. No execution of another binary.
+(allow fusermount_t beamline_user_readable_type (dir (getattr search read open)))
+(allow fusermount_t beamline_user_readable_type (file (getattr read open map ioctl)))
+(allow fusermount_t beamline_user_readable_type (lnk_file (getattr read)))
+(allow fusermount_t usr_t (file (execute)))
+
+; Validate a caller-writable mount point and mount only there. Native FUSE drops fsuid/fsgid
+; to the real caller for its DAC checks. It neither relabels nor writes platform files.
+(allow fusermount_t beamline_user_owned_type (dir (getattr search read open write mounton)))
+(allow fusermount_t beamline_user_owned_type (file (getattr read open write mounton)))
+(allow fusermount_t beamline_user_owned_type (lnk_file (getattr read)))
+(allow fusermount_t fuse_device_t (chr_file (getattr open read write ioctl)))
+(allow fusermount_t fusefs_t (filesystem (getattr mount remount unmount)))
+; Unmount validation clones CLONE_NEWNS, makes propagation private, then bind-mounts
+; the caller's parent at / to pin it against rename races. Only this native helper
+; receives root mount-point access; no SYSTEM write/remount or other execution is added.
+(allow fusermount_t root_t (dir (mounton)))
+; listmount/statmount enumerate filesystem types to enforce FUSE's mount limit.
+; Only metadata may be inspected; mount rights remain confined to fusefs_t above.
+(allow fusermount_t beamline_any_type (filesystem (getattr)))
+
+; Inherited portal socket and terminal, plus local NSS service lookups.
+(allow fusermount_t self (unix_stream_socket (create connect getattr setattr read write getopt setopt shutdown)))
+(allow fusermount_t self (unix_dgram_socket (create connect getattr setattr read write getopt setopt shutdown)))
+(allow fusermount_t user_t (unix_stream_socket (getattr read write ioctl getopt setopt shutdown)))
+(allow fusermount_t beamline_platform_domain (unix_stream_socket (connectto getattr read write getopt setopt)))
+(allow fusermount_t run_t (sock_file (getattr read write)))
+(allow fusermount_t user_runtime_t (sock_file (getattr read write)))
+(allow fusermount_t devpts_t (chr_file (getattr read write ioctl)))
+(allow fusermount_t null_device_t (chr_file (getattr open read write ioctl)))
+(allow fusermount_t user_t (fifo_file (getattr read write ioctl)))
+(allow fusermount_t beamline_platform_domain (fifo_file (getattr read write ioctl)))
+
+; FUSE data belongs to P0, including a malicious filesystem server's files.
+(typeattributeset beamline_untrusted_type (fusefs_t))
+(typeattributeset beamline_user_owned_type (fusefs_t))
+(allow user_t fuse_device_t (chr_file (getattr open read write ioctl)))
+(neverallow fusermount_t beamline_untrusted_type (file (execute execute_no_trans entrypoint execmod)))
+(neverallow fusermount_t beamline_platform_domain (process (transition dyntransition ptrace)))
+(neverallow fusermount_t beamline_admin_domain (process (transition dyntransition ptrace)))
+(neverallow fusermount_t beamline_any_type (system (module_load)))
+
+(filecon "/usr/bin/fusermount3" file (system_u object_r fusermount_exec_t lr_platform))
+(filecon "/dev/fuse" char (system_u object_r fuse_device_t lr_low))

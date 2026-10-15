@@ -1,0 +1,568 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Beamline: bind transient execution to its authenticated creator, preserving trusted PAM.
+# Covers both the D-Bus StartTransientUnit (D70) and the varlink io.systemd.Unit.StartTransient
+# (D72) creation paths; the varlink schema exposes no SELinuxContext, so a default-context unit
+# would otherwise inherit PID 1's init_t.
+# Baseline: systemd 570c46894b820ff62df91be9f3eeafa7acec3998.
+
+diff --git a/src/core/dbus-execute.c b/src/core/dbus-execute.c
+index ad9c665529..54fa7b43fc 100644
+--- a/src/core/dbus-execute.c
++++ b/src/core/dbus-execute.c
+@@ -40,6 +40,7 @@
+ #include "seccomp-util.h"
+ #include "securebits-util.h"
+ #include "set.h"
++#include "selinux-access.h"
+ #include "specifier.h"
+ #include "strv.h"
+ #include "syslog-util.h"
+@@ -2389,8 +2390,29 @@ int bus_exec_context_set_transient_property(
+         if (streq(name, "ConfigurationDirectoryMode"))
+                 return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_CONFIGURATION].mode, message, flags, reterr_error);
+ 
+-        if (streq(name, "SELinuxContext"))
+-                return bus_set_transient_string(u, name, &c->selinux_context, message, flags, reterr_error);
++        if (streq(name, "SELinuxContext")) {
++                const char *value, *target;
++                bool ignore;
++
++                r = sd_bus_message_read(message, "s", &value);
++                if (r < 0)
++                        return r;
++                ignore = value[0] == '-';
++                target = value + ignore;
++                if (!isempty(target)) {
++                        r = mac_selinux_transient_transition(message, c->selinux_context_bound, target, reterr_error);
++                        if (r < 0)
++                                return r;
++                }
++                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
++                        r = free_and_strdup(&c->selinux_context, empty_to_null(target));
++                        if (r < 0)
++                                return r;
++                        c->selinux_context_ignore = ignore;
++                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, value);
++                }
++                return 1;
++        }
+ 
+         if (streq(name, "SecureBits"))
+                 return bus_set_transient_secure_bits(u, name, &c->secure_bits, message, flags, reterr_error);
+diff --git a/src/core/dbus-manager.c b/src/core/dbus-manager.c
+index a91b5098dd..11fe475c5a 100644
+--- a/src/core/dbus-manager.c
++++ b/src/core/dbus-manager.c
+@@ -16,6 +16,7 @@
+ #include "confidential-virt.h"
+ #include "dbus-cgroup.h"
+ #include "dbus-execute.h"
++#include "execute.h"
+ #include "dbus.h"
+ #include "dbus-job.h"
+ #include "dbus-manager.h"
+@@ -1141,6 +1142,14 @@ static int transient_unit_from_message(
+         if (r < 0)
+                 return r;
+ 
++        /* Bind every executable unit, including auxiliaries, before parsing caller properties. */
++        ExecContext *exec_context = unit_get_exec_context(u);
++        if (exec_context) {
++                r = mac_selinux_transient_context(message, &exec_context->selinux_context_bound, reterr_error);
++                if (r < 0)
++                        return r;
++        }
++
+         /* Set our properties */
+         r = bus_unit_set_properties(u, message, UNIT_RUNTIME, false, reterr_error);
+         if (r < 0)
+diff --git a/src/core/exec-invoke.c b/src/core/exec-invoke.c
+index f297e70342..76bf5ae8af 100644
+--- a/src/core/exec-invoke.c
++++ b/src/core/exec-invoke.c
+@@ -1,9 +1,11 @@
+ /* SPDX-License-Identifier: LGPL-2.1-or-later */
+ 
+ #include <grp.h>
++#include <linux/magic.h>
+ #include <linux/securebits.h>
+ #include <poll.h>
+ #include <sched.h>
++#include <stdio.h>
+ #include <sys/eventfd.h>
+ #include <sys/ioctl.h>
+ #include <sys/ioprio.h>
+@@ -82,6 +84,7 @@
+ #include "socket-util.h"
+ #include "stat-util.h"
+ #include "string-table.h"
++#include "string-util.h"
+ #include "strv.h"
+ #include "strxcpyx.h"
+ #include "terminal-util.h"
+@@ -100,6 +103,90 @@
+ #define PROJ_ID_MAX UINT32_C(4294967294)
+ #define PROJ_ID_CLAMP_INTO_QUOTA_RANGE(id) ((uint32_t) ((id) % (PROJ_ID_MAX - PROJ_ID_MIN + 1)) + PROJ_ID_MIN)
+ 
++#if HAVE_SELINUX
++/* Keep kernel interfaces anchored to the host before a caller-supplied root or namespace
++ * can hide them. In particular, setexeccon_raw() alone can successfully write a fake
++ * /proc/.../attr/exec inside RootDirectory= without changing the actual task context. */
++static int transient_selinux_open_kernel(const char *path, statfs_f_type_t magic) {
++        _cleanup_close_ int fd = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
++        if (fd < 0)
++                return -errno;
++        int r = fd_is_fs_type(fd, magic);
++        if (r <= 0)
++                return r < 0 ? r : -ENODEV;
++        return TAKE_FD(fd);
++}
++
++static int transient_selinux_read_number(int policy_fd, const char *path, unsigned *ret) {
++        _cleanup_close_ int fd = openat(policy_fd, path, O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
++        char buf[32], extra;
++        ssize_t n;
++        if (fd < 0)
++                return -errno;
++        do
++                n = read(fd, buf, sizeof(buf) - 1);
++        while (n < 0 && errno == EINTR);
++        if (n < 0)
++                return -errno;
++        buf[n] = 0;
++        if (sscanf(buf, "%u %c", ret, &extra) != 1)
++                return -EBADMSG;
++        return 0;
++}
++
++static int transient_selinux_check_bound(int policy_fd, unsigned process_class, unsigned transition_bit,
++                                        const char *bound, const char *target) {
++        _cleanup_close_ int fd = -EBADF;
++        _cleanup_free_ char *query = NULL;
++        char response[256];
++        unsigned allowed;
++        ssize_t n;
++
++        if (streq(bound, target))
++                return 0;
++        /* The selinuxfs query protocol separates contexts by whitespace. */
++        if (strpbrk(bound, " \t\n\r\f\v") || strpbrk(target, " \t\n\r\f\v"))
++                return -EINVAL;
++        fd = openat(policy_fd, "access", O_RDWR|O_CLOEXEC|O_NOFOLLOW);
++        if (fd < 0)
++                return -errno;
++        if (asprintf(&query, "%s %s %u %x", bound, target, process_class, transition_bit) < 0)
++                return -ENOMEM;
++        do
++                n = write(fd, query, strlen(query));
++        while (n < 0 && errno == EINTR);
++        if (n < 0)
++                return -errno;
++        if ((size_t) n != strlen(query))
++                return -EIO;
++        do
++                n = read(fd, response, sizeof(response) - 1);
++        while (n < 0 && errno == EINTR);
++        if (n < 0)
++                return -errno;
++        response[n] = 0;
++        if (sscanf(response, "%x", &allowed) != 1)
++                return -EBADMSG;
++        /* The integrity bound is mandatory even when SELinux is permissive. */
++        return (allowed & transition_bit) ? 0 : -EACCES;
++}
++
++static int transient_selinux_set_exec(int proc_fd, const char *context) {
++        /* Open after namespace forks: an early attr fd would still name the parent task. */
++        _cleanup_close_ int fd = openat(proc_fd, "thread-self/attr/exec", O_WRONLY|O_CLOEXEC|O_NOFOLLOW);
++        ssize_t n;
++        size_t length = strlen(context) + 1;
++        if (fd < 0)
++                return -errno;
++        do
++                n = write(fd, context, length);
++        while (n < 0 && errno == EINTR);
++        if (n < 0)
++                return -errno;
++        return (size_t) n == length ? 0 : -EIO;
++}
++#endif
++
+ static int flag_fds(
+                 const int fds[],
+                 size_t n_socket_fds,
+@@ -5192,7 +5279,10 @@ int exec_invoke(
+                 keep_seccomp_privileges = false;
+ #if HAVE_SELINUX
+         _cleanup_free_ char *mac_selinux_context_net = NULL;
++        _cleanup_freecon_ char *mac_selinux_context_pam = NULL;
+         bool use_selinux = false;
++        _cleanup_close_ int selinux_proc_fd = -EBADF, selinux_policy_fd = -EBADF;
++        unsigned selinux_process_class = 0, selinux_transition_bit = 0;
+ #endif
+ #if ENABLE_SMACK
+         bool use_smack = false;
+@@ -5943,14 +6033,43 @@ int exec_invoke(
+         /* Check CAP_SYS_ADMIN before we enter user namespace to see if we can mount /proc even though its masked. */
+         have_cap_sys_admin = have_effective_cap(CAP_SYS_ADMIN) > 0;
+ 
++#if HAVE_SELINUX
++        /* Mandatory transient bounds also apply to commands excepted from sandboxing. */
++        if (needs_sandboxing || context->selinux_context_bound)
++                use_selinux = mac_selinux_use();
++        if (context->selinux_context_bound && !use_selinux) {
++                *exit_status = EXIT_SELINUX_CONTEXT;
++                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot enforce transient SELinux context bound");
++        }
++        if (context->selinux_context_bound) {
++                selinux_proc_fd = transient_selinux_open_kernel("/proc", PROC_SUPER_MAGIC);
++                selinux_policy_fd = transient_selinux_open_kernel("/sys/fs/selinux", SELINUX_MAGIC);
++                r = selinux_proc_fd < 0 ? selinux_proc_fd : selinux_policy_fd;
++                if (r >= 0)
++                        r = transient_selinux_read_number(selinux_policy_fd, "class/process/index", &selinux_process_class);
++                if (r >= 0)
++                        r = transient_selinux_read_number(selinux_policy_fd, "class/process/perms/transition", &selinux_transition_bit);
++                if (r >= 0 && (selinux_process_class == 0 || selinux_process_class > UINT16_MAX ||
++                               selinux_transition_bit == 0 || selinux_transition_bit > 32))
++                        r = -ERANGE;
++                if (r >= 0) {
++                        selinux_transition_bit = UINT32_C(1) << (selinux_transition_bit - 1);
++                        r = add_shifted_fd(&keep_fds, &n_keep_fds, &selinux_proc_fd);
++                }
++                if (r >= 0)
++                        r = add_shifted_fd(&keep_fds, &n_keep_fds, &selinux_policy_fd);
++                if (r < 0) {
++                        *exit_status = EXIT_SELINUX_CONTEXT;
++                        return log_error_errno(r, "Failed to retain trusted SELinux kernel interfaces: %m");
++                }
++        }
++#endif
++
+         if (needs_sandboxing) {
+                 /* MAC enablement checks need to be done before a new mount ns is created, as they rely on
+                  * /sys being present. The actual MAC context application will happen later, as late as
+                  * possible, to avoid impacting our own code paths. */
+ 
+-#if HAVE_SELINUX
+-                use_selinux = mac_selinux_use();
+-#endif
+ #if ENABLE_SMACK
+                 use_smack = mac_smack_use();
+ #endif
+@@ -5984,6 +6103,14 @@ int exec_invoke(
+                         return log_error_errno(r, "Failed to set up PAM session: %m");
+                 }
+ 
++#if HAVE_SELINUX
++                /* Only a context actually assigned by PAM can override the creator's bound. */
++                if (use_selinux && context->selinux_context_bound && sym_getexeccon_raw(&mac_selinux_context_pam) < 0) {
++                        *exit_status = EXIT_SELINUX_CONTEXT;
++                        return log_error_errno(errno, "Failed to retrieve PAM SELinux context: %m");
++                }
++#endif
++
+                 /* PAM modules might have set some ambient caps. Query them here and merge them into
+                  * the caps we want to set in the end, so that we don't end up unsetting them. */
+                 uint64_t ambient_after_pam;
+@@ -6457,6 +6584,29 @@ int exec_invoke(
+                 return log_error_errno(r, "Changing to the requested working directory failed: %m");
+         }
+ 
++#if HAVE_SELINUX
++        /* A transient creator's integrity bound is mandatory, including fully privileged (+)
++         * commands. An empty/ignored explicit context and network labeling cannot bypass it.
++         * PAM may assign a session context through trusted policy (e.g. confined run0). */
++        if (use_selinux && context->selinux_context_bound) {
++                const char *exec_context = mac_selinux_context_pam ?: mac_selinux_context_net ?:
++                                           context->selinux_context ?: context->selinux_context_bound;
++                if (!mac_selinux_context_pam) {
++                        r = transient_selinux_check_bound(selinux_policy_fd, selinux_process_class, selinux_transition_bit,
++                                                          context->selinux_context_bound, exec_context);
++                        if (r < 0) {
++                                *exit_status = EXIT_SELINUX_CONTEXT;
++                                return log_error_errno(r, "Transient SELinux context exceeds the creator's permissions: %m");
++                        }
++                }
++                r = transient_selinux_set_exec(selinux_proc_fd, exec_context);
++                if (r < 0) {
++                        *exit_status = EXIT_SELINUX_CONTEXT;
++                        return log_error_errno(r, "Failed to apply transient SELinux context bound: %m");
++                }
++        }
++#endif
++
+         if (needs_sandboxing) {
+                 /* Apply other MAC contexts late, but before seccomp syscall filtering, as those should really be last to
+                  * influence our own codepaths as little as possible. Moreover, applying MAC contexts usually requires
+@@ -6464,7 +6614,7 @@ int exec_invoke(
+                  * are restricted. */
+ 
+ #if HAVE_SELINUX
+-                if (use_selinux) {
++                if (use_selinux && !context->selinux_context_bound) {
+                         char *exec_context = mac_selinux_context_net ?: context->selinux_context;
+ 
+                         if (exec_context) {
+diff --git a/src/core/execute-serialize.c b/src/core/execute-serialize.c
+index 3e953bada7..49302b8700 100644
+--- a/src/core/execute-serialize.c
++++ b/src/core/execute-serialize.c
+@@ -2306,6 +2306,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
+         if (r < 0)
+                 return r;
+ 
++        r = serialize_item(f, "exec-context-selinux-context-bound", c->selinux_context_bound);
++        if (r < 0)
++                return r;
++
+         if (c->selinux_context) {
+                 r = serialize_item_format(f, "exec-context-selinux-context",
+                                           "%s%s",
+@@ -3347,6 +3351,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
+                         if (r < 0)
+                                 return r;
+                         c->no_new_privileges = r;
++                } else if ((val = startswith(l, "exec-context-selinux-context-bound="))) {
++                        r = free_and_strdup(&c->selinux_context_bound, val);
++                        if (r < 0)
++                                return r;
+                 } else if ((val = startswith(l, "exec-context-selinux-context="))) {
+                         if (val[0] == '-') {
+                                 c->selinux_context_ignore = true;
+diff --git a/src/core/execute.c b/src/core/execute.c
+index a57d1040a2..2d0c2c6bf9 100644
+--- a/src/core/execute.c
++++ b/src/core/execute.c
+@@ -714,6 +714,7 @@ void exec_context_done(ExecContext *c) {
+ 
+         c->utmp_id = mfree(c->utmp_id);
+         c->selinux_context = mfree(c->selinux_context);
++        c->selinux_context_bound = mfree(c->selinux_context_bound);
+         c->apparmor_profile = mfree(c->apparmor_profile);
+         c->smack_process_label = mfree(c->smack_process_label);
+ 
+diff --git a/src/core/execute.h b/src/core/execute.h
+index e66b9bcd5b..4233c23306 100644
+--- a/src/core/execute.h
++++ b/src/core/execute.h
+@@ -288,6 +288,8 @@ typedef struct ExecContext {
+         bool smack_process_label_ignore;
+ 
+         char *selinux_context;
++        /* Authenticated creator of a transient unit. No D-Bus property may change this bound. */
++        char *selinux_context_bound;
+         char *apparmor_profile;
+         char *smack_process_label;
+ 
+diff --git a/src/core/selinux-access.c b/src/core/selinux-access.c
+index 7457b3d456..14dc8e58b4 100644
+--- a/src/core/selinux-access.c
++++ b/src/core/selinux-access.c
+@@ -245,6 +245,77 @@ static int check_access(
+                               empty_to_na(audit_info->cmdline));
+ }
+ 
++/* Transient-unit contexts come from authenticated bus credentials, never racy /proc data. */
++int mac_selinux_transient_context(sd_bus_message *message, char **ret_context, sd_bus_error *reterr_error) {
++        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
++        const char *context;
++        int r;
++
++        if (!mac_selinux_use())
++                return 0;
++        r = access_init(reterr_error);
++        if (r < 0)
++                return r;
++        if (r == 0)
++                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED,
++                                         "Cannot initialize mandatory transient SELinux context bound");
++        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SELINUX_CONTEXT, &creds);
++        if (r < 0)
++                return r;
++        if (sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_SELINUX_CONTEXT)
++                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Unauthenticated SELinux context");
++        r = sd_bus_creds_get_selinux_context(creds, &context);
++        if (r < 0)
++                return r;
++        if (isempty(context))
++                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Missing SELinux context");
++        return free_and_strdup(ret_context, context);
++}
++
++int mac_selinux_transient_transition(sd_bus_message *message, const char *bound, const char *target, sd_bus_error *reterr_error) {
++        _cleanup_free_ char *caller = NULL;
++        int r;
++
++        r = mac_selinux_transient_context(message, &caller, reterr_error);
++        if (r < 0 || !caller)
++                return r;
++
++        struct audit_info audit_info = { .function = __func__ };
++        r = check_access(caller, target, "process", "transition", &audit_info, reterr_error);
++        if (r < 0)
++                return r;
++        /* A later caller cannot raise the unit above the original creator either. */
++        if (bound && !streq(bound, caller))
++                return check_access(bound, target, "process", "transition", &audit_info, reterr_error);
++        return 0;
++}
++
++/* The varlink equivalent of mac_selinux_transient_context(): the peer's authenticated context
++ * from SO_PEERSEC, bound before properties so a default-context unit cannot inherit PID 1's. */
++int mac_selinux_transient_context_varlink(sd_varlink *link, char **ret_context) {
++        _cleanup_freecon_ char *context = NULL;
++        int fd, r;
++
++        assert(link);
++        assert(ret_context);
++
++        if (!mac_selinux_use())
++                return 0;
++        r = access_init(/* reterr_error= */ NULL);
++        if (r < 0)
++                return r;
++        if (r == 0)
++                return -EACCES;
++        fd = sd_varlink_get_fd(link);
++        if (fd < 0)
++                return fd;
++        if (sym_getpeercon_raw(fd, &context) < 0)
++                return -errno;
++        if (isempty(context))
++                return -EACCES;
++        return free_and_strdup(ret_context, context);
++}
++
+ /*
+    This function communicates with the kernel to check whether or not it should
+    allow the access.
+@@ -385,6 +456,18 @@ int mac_selinux_access_check_varlink_internal(
+ 
+ #else /* HAVE_SELINUX */
+ 
++int mac_selinux_transient_context(sd_bus_message *message, char **ret_context, sd_bus_error *reterr_error) {
++        return 0;
++}
++
++int mac_selinux_transient_transition(sd_bus_message *message, const char *bound, const char *target, sd_bus_error *reterr_error) {
++        return 0;
++}
++
++int mac_selinux_transient_context_varlink(sd_varlink *link, char **ret_context) {
++        return 0;
++}
++
+ int mac_selinux_access_check_bus_internal(
+                 sd_bus_message *message,
+                 const Unit *unit,
+diff --git a/src/core/selinux-access.h b/src/core/selinux-access.h
+index ec268b08fd..37269f5376 100644
+--- a/src/core/selinux-access.h
++++ b/src/core/selinux-access.h
+@@ -3,6 +3,10 @@
+ 
+ #include "core-forward.h"
+ 
++int mac_selinux_transient_context(sd_bus_message *message, char **ret_context, sd_bus_error *reterr_error);
++int mac_selinux_transient_transition(sd_bus_message *message, const char *bound, const char *target, sd_bus_error *reterr_error);
++int mac_selinux_transient_context_varlink(sd_varlink *link, char **ret_context);
++
+ int mac_selinux_access_check_bus_internal(
+                 sd_bus_message *message,
+                 const Unit *unit,
+diff --git a/src/core/unit-serialize.c b/src/core/unit-serialize.c
+index 11523bf15f..48961f6327 100644
+--- a/src/core/unit-serialize.c
++++ b/src/core/unit-serialize.c
+@@ -8,6 +8,7 @@
+ #include "condition.h"
+ #include "dbus.h"
+ #include "extract-word.h"
++#include "execute.h"
+ #include "fileio.h"
+ #include "format-util.h"
+ #include "glyph-util.h"
+@@ -106,6 +107,12 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
+         if (dual_timestamp_is_set(&u->assert_timestamp))
+                 (void) serialize_bool(f, "assert-result", u->assert_result);
+ 
++        ExecContext *exec_context = unit_get_exec_context(u);
++        if (exec_context) {
++                r = serialize_item(f, "transient-selinux-context-bound", exec_context->selinux_context_bound);
++                if (r < 0)
++                        return r;
++        }
+         (void) serialize_bool(f, "transient", u->transient);
+         (void) serialize_bool(f, "in-audit", u->in_audit);
+ 
+@@ -233,6 +240,14 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
+                         } else  /* Legacy for pre-44 */
+                                 log_unit_warning(u, "Update from too old systemd versions are unsupported, cannot deserialize job: %s", v);
+                         continue;
++                } else if (streq(l, "transient-selinux-context-bound")) {
++                        ExecContext *exec_context = unit_get_exec_context(u);
++                        if (!exec_context)
++                                return -EINVAL;
++                        r = free_and_strdup(&exec_context->selinux_context_bound, v);
++                        if (r < 0)
++                                return r;
++                        continue;
+                 } else if (streq(l, "state-change-timestamp")) {
+                         (void) deserialize_dual_timestamp(v, &u->state_change_timestamp);
+                         continue;
+diff --git a/src/core/varlink-unit.c b/src/core/varlink-unit.c
+index 93ed5179f9..9aee5a5c3b 100644
+--- a/src/core/varlink-unit.c
++++ b/src/core/varlink-unit.c
+@@ -2081,6 +2081,19 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
+         if (r < 0)
+                 return varlink_reply_bus_error(link, r, &bus_error);
+ 
++        /* Bind an executable transient unit to the authenticated creator before applying its
++         * properties, as the D-Bus path does (selinux-access.c, D70/D72). The varlink schema
++         * exposes no SELinuxContext property, so a default-context unit would otherwise inherit
++         * PID 1's init_t. */
++        ExecContext *bound_context = unit_get_exec_context(u);
++        if (bound_context) {
++                r = mac_selinux_transient_context_varlink(link, &bound_context->selinux_context_bound);
++                if (r == -EACCES)
++                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
++                if (r < 0)
++                        return sd_varlink_error_errno(link, r);
++        }
++
+         /* Apply unit-level properties from context */
+         r = transient_unit_apply_properties(u, &p.context);
+         if (r == -EINVAL)
+diff --git a/src/shared/selinux-util.c b/src/shared/selinux-util.c
+index 61bd8ba7b9..1a3273ff82 100644
+--- a/src/shared/selinux-util.c
++++ b/src/shared/selinux-util.c
+@@ -90,6 +90,7 @@ DLSYM_PROTOTYPE(fgetfilecon_raw) = NULL;
+ DLSYM_PROTOTYPE(fini_selinuxmnt) = NULL;
+ DLSYM_PROTOTYPE(freecon) = NULL;
+ DLSYM_PROTOTYPE(getcon_raw) = NULL;
++DLSYM_PROTOTYPE(getexeccon_raw) = NULL;
+ DLSYM_PROTOTYPE(getfilecon_raw) = NULL;
+ DLSYM_PROTOTYPE(getpeercon_raw) = NULL;
+ DLSYM_PROTOTYPE(getpidcon_raw) = NULL;
+@@ -138,6 +139,7 @@ int dlopen_libselinux(int log_level) {
+                         DLSYM_ARG(fini_selinuxmnt),
+                         DLSYM_ARG(freecon),
+                         DLSYM_ARG(getcon_raw),
++                        DLSYM_ARG(getexeccon_raw),
+                         DLSYM_ARG(getfilecon_raw),
+                         DLSYM_ARG(getpeercon_raw),
+                         DLSYM_ARG(getpidcon_raw),
+diff --git a/src/shared/selinux-util.h b/src/shared/selinux-util.h
+index 3f2e4dc77b..6022c35862 100644
+--- a/src/shared/selinux-util.h
++++ b/src/shared/selinux-util.h
+@@ -28,6 +28,7 @@ extern DLSYM_PROTOTYPE(fgetfilecon_raw);
+ extern DLSYM_PROTOTYPE(fini_selinuxmnt);
+ extern DLSYM_PROTOTYPE(freecon);
+ extern DLSYM_PROTOTYPE(getcon_raw);
++extern DLSYM_PROTOTYPE(getexeccon_raw);
+ extern DLSYM_PROTOTYPE(getfilecon_raw);
+ extern DLSYM_PROTOTYPE(getpeercon_raw);
+ extern DLSYM_PROTOTYPE(getpidcon_raw);

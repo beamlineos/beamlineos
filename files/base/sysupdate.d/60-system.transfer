@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+#
+# The SYSTEM image, into the free root slot. The file name carries the partition UUID derived
+# from the root hash (@u), which the new UKI's roothash= finds it by.
+
+[Transfer]
+ProtectVersion=%A
+Verify=yes
+
+[Source]
+Type=url-file
+Path=https://updates.beamline.invalid/channels/latest/
+MatchPattern=beamline_@v_@u.root.raw
+
+[Target]
+Type=partition
+Path=auto
+MatchPattern=beamline_@v
+MatchPartitionType=root
+ReadOnly=1

@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: MIT
+# Removed from printing-scanning (0.0.4.2 step 2A, docs/decisions.md D88). CUPS, SANE, cups-filters
+# and their Ghostscript and poppler, ippeveprinter (the tests' virtual printer) and the drivers
+# stay. Decisions: docs/testing/0.0.4.2-content-inventory.md ("Decisions").
+# Patterns: see tools/prune-tree.py.
+
+# --- Python (the owner), with system-config-printer's D-Bus service: Settings loses driver
+# suggestions for printers that need a driver; driverless (IPP Everywhere) printers need none ----
+/usr/bin/python
+/usr/bin/python3
+/usr/bin/python3.*
+/usr/bin/pydoc3
+/usr/bin/pydoc3.*
+/usr/lib/python3.*/**
+/usr/lib/*-linux-gnu/libpython3*.so*
+/usr/share/licenses/freedesktop-sdk/python3*/**
+/usr/bin/scp-dbus-service
+/usr/bin/install-printerdriver
+/usr/share/system-config-printer/**
+/usr/share/dbus-1/interfaces/org.fedoraproject.Config.Printing.xml
+/usr/share/dbus-1/services/org.fedoraproject.Config.Printing.service
+/usr/share/metainfo/system-config-printer.appdata.xml
+/usr/bin/chardetect
+/usr/bin/idna
+/usr/bin/normalizer
+
+# --- Build and developer tools (K5) ------------------------------------------------------------
+/usr/bin/derb
+/usr/bin/escapesrc
+/usr/bin/g-ir-*
+/usr/bin/gdbus-codegen
+/usr/bin/genbrk
+/usr/bin/genccode
+/usr/bin/gencfu
+/usr/bin/gencmn
+/usr/bin/gencnval
+/usr/bin/gendict
+/usr/bin/gennorm2
+/usr/bin/genrb
+/usr/bin/gensprep
+/usr/bin/glib-genmarshal
+/usr/bin/glib-gettextize
+/usr/bin/glib-mkenums
+/usr/bin/gphoto2-config
+/usr/bin/gphoto2-port-config
+/usr/bin/gtester-report
+/usr/bin/icuexportdata
+/usr/bin/icuinfo
+/usr/bin/icupkg
+/usr/bin/makeconv
+/usr/bin/mako-render
+/usr/bin/markdown_py
+/usr/bin/pkgdata
+/usr/bin/psl-make-dafsa
+/usr/bin/sane-config
+/usr/bin/uconv
+/usr/bin/xmlcatalog
+/usr/bin/xmllint
+/usr/bin/ppdc
+/usr/bin/ppdhtml
+/usr/bin/ppdi
+/usr/bin/ppdmerge
+/usr/bin/ppdpo
+
+# --- Command-line tools no filter or service runs ------------------------------------------------
+# GNU sed: posix and posix-devel ship uutils' at the same path (K7); no CUPS filter runs it. With it
+# go the only scripts here that call it: Ghostscript's legacy lpr helpers and pdf2dsc, and ICU's
+# build helpers.
+/usr/bin/sed
+/usr/bin/lprsetup.sh
+/usr/bin/unix-lpr.sh
+/usr/bin/pdf2dsc
+/usr/share/icu/*/install-sh
+/usr/share/icu/*/mkinstalldirs
+/usr/bin/e2scrub
+/usr/bin/e2scrub_all
+/usr/bin/lzip
+/usr/bin/gpcl6
+/usr/bin/gxps
+/usr/bin/gnupg-key-manage
+/usr/bin/gpgme-json
+/usr/bin/gpgme-tool
+/usr/bin/gr2fonttest
+/usr/bin/hb-*
+/usr/bin/paper
+/usr/bin/fax2ps
+/usr/bin/fax2tiff
+/usr/bin/pal2rgb
+/usr/bin/ppm2tiff
+/usr/bin/raw2tiff
+/usr/bin/tiff*
+/usr/bin/cjpeg
+/usr/bin/djpeg
+/usr/bin/jpegtran
+/usr/bin/rdjpgcom
+/usr/bin/wrjpgcom
+/usr/bin/tjbench
+/usr/bin/cwebp
+/usr/bin/dwebp
+/usr/bin/gif2webp
+/usr/bin/img2webp
+/usr/bin/webpinfo
+/usr/bin/webpmux
+/usr/bin/gifbuild
+/usr/bin/gifclrmp
+/usr/bin/giffix
+/usr/bin/giftext
+/usr/bin/giftool
+/usr/bin/opj_*
+/usr/bin/png-fix-itxt
+/usr/bin/pngfix
+/usr/bin/jpgicc
+/usr/bin/linkicc
+/usr/bin/psicc
+/usr/bin/tificc
+/usr/bin/transicc

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/boot, ci/test-install; 0.0.4.3 step 4, docs/decisions.md D111): the kernel is locked
+# down in integrity mode, whatever the boot's Secure Boot state. Injected through a
+# systemd.extra-unit credential; never part of an image, so it may use dash.
+
+[Unit]
+Description=Report the kernel lockdown mode on the console
+ConditionPathExists=!/etc/initrd-release
+Before=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/sh -c 'read -r mode < /sys/kernel/security/lockdown; echo "BEAMLINE_LOCKDOWN $$mode"'

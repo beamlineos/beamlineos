@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Base policy test of the composed Virt root (runs inside BuildStream).
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+bst_run build tests/base-policy.bst

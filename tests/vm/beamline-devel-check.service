@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Build and run programs with the independent POSIX development extension
+Requires=beamline-devel-activate.service
+After=beamline-devel-activate.service beamline-boot-ok.service systemd-homed-firstboot.service
+[Service]
+Type=oneshot
+User=dev
+SELinuxContext=user_u:user_r:user_t:s0:c0
+ImportCredential=beamline.test.devel
+# Present only under ci/test-combos, where the desktop is merged too.
+ImportCredential=beamline.test.combo
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=180
+ExecStart=/usr/bin/sh %d/beamline.test.devel

@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: MIT
+# Removed from posix-devel (0.0.4.2 step 2A, docs/decisions.md D88): posix content a development
+# environment does not use, while posix-devel alone stays a complete one (D51). It carries POSIX's
+# mandatory, SD and CD utilities (policy/posix-utilities.txt), keeps man and more and the manuals
+# by the owner's exception, and keeps the build tools that left the base for posix (D63).
+# Patterns: see tools/prune-tree.py.
+
+# vi and ex (User Portability) with vim's runtime; xxd stays, builds embed files with it
+/usr/bin/ex
+/usr/bin/rview
+/usr/bin/rvim
+/usr/bin/vi
+/usr/bin/view
+/usr/bin/vim
+/usr/bin/vimdiff
+/usr/bin/vimtutor
+/usr/share/vim/**
+/usr/share/man/**/man1/ex.1*
+/usr/share/man/**/man1/rview.1*
+/usr/share/man/**/man1/rvim.1*
+/usr/share/man/**/man1/view.1*
+/usr/share/man/**/man1/vim.1*
+/usr/share/man/**/man1/vimdiff.1*
+/usr/share/man/**/man1/vimtutor.1*
+/usr/share/man/**/man1/evim.1*
+
+# Documentation without a reader here: HTML and text documentation, and info pages (no info reader)
+/usr/share/doc/**
+/usr/share/info/**
+
+# PCI and USB listings and their ID databases
+/usr/bin/lspci
+/usr/bin/setpci
+/usr/bin/update-pciids
+/usr/bin/lsusb
+/usr/bin/usb-devices
+/usr/bin/usbhid-dump
+/usr/share/hwdata/**
+
+# Manuals: translated pages, and posix-devel's own index (posix keeps one; mandoc searches the
+# file system for pages its index lacks, K7)
+/usr/share/man/??/**
+/usr/share/man/??_??/**
+/usr/share/man/??.*/**
+/usr/share/man/mandoc.db

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+[package]
+name = "beamlinectl"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+beamline-varlink.workspace = true
+serde_json.workspace = true

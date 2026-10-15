@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MIT
+#
+# systemd-sysinstall on the console of the installer medium (0.0.4.3, docs/decisions.md D106,
+# D113). Shipped by the installer extension, which the medium's initrd merges, never by SYSTEM.
+# - It installs the production UKI of the medium's own snapshot, which the medium keeps outside the
+#   boot menu; without --kernel it would install the UKI it booted, the installer's.
+# - The partition definitions put the whole boot chain on the ESP: Debian's shim, systemd-boot as
+#   its second stage, MokManager and the fallback, which creates the boot entry at first boot.
+#   --boot-loader=no keeps `bootctl install` from replacing shim with systemd-boot, and
+#   --variables=no keeps it from adding an entry for systemd-boot itself (a downstream patch).
+# - The console is not muted: every denial the installation causes reaches it, and tests gate on
+#   them.
+
+[Unit]
+Description=Install Beamline
+Documentation=man:systemd-sysinstall(8)
+Wants=systemd-logind.service
+After=systemd-logind.service beamline-selinux-ok.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/systemd-sysinstall --boot-loader=no --variables=no --reboot=yes --mute-console=no --kernel=/boot/beamline/uki/beamline_%A.efi
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/console
+TTYReset=yes
+FailureAction=halt

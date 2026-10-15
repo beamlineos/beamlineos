@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-posix, docs/security.md §15 "tampered sysext activates: denied",
+# docs/decisions.md D50): three copies of the posix image, tampered by the test harness, are
+# offered as posix.raw in turn; none may merge. Then the signed image merges through
+# beamlinectl activate posix. Injected through a systemd.extra-unit credential; never part of an
+# image, so it may use dash.
+
+[Unit]
+Description=Refuse tampered and unsigned extension images, merge the signed one
+ConditionPathExists=!/etc/initrd-release
+After=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+Environment=POLICY=root=signed+absent:usr=signed+absent
+ExecStart=/usr/bin/sh -c 'for d in tamper-signature tamper-data tamper-unsigned; do systemd-tmpfiles --create --inline "L+ /run/extensions/posix.raw - - - - /dev/disk/by-id/virtio-$d" || exit 1; systemd-sysext refresh --image-policy="$POLICY"; if [ -e /usr/lib/extension-release.d/extension-release.posix ]; then echo "UNEXPECTED: $d merged"; exit 1; fi; echo "refused: $d"; done; systemd-tmpfiles --remove --inline "r /run/extensions/posix.raw"; systemd-sysext refresh --image-policy="$POLICY"'
+ExecStart=/usr/bin/beamlinectl --no-ask-password activate posix
+ExecStart=/usr/bin/bash --version
+ExecStart=/usr/bin/systemd-escape BEAMLINE_EXTENSION_TRUST_OK

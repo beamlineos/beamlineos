@@ -1,0 +1,4 @@
+#!/usr/bin/sh
+# SPDX-License-Identifier: MIT
+# GNU etags implements traditional ctags through its native --ctags mode.
+exec /usr/bin/etags --ctags "$@"

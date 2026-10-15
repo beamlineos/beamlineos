@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Build a BuildStream target in the builder. Default: the installer medium (docs/decisions.md D113).
+#   ./ci/build [element.bst...]
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+[ "$#" -gt 0 ] || set -- image/install-virt.bst
+bst_run build "$@"

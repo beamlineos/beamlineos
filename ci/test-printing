@@ -1,0 +1,15 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Merge printing-scanning without desktop or posix; use CUPS and SANE (§7.4, D65).
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+log "printing-scanning: merge on demand without desktop or posix"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+    --extra-unit "$REPO/tests/vm/beamline-printing-check.service" \
+    --wants beamline-printing-check.service \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --require BEAMLINE_SELINUX_OK --expect BEAMLINE_PRINTING_OK \
+    --log "$OUT/serial-printing.log"

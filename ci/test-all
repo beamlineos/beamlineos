@@ -1,0 +1,14 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Everything a change must pass, in order. Same entry point locally and in hosted CI.
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+"$REPO/ci/check"
+"$REPO/ci/build"
+"$REPO/ci/test-base"
+"$REPO/ci/image"
+"$REPO/ci/test-vms"
+log "test-all: passed"

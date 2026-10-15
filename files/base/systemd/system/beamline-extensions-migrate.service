@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Link legacy POSIX resource names
+DefaultDependencies=no
+After=local-fs.target
+Before=beamline-extension@posix.service sysinit.target
+ConditionPathExists=/var/lib/beamline/extensions/admin_%A.raw
+ConditionPathExists=/var/lib/beamline/confexts/admin_%A.raw
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/systemd-tmpfiles --create --inline "L /var/lib/beamline/extensions/posix_%A.raw - - - - /var/lib/beamline/extensions/admin_%A.raw" "L /var/lib/beamline/confexts/posix_%A.raw - - - - /var/lib/beamline/confexts/admin_%A.raw"
+
+[Install]
+WantedBy=sysinit.target

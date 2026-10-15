@@ -1,0 +1,49 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# One integration cycle (docs/spec.md §17.1): resolve the tracked upstream HEADs to exact
+# commits, build and test the whole snapshot, and record it as green or failed.
+#   ./ci/integrate [--force | --frozen] [--no-commit]
+#
+# --force      integrate even if nothing changed since the snapshot `latest` names
+# --frozen     development cycle: keep every tracked component at the commits of `latest`, so
+#              the build reuses the cache and only the project's own change is tested; the
+#              next unfrozen cycle moves everything to HEAD (docs/decisions.md D49)
+# --no-commit  on green, do not commit the refs or tag snapshot-<id> (§17.4; a dirty
+#              tree is never committed either)
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+mode=
+no_commit=
+for arg in "$@"; do
+    case "$arg" in
+        --force) mode=--force ;;
+        --frozen) mode=--frozen ;;
+        --no-commit) no_commit=--no-commit ;;
+        *) die "unknown argument: $arg" ;;
+    esac
+done
+
+set +e
+# shellcheck disable=SC2086 # optional flags expand to nothing
+in_builder python3 tools/integrate.py --arch "$ARCH" resolve $mode
+status=$?
+set -e
+case "$status" in
+    0) ;;
+    3) exit 0 ;;
+    4) die "integration failed at resolve (see out/integrations/)" ;;
+    *) die "resolve failed" ;;
+esac
+
+# The VM tests run in parallel lanes (ci/test-vms, D92).
+if "$REPO/ci/check" && "$REPO/ci/build" && "$REPO/ci/test-base" && "$REPO/ci/image" \
+    && "$REPO/ci/test-vms"; then
+    # shellcheck disable=SC2086
+    in_builder python3 tools/integrate.py --arch "$ARCH" record --result green $no_commit
+else
+    in_builder python3 tools/integrate.py --arch "$ARCH" record --result failed
+    exit 1
+fi

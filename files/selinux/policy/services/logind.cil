@@ -1,0 +1,51 @@
+; SPDX-License-Identifier: MIT
+;
+; systemd-logind (0.0.4.2 step 4B, docs/decisions.md D93). It tracks seats, sessions and users,
+; gives sessions their devices (ACLs, VT switching, device revocation), mounts each user's runtime
+; directory, starts user@ through PID 1, and holds the inhibitor locks.
+
+(type logind_t)
+(type logind_exec_t)
+(typeattributeset beamline_confined_service (logind_t))
+(typeattributeset beamline_confined_exec_type (logind_exec_t))
+(filecon "/usr/lib/systemd/systemd-logind" file (system_u object_r logind_exec_t lr_platform))
+(typetransition init_t logind_exec_t process logind_t)
+(allow logind_t logind_exec_t (file (entrypoint)))
+(typeattributeset beamline_bus_service (logind_t))
+
+(allow logind_t self (capability (chown dac_override sys_tty_config)))
+; DRM master: logind sets and drops master on the descriptors it hands sessions, and the kernel
+; authenticates a DRM descriptor at open, and lets SET_MASTER succeed, only with CAP_SYS_ADMIN
+; (drm_file_alloc, drm_master_check_perm). The same capability lets it read PID 1's environment
+; (container detection; ptrace access falls back to perfmon_capable).
+(allow logind_t self (capability (sys_admin)))
+; Seat devices: uevents it watches and triggers
+(allow logind_t self (netlink_kobject_uevent_socket (create bind getattr setopt getopt read)))
+(allow logind_t sysfs_t (file (write)))
+; Sessions' devices: VTs, DRM and input nodes it opens, switches and revokes, with their ACLs (all
+; of /dev is device_t until Stage 2 labels devices); the ESP and XBOOTLDR, read to verify them
+; before it lists boot loader entries (/boot, /efi; the loader's EFI variables)
+(allow logind_t device_t (chr_file (getattr open read write ioctl setattr)))
+(allow logind_t device_t (blk_file (getattr open read ioctl)))
+(allow logind_t boot_t (dir (getattr search read open)))
+(allow logind_t boot_t (file (getattr open read ioctl)))
+(allow logind_t efivarfs_t (dir (getattr search)))
+(allow logind_t efivarfs_t (file (getattr open read)))
+; Its state: /run/systemd/{seats,sessions,users,inhibit}, session fifos, utmp (all run_t until a
+; later step gives them a type of their own); lingering users (/var/lib/systemd/linger)
+(allow logind_t run_t (dir (getattr search read open write add_name remove_name)))
+(allow logind_t run_t (file (getattr open read write create rename unlink link setattr lock map watch)))
+(allow logind_t run_t (fifo_file (getattr open read write create unlink)))
+(allow logind_t var_lib_t (dir (getattr search read open)))
+; Logout: what a user leaves in /dev/shm and /dev/mqueue (RemoveIPC=)
+(allow logind_t tmpfs_t (dir (getattr search read open)))
+(allow logind_t mqueue_t (dir (getattr search read open)))
+; Who is calling: /proc of any process, for its session and user
+(allow logind_t beamline_domain (dir (getattr search)))
+(allow logind_t beamline_domain (file (getattr open read ioctl)))
+(allow logind_t beamline_domain (lnk_file (getattr read)))
+; PID 1: user@ and session scopes it starts and stops, power operations, unit status
+(allow logind_t init_t (system (status start stop)))
+(allow logind_t beamline_immutable_file_type (service (start stop status)))
+; Session scopes and user slices are transient units (/run/systemd/transient, D97)
+(allow logind_t beamline_unit_runtime_type (service (start stop status)))

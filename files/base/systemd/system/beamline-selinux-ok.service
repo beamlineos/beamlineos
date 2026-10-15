@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+#
+# Boot-test marker (docs/spec.md §29, docs/security.md §16): BEAMLINE_SELINUX_OK on the
+# console when a policy is loaded. tools/qemu-test.py requires it before BEAMLINE_BOOT_OK.
+
+[Unit]
+Description=Report the SELinux policy state on the console
+ConditionSecurity=selinux
+After=multi-user.target
+Before=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-escape BEAMLINE_SELINUX_OK
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

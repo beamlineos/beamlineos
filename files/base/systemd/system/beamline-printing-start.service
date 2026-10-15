@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+# CUPS ships no enabled socket/path links. Boot and live refresh share this native starter.
+[Unit]
+Description=Start printing services from the merged extension
+After=systemd-sysext.service systemd-confext.service
+ConditionPathExists=/run/extensions/printing-scanning.raw
+ConditionPathExists=/usr/lib/systemd/system/cups.socket
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl start cups.service cups.socket cups.path
+
+[Install]
+WantedBy=multi-user.target

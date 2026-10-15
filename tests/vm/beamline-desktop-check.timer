@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-desktop): try the desktop check every few seconds; it is skipped until dev
+# (homed, uid 60001) has signed in through GDM and its session bus exists. A path unit cannot
+# see the bus: logind mounts a fresh tmpfs over /run/user/60001, below the path unit's watch.
+
+[Unit]
+Description=Retry the GNOME session check until dev has signed in
+
+[Timer]
+OnActiveSec=20
+OnUnitInactiveSec=5
+AccuracySec=1
+Unit=beamline-desktop-check.service

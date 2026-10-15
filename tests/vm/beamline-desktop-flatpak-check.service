@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-desktop, docs/decisions.md D96): as an application in dev's session would, ask
+# Flatpak's system helper to ensure the system repository and to run the exports triggers, as
+# Flatpak does for a system-wide install. polkit lets an active local session do both without a
+# password (modify-repo). The calls run in dev's user manager, created from user_t, so the helper
+# serves a session (P0) client. beamline-desktop-check.service starts this unit. Injected through a
+# systemd.extra-unit credential; never part of an image.
+
+[Unit]
+Description=Check Flatpak's system helper for the GNOME session
+
+[Service]
+Type=oneshot
+User=dev
+SELinuxContext=user_u:user_r:user_t:s0:c0
+Environment=XDG_RUNTIME_DIR=/run/user/60001
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/60001/bus
+StandardOutput=journal+console
+StandardError=journal+console
+ExecStart=/usr/bin/systemd-run --user --wait --pipe --quiet /usr/bin/busctl call --system org.freedesktop.Flatpak.SystemHelper /org/freedesktop/Flatpak/SystemHelper org.freedesktop.Flatpak.SystemHelper EnsureRepo us 0 ""
+ExecStart=/usr/bin/systemd-run --user --wait --pipe --quiet /usr/bin/busctl call --system org.freedesktop.Flatpak.SystemHelper /org/freedesktop/Flatpak/SystemHelper org.freedesktop.Flatpak.SystemHelper RunTriggers us 0 ""
+ExecStart=/usr/bin/sh -c '[ -d /var/lib/flatpak/repo ]'

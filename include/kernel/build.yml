@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: MIT
+#
+# Shared build rules for project-owned kernels (docs/spec.md §11-12). A profile kernel
+# sets %{kernel-profile} and %{kernel-base}; the configuration is
+#   <kernel-base> + common.config + arch-<kernel-arch>.config + <profile>.config
+# kernel-base "allnoconfig" (Virt, §11.4) starts from nothing, so only what the fragments
+# request is enabled; "defconfig" (Hardware) starts from the architecture defaults.
+# The resolved .config is shipped in the artifact, never committed.
+
+build-depends:
+- junctions/freedesktop-sdk.bst:public-stacks/buildsystem-make.bst
+- junctions/freedesktop-sdk.bst:components/llvm.bst
+- junctions/freedesktop-sdk.bst:components/bc.bst
+- junctions/freedesktop-sdk.bst:components/bison.bst
+- junctions/freedesktop-sdk.bst:components/cpio.bst
+- junctions/freedesktop-sdk.bst:components/elfutils.bst
+- junctions/freedesktop-sdk.bst:components/flex.bst
+- junctions/freedesktop-sdk.bst:components/gzip.bst
+- junctions/freedesktop-sdk.bst:components/kmod.bst
+- junctions/freedesktop-sdk.bst:components/openssl.bst
+- junctions/freedesktop-sdk.bst:components/python3.bst
+- junctions/freedesktop-sdk.bst:components/util-linux.bst
+- junctions/freedesktop-sdk.bst:components/zstd.bst
+- kernel/config.bst
+
+environment:
+  ARCH: '%{kernel-arch}'
+  LLVM: '1'
+  KBUILD_BUILD_TIMESTAMP: '@%{source-date-epoch}'
+  KBUILD_BUILD_USER: '%{os-id}'
+  KBUILD_BUILD_HOST: buildstream
+  # Set and empty: no "+" suffix for untagged commits; the release is
+  # <version><profile CONFIG_LOCALVERSION>.
+  LOCALVERSION: ''
+  MAXJOBS: '%{max-jobs}'
+
+environment-nocache:
+- MAXJOBS
+
+variables:
+  strip-binaries: ''
+  kernel-config-dir: '%{datadir}/%{os-id}/kernel-config'
+  kernel-base: defconfig
+  kernel-config-fragments: >-
+    %{kernel-config-dir}/common.config
+    %{kernel-config-dir}/security.config
+    %{kernel-config-dir}/arch-%{kernel-arch}.config
+    %{kernel-config-dir}/%{kernel-profile}.config
+
+config:
+  configure-commands:
+  - |
+    if [ "%{kernel-base}" = allnoconfig ]; then
+      # allnoconfig with the fragments as KCONFIG_ALLCONFIG: unrequested symbols stay off.
+      scripts/kconfig/merge_config.sh -n %{kernel-config-fragments}
+    else
+      make %{kernel-base}
+      scripts/kconfig/merge_config.sh -m .config %{kernel-config-fragments}
+      make olddefconfig
+    fi
+
+  - |
+    # Every symbol a fragment requests must survive configuration; a silent drop means a
+    # missing dependency or a renamed symbol.
+    grep -hE '^(CONFIG_[A-Za-z0-9_]+=|# CONFIG_[A-Za-z0-9_]+ is not set)' \
+      %{kernel-config-fragments} | sort -u > requested.config
+    if grep -vxF -f .config requested.config > dropped.config; then
+      echo "Kernel config fragments requested symbols that configuration dropped:" >&2
+      cat dropped.config >&2
+      exit 1
+    fi
+
+  build-commands:
+  - make -j"${MAXJOBS}" %{kernel-image-target} modules
+
+  install-commands:
+  - |
+    release="$(make -s kernelrelease)"
+    moddir="%{install-root}%{indep-libdir}/modules/${release}"
+    install -Dm644 "%{kernel-image}" "${moddir}/vmlinuz"
+    install -Dm644 .config "${moddir}/config"
+    install -Dm644 System.map "${moddir}/System.map"
+    make INSTALL_MOD_PATH="%{install-root}%{prefix}" INSTALL_MOD_STRIP=1 modules_install
+    rm -f "${moddir}/build"
+
+public:
+  bst:
+    split-rules:
+      devel:
+        (>):
+        - '%{indep-libdir}/modules/*/System.map'

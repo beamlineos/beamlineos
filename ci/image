@@ -1,0 +1,24 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Build what a snapshot is made of and check it out to out/<arch>/virt/ (docs/decisions.md D113):
+#   install/install.raw          the installer medium; installed disks are made from it
+#   update/                      the update channel (D52), which an installed system fetches its
+#                                extensions from, and what an integration cycle publishes
+#   firmware/provision.raw       test only: provisions a VM's UEFI variables with Microsoft's keys
+#   extensions/posix.sysext.raw  for ci/test-posix' tampered copies
+# There is no disk image: ci/test-install installs one from the medium, and the other VM tests
+# boot overlays of it.
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+bst_run build image/install-virt.bst image/update-virt.bst image/firmware-provision-virt.bst
+rm -rf "$OUT"
+mkdir -p "$OUT"
+bst_run artifact checkout --directory "$OUT/install" image/install-virt.bst
+bst_run artifact checkout --directory "$OUT/update" image/update-virt.bst
+bst_run artifact checkout --directory "$OUT/firmware" image/firmware-provision-virt.bst
+bst_run artifact checkout --directory "$OUT/extensions" extensions/posix.bst
+log "installer medium: $OUT/install/install.raw"
+log "update channel: $OUT/update"

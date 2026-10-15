@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: MIT
+#
+# The first account of an installed system (0.0.4.3 step 5, docs/decisions.md D112). When no
+# regular user exists once homed has created the accounts its credentials name, ask for one on the
+# console, as homed's own first-boot wizard does, and make it a member of wheel, which run0 and the
+# administrator's polkit rules let through (D55). It gets homed's default shell (D62). Reads no
+# credentials: accounts from home.create.* records never join wheel here.
+# DATA's free space is shared half and half between the home and the system's state (the owner,
+# D112): the home starts at 50% of the free space, and homed's rebalancing keeps that split while
+# it is in use (weight 20, the same as homed's fixed weight for the backing file system).
+
+[Unit]
+Description=Create the First User Account
+Documentation=man:homectl(1)
+ConditionFirstBoot=yes
+After=home.mount systemd-homed.service systemd-homed-firstboot.service
+# After the extensions arrived (beamline-extensions-fetch.service orders itself first).
+Before=systemd-user-sessions.service first-boot-complete.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/homectl firstboot --prompt-new-user --prompt-shell=no --prompt-groups=no --member-of=wheel --disk-size=50%% --rebalance-weight=20 --mute-console=no
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYReset=yes
+
+[Install]
+WantedBy=systemd-homed.service

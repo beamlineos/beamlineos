@@ -1,0 +1,67 @@
+; SPDX-License-Identifier: MIT
+;
+; systemd-udevd and udevadm (0.0.4.2 step 4A, docs/decisions.md D91). It parses every uevent the
+; kernel sends and runs its rules' helpers. systemd-udevd is a link to udevadm, so the label is
+; udevadm's: `udevadm trigger` and `settle`, started by PID 1, run here too. Sessions and admins
+; may run udevadm (to query devices) in their own domains.
+
+(type udevd_t)
+(type udevd_exec_t)
+(typeattributeset beamline_confined_service (udevd_t))
+(typeattributeset beamline_confined_exec_type (udevd_exec_t))
+(filecon "/usr/bin/udevadm" file (system_u object_r udevd_exec_t lr_platform))
+(typetransition init_t udevd_exec_t process udevd_t)
+(allow udevd_t udevd_exec_t (file (entrypoint)))
+(allow user_t udevd_exec_t (file (execute execute_no_trans)))
+
+; Its own capabilities and sockets: uevents, interface renaming and link settings
+(allow udevd_t self (capability (chown dac_override dac_read_search fowner fsetid mknod net_admin
+    sys_admin sys_ptrace sys_rawio sys_resource)))
+(allow udevd_t self (netlink_kobject_uevent_socket (create bind getattr setopt getopt read write)))
+(allow udevd_t self (netlink_route_socket (create bind getattr setopt getopt read write nlmsg_read nlmsg_write)))
+(allow udevd_t self (udp_socket (create ioctl)))
+; The uevent socket and descriptors PID 1 passes from the initrd
+(allow udevd_t kernel_t (netlink_kobject_uevent_socket (getattr read write)))
+; /dev: device nodes, their permissions and links (all of /dev is device_t until Stage 2 labels
+; devices); /dev/fuse has its own type (fusermount.cil)
+(allow udevd_t device_t (dir (getattr search read open write add_name remove_name create rmdir setattr watch)))
+; The kernel creates device nodes at its own level; udev relabels them from the file contexts
+; (devices are s0 until Stage 2 types them, docs/security-mls.md §7 TO4)
+(allow udevd_t device_t (chr_file (getattr open read write ioctl setattr watch relabelfrom relabelto)))
+(allow udevd_t device_t (blk_file (getattr open read write ioctl lock setattr watch relabelfrom relabelto)))
+(allow udevd_t device_t (lnk_file (getattr read create rename unlink)))
+(allow udevd_t fuse_device_t (chr_file (getattr setattr open read write watch)))
+; systemd's udev workers open and watch the device nodes they process, these two included (systemd
+; main, 2026-10)
+(allow udevd_t null_device_t (chr_file (watch)))
+; sysfs attributes its rules set, and synthesized uevents (`udevadm trigger`)
+(allow udevd_t sysfs_t (file (write ioctl)))
+; Network sysctls, set by systemd-sysctl from its rules; no other /proc/sys file
+(allow udevd_t proc_sys_net_t (dir (getattr search)))
+(allow udevd_t proc_sys_net_t (file (getattr open read write)))
+; Its database (/run/udev)
+(allow udevd_t run_t (dir (getattr search read open write add_name remove_name create rmdir setattr)))
+(allow udevd_t run_t (file (getattr open read write create rename unlink setattr lock)))
+(allow udevd_t run_t (lnk_file (getattr read create unlink)))
+; Its cgroup: the workers' subtree
+(allow udevd_t cgroup_t (dir (getattr search read open write add_name create)))
+(allow udevd_t cgroup_t (file (getattr open read write)))
+; Loop and dm devices' backing files: the extension images, homed's homes
+(allow udevd_t data_t (file (getattr)))
+(allow udevd_t var_lib_t (file (getattr)))
+(allow udevd_t home_root_t (file (getattr)))
+(allow udevd_t efivarfs_t (dir (getattr search)))
+; The boot loader's EFI variables, which rules read to recognise the boot disk
+(allow udevd_t efivarfs_t (file (getattr open read)))
+(allow udevd_t tmpfs_t (file (getattr read write)))
+; dmsetup, run by device-mapper's rules, completes the udev cookie of the platform service that
+; activated a dm device (homed, the extension merger, the updater): a System V semaphore
+(allow udevd_t beamline_platform_domain (sem (associate getattr read write unix_read unix_write)))
+(allow udevd_t kernel_t (system (ipc_info)))
+; PID 1: units its rules start through systemctl, and /proc/1
+(allow udevd_t init_t (system (status start)))
+(allow udevd_t beamline_immutable_file_type (service (start status)))
+(allow udevd_t init_t (dir (getattr search)))
+(allow udevd_t init_t (file (getattr open read ioctl)))
+(allow udevd_t init_t (lnk_file (getattr read)))
+(allow udevd_t init_t (key (read search view)))

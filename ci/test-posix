@@ -1,0 +1,37 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Extension tests on the checked-out Virt image (docs/spec.md §29): merge the posix
+# extension on demand and use its tools, with the desktop not merged at boot (no GPU here);
+# then offer tampered and unsigned copies of the posix image, which must all be refused
+# (docs/security.md §15). The image itself is never modified.
+#   ./ci/test-posix [path/to/installed.qcow2]
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+log "posix extension: merge on demand"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+    --extra-unit "$REPO/tests/vm/beamline-posix-check.service" \
+    --wants beamline-posix-check.service \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --kernel-arg systemd.mask=systemd-sysext.service \
+    --kernel-arg systemd.mask=systemd-confext.service \
+    --require BEAMLINE_SELINUX_OK --expect BEAMLINE_POSIX_OK \
+    --log "$OUT/serial-posix.log"
+
+log "extension trust: tampered and unsigned images are refused"
+posix="$OUT/extensions/posix.sysext.raw"
+[ -f "$posix" ] || die "$posix not found; run ./ci/image first"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
+    --attach-tampered "$posix:signature" --attach-tampered "$posix:data" \
+    --attach-tampered "$posix:unsigned" \
+    --extra-unit "$REPO/tests/vm/beamline-extension-trust.service" \
+    --wants beamline-extension-trust.service \
+    --kernel-arg systemd.mask=systemd-sysext.service \
+    --kernel-arg systemd.mask=systemd-confext.service \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --require BEAMLINE_SELINUX_OK --expect BEAMLINE_EXTENSION_TRUST_OK \
+    --log "$OUT/serial-trust.log"

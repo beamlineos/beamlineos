@@ -1,0 +1,87 @@
+; SPDX-License-Identifier: MIT
+;
+; What every confined platform service may do (0.0.4.2 step 4, docs/decisions.md D91). A confined
+; service is P3, like the broad platform domains, and every assertion on beamline_platform_domain
+; holds for it, but it gets only the rules its own file gives it, on top of these: its own
+; processes, reading SYSTEM and the kernel's public files, and PID 1's interfaces for services
+; (inherited sockets, the notify socket, its exit status).
+
+; Its own processes
+(allow beamline_confined_service self (process (fork sigchld sigkill sigstop signull signal
+    getsched setsched getpgid setpgid getcap setcap getattr getsession setrlimit setfscreate
+    setsockcreate setkeycreate)))
+(allow beamline_confined_service self (fd (use)))
+(allow beamline_confined_service self (fifo_file (all)))
+(allow beamline_confined_service self (unix_dgram_socket (all)))
+(allow beamline_confined_service self (unix_stream_socket (all)))
+(allow beamline_confined_service self (anon_inode (all)))
+(allow beamline_confined_service self (key (all)))
+; Its own /proc entries; libselinux sets the context of files and sockets it creates there
+(allow beamline_confined_service self (dir (getattr search read open)))
+(allow beamline_confined_service self (file (getattr open read write ioctl)))
+(allow beamline_confined_service self (lnk_file (getattr read)))
+
+; SYSTEM: read and execute (P3 code), never write (policy.cil)
+(allow beamline_confined_service root_t (dir (getattr search read open)))
+(allow beamline_confined_service beamline_immutable_file_type (dir (getattr search read open ioctl lock watch)))
+(allow beamline_confined_service beamline_immutable_file_type (file (getattr read open map ioctl lock execute execute_no_trans watch)))
+(allow beamline_confined_service beamline_immutable_file_type (lnk_file (getattr read)))
+(allow beamline_confined_service beamline_etc_setting_type (file (getattr read open map)))
+(allow beamline_confined_service beamline_etc_setting_type (lnk_file (getattr read)))
+
+; The kernel's public interfaces and the null device. The ioctl on read files is glibc's terminal
+; probe (TCGETS) when systemd reads one; the namespace files are what systemd compares to tell
+; whether it runs in the host's namespaces.
+(allow beamline_confined_service proc_t (dir (getattr search read open)))
+(allow beamline_confined_service proc_t (file (getattr read open ioctl)))
+(allow beamline_confined_service proc_t (lnk_file (getattr read)))
+(allow beamline_confined_service sysfs_t (dir (getattr search read open)))
+(allow beamline_confined_service sysfs_t (file (getattr read open ioctl)))
+(allow beamline_confined_service sysfs_t (lnk_file (getattr read)))
+(allow beamline_confined_service nsfs_t (file (getattr)))
+(allow beamline_confined_service null_device_t (chr_file (getattr read write open ioctl append)))
+(allow beamline_confined_service device_t (dir (getattr search)))
+; /dev/log, the link to the journal's syslog socket; /var/run, the link to /run
+(allow beamline_confined_service device_t (lnk_file (getattr read)))
+(allow beamline_confined_service var_t (dir (getattr search)))
+(allow beamline_confined_service var_t (lnk_file (getattr read)))
+; /var/lib/dbus/machine-id, the link libdbus reads the machine ID through
+(allow beamline_confined_service var_lib_t (dir (getattr search)))
+(allow beamline_confined_service var_lib_t (lnk_file (getattr read)))
+(allow beamline_confined_service run_t (dir (getattr search)))
+; Its cgroup: memory pressure, which sd-event watches in every systemd service
+(allow beamline_confined_service cgroup_t (dir (getattr search read open)))
+(allow beamline_confined_service cgroup_t (file (getattr open read write)))
+
+; PID 1: the descriptors it passes (sockets, stdout), the notify socket, the exit status. Sockets
+; PID 1 created in the initrd, before the policy was loaded, carry the kernel's label: the
+; journal's and the notify socket.
+(allow beamline_confined_service init_t (fd (use)))
+(allow beamline_confined_service init_t (process (sigchld)))
+(allow beamline_confined_service init_t (unix_dgram_socket (sendto)))
+(allow beamline_confined_service init_t (unix_stream_socket (getattr getopt read write ioctl)))
+(allow beamline_confined_service kernel_t (fd (use)))
+(allow beamline_confined_service kernel_t (unix_dgram_socket (sendto)))
+(allow beamline_confined_service kernel_t (unix_stream_socket (connectto)))
+(allow beamline_confined_service run_t (sock_file (getattr write)))
+
+; User and group lookups: nss-systemd asks userdb's varlink services in /run/systemd/userdb, which
+; are systemd-userdbd (platform_service_t), homed, and PID 1 for dynamic users
+(allow beamline_confined_service run_t (dir (read open)))
+(allow beamline_confined_service run_t (lnk_file (getattr read)))
+(allow beamline_confined_service run_t (sock_file (read)))
+(allow beamline_confined_service init_t (unix_stream_socket (connectto)))
+(allow beamline_confined_service platform_service_t (unix_stream_socket (connectto)))
+(allow beamline_confined_service homed_t (unix_stream_socket (connectto)))
+
+; Statistics of any filesystem (statfs), SELinux's status page and access queries (an object
+; manager, such as the bus, writes its question to selinuxfs' access file), mount points
+; on SYSTEM's root, and files that have no label yet (DATA before its first relabel)
+(allow beamline_confined_service beamline_any_type (filesystem (getattr)))
+(allow beamline_confined_service security_t (dir (getattr search read open)))
+(allow beamline_confined_service security_t (file (getattr open read write map)))
+(allow beamline_confined_service default_t (dir (getattr search)))
+(allow beamline_confined_service default_t (lnk_file (getattr read)))
+(allow beamline_confined_service unlabeled_t (dir (getattr search)))
+(allow beamline_confined_service unlabeled_t (file (getattr open read)))
+(allow beamline_confined_service unlabeled_t (lnk_file (getattr read)))

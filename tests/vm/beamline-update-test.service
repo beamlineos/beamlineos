@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-update, docs/spec.md §16, docs/decisions.md D52): upgrade from the
+# snapshot `latest` to the candidate with systemd-sysupdate, then roll back. Runs on every
+# boot; the versions come as credentials (beamline.test.old, beamline.test.new).
+#   old, before the update: write a marker to DATA, update, reboot
+#   new: the marker is still there, the new extensions are installed and posix merges;
+#        beamline-update-fail.service then fails this boot, until boot counting gives up
+#   old, after the update: the rollback happened, and the marker is still there
+# Injected through a systemd.extra-unit credential; never part of an image, so it may use dash.
+
+[Unit]
+Description=Upgrade to the candidate snapshot, then roll back
+ConditionPathExists=!/etc/initrd-release
+Wants=network-online.target
+After=beamline-boot-ok.service network-online.target beamline-update-new-transfers.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+StandardOutput=journal+console
+ImportCredential=beamline.test.*
+# The harness lets boots fail on purpose here; this marker tells it the test itself failed.
+ExecStopPost=/usr/bin/sh -c '[ "$SERVICE_RESULT" = success ] || echo BEAMLINE_UPDATE_TEST_FAILED'
+ExecStart=/usr/bin/sh %d/beamline.test.update-script

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# libfuse 3.18.3 declares disable-mtab but never wires it into its private header (D68).
+# Define the existing IGNORE_MTAB guard only when the advertised option is enabled.
+
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -69,6 +69,10 @@ args_default = [ '-D_GNU_SOURCE' ]
+ #
+ private_cfg = configuration_data()
+ private_cfg.set_quoted('PACKAGE_VERSION', meson.project_version())
++if get_option('disable-mtab')
++    private_cfg.set('IGNORE_MTAB', 1)
++endif
++
+ 
+ # Test for presence of some functions
+ test_funcs = [ 'fork', 'fstatat', 'openat', 'readlinkat', 'pipe2',

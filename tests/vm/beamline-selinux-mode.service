@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/boot, docs/security.md §7.1, docs/decisions.md D59): report SELinux's mode before
+# the boot marker; the production boot must enforce. Injected through a systemd.extra-unit
+# credential; never part of an image, so it may use dash.
+
+[Unit]
+Description=Report the SELinux mode on the console
+ConditionPathExists=!/etc/initrd-release
+After=beamline-selinux-ok.service
+Before=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/sh -c 'read -r enforce < /sys/fs/selinux/enforce; echo "BEAMLINE_SELINUX_ENFORCE=$enforce"'

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+# Freeze the saved choices for this boot. No service or refresh may recopy them later.
+[Unit]
+Description=Take the extension choices for this boot
+DefaultDependencies=no
+After=local-fs.target
+Before=systemd-sysext.service systemd-confext.service sysinit.target
+ConditionPathExists=!/run/beamline/boot-state
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/systemd-tmpfiles --create --inline "d /var/lib/beamline/state 0755 beamline-ctl beamline-ctl -"
+ExecStart=/usr/bin/systemd-tmpfiles --create --inline "C /run/beamline/boot-state 0755 root root - /var/lib/beamline/state"
+ExecStart=/usr/bin/systemd-tmpfiles --create --inline "Z /run/beamline/boot-state - - - -"
+
+[Install]
+WantedBy=sysinit.target

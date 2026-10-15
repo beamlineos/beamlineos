@@ -1,0 +1,61 @@
+; SPDX-License-Identifier: MIT
+;
+; How objects get labels (docs/security.md §19.1): initial SID contexts, filesystems that
+; store labels in xattrs, filesystems labelled by their creator, and pseudo filesystems.
+
+(context system_low (system_u object_r unlabeled_t lr_low))
+
+; Initial SIDs the kernel uses (kernel.cil declares them all)
+(sidcontext kernel (system_u system_r kernel_t lr_platform))
+(sidcontext security (system_u object_r security_t lr_platform))
+(sidcontext unlabeled system_low)
+(sidcontext file system_low)
+(sidcontext init (system_u system_r init_t lr_platform))
+(sidcontext any_socket system_low)
+(sidcontext port (system_u object_r port_t lr_low))
+(sidcontext netif (system_u object_r netif_t lr_low))
+(sidcontext netmsg system_low)
+(sidcontext node (system_u object_r node_t lr_low))
+(sidcontext devnull (system_u object_r null_device_t lr_low))
+
+; Labels stored in extended attributes: SYSTEM and extensions (erofs, labelled by
+; mkfs.erofs), DATA (ext4) and the homed homes (btrfs), labelled at runtime, and merged
+; extensions (overlay). The filesystems' own labels keep SYSTEM code off DATA (policy.cil).
+(fsuse xattr erofs (system_u object_r system_fs_t lr_platform))
+(fsuse xattr ext4 (system_u object_r data_fs_t lr_platform))
+(fsuse xattr btrfs (system_u object_r data_fs_t lr_platform))
+(fsuse xattr overlay (system_u object_r overlay_fs_t lr_platform))
+
+; Labels derived from the creating process and the parent directory
+(fsuse trans tmpfs (system_u object_r tmpfs_t lr_low))
+(fsuse trans devtmpfs (system_u object_r device_t lr_low))
+(fsuse trans devpts (system_u object_r devpts_t lr_low))
+(fsuse trans mqueue (system_u object_r mqueue_t lr_low))
+(fsuse task pipefs (system_u object_r fs_t lr_low))
+(fsuse task sockfs (system_u object_r fs_t lr_low))
+
+; Pseudo filesystems and the ESP
+(genfscon proc "/" (system_u object_r proc_t lr_platform))
+(genfscon proc "/sys/user" (system_u object_r proc_sys_user_t lr_platform))
+(genfscon proc "/sys/net" (system_u object_r proc_sys_net_t lr_platform))
+(genfscon sysfs "/" (system_u object_r sysfs_t lr_platform))
+(genfscon selinuxfs "/" (system_u object_r security_t lr_platform))
+(genfscon securityfs "/" (system_u object_r securityfs_t lr_platform))
+(genfscon securityfs "/ipe" (system_u object_r ipe_securityfs_t lr_platform))
+(genfscon cgroup2 "/" (system_u object_r cgroup_t lr_platform))
+(genfscon efivarfs "/" (system_u object_r efivarfs_t lr_platform))
+(genfscon bpf "/" (system_u object_r bpf_t lr_platform))
+(genfscon debugfs "/" (system_u object_r debugfs_t lr_platform))
+(genfscon tracefs "/" (system_u object_r tracefs_t lr_platform))
+(genfscon pstore "/" (system_u object_r pstore_t lr_platform))
+(genfscon configfs "/" (system_u object_r configfs_t lr_platform))
+(genfscon fusectl "/" (system_u object_r fusefs_t lr_session))
+(genfscon fuse "/" (system_u object_r fusefs_t lr_session))
+(genfscon binfmt_misc "/" (system_u object_r binfmt_misc_t lr_platform))
+(genfscon hugetlbfs "/" (system_u object_r hugetlbfs_t lr_platform))
+(genfscon autofs "/" (system_u object_r autofs_t lr_platform))
+(genfscon nsfs "/" (system_u object_r nsfs_t lr_platform))
+(genfscon pidfs "/" (system_u object_r pidfs_t lr_platform))
+(genfscon ramfs "/" (system_u object_r tmpfs_t lr_low))
+(genfscon rootfs "/" (system_u object_r root_t lr_platform))
+(genfscon vfat "/" (system_u object_r boot_t lr_platform))

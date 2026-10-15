@@ -1,0 +1,10 @@
+projects:
+  beamline:
+    junctions/buildstream-plugins.bst:
+    - ref: 158f9dfe7936f5e7758af3ccc689fda8a9a0673538f0b14100874d6d83b1300a
+    junctions/buildstream-plugins-community.bst:
+    - ref: 28ccf91c48044ea2889b2dc2a5b5644e5e625479d87a8feb7214a4d1bfd6179a
+    junctions/freedesktop-sdk.bst:
+    - ref: freedesktop-sdk-26.08rc.2-362-g68f19b31373b057d2261024a872be0c81107a9a6
+    junctions/gnome-build-meta.bst:
+    - ref: 49-branchpoint-1342-gda92614f7d3389245f8e9072aae69bbddc68741d

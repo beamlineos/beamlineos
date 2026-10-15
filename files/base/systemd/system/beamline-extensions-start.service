@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+#
+# Units brought by merged extensions (docs/spec.md §8, docs/decisions.md D41). The boot
+# transaction is computed before systemd-sysext and systemd-confext merge the extensions
+# from DATA, so a dependency such as graphical.target's display-manager.service is not yet
+# a unit and never gets a job. Once the merge (and its reload) is done, the default target
+# is queued again; without extensions this changes nothing.
+
+[Unit]
+Description=Start units brought by merged extensions
+DefaultDependencies=no
+After=systemd-sysext.service systemd-confext.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/systemd-tmpfiles --create --inline "f /run/beamline/boot-complete 0444 root root -"
+ExecStart=/usr/bin/systemctl start --no-block default.target
+
+[Install]
+WantedBy=sysinit.target

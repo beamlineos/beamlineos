@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: MIT
+# Persistent choices authenticated through the real console agent; live checks span five boots.
+expect BEAMLINE_CTL_READY_0
+send \n
+expect [a-z0-9-]+ login:
+send dev\n
+expect Password:
+send dev\n
+expect \$ 
+send beamlinectl enable posix; status=$?; echo "CTL_ENABLE_STATUS=$status"; [ "$status" = 0 ] && printf done > /tmp/beamline-ctl-confirm-0\n
+expect Password:
+send dev\n
+expect CTL_ENABLE_STATUS=0
+
+expect BEAMLINE_CTL_READY_1
+send \n
+expect [a-z0-9-]+ login:
+send dev\n
+expect Password:
+send dev\n
+expect \$ 
+send beamlinectl disable desktop-gnome --now; status=$?; echo "CTL_DISABLE_STATUS=$status"; [ "$status" = 0 ] && printf done > /tmp/beamline-ctl-confirm-1\n
+expect Password:
+send dev\n
+expect CTL_DISABLE_STATUS=0
+
+expect BEAMLINE_CTL_READY_2
+send \n
+expect [a-z0-9-]+ login:
+send dev\n
+expect Password:
+send dev\n
+expect \$ 
+send beamlinectl disable posix; echo "CTL_GUARD_STATUS=$?"\n
+expect Password:
+send dev\n
+expect WouldLeaveNoInteractiveEnvironment
+expect CTL_GUARD_STATUS=1
+expect \$ 
+send exit\n
+expect [a-z0-9-]+ login:
+send alice\n
+expect Password:
+send alice\n
+expect \$ 
+send beamlinectl disable posix; echo "CTL_ALICE_STATUS=$?"\n
+expect PermissionDenied
+expect CTL_ALICE_STATUS=1
+expect \$ 
+send printf done > /tmp/beamline-ctl-users-done\n

@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: MIT
+# Preserve const in string searches; make the existing owned-string mutation explicit.
+# Remove an unused counter. Utility behavior and generated definitions are unchanged.
+--- a/autoopts/file.c
++++ b/autoopts/file.c
+@@ -58,17 +58,18 @@
+     default:
+     case FTYPE_MODE_MAY_EXIST:
+     {
+-        char * p = strrchr(fname, DIRCH);
++        char const * dirch = strrchr(fname, DIRCH);
++        char * p;
+         size_t l;
+ 
+-        if (p == NULL)
++        if (dirch == NULL)
+             /*
+              *  The file may or may not exist and its directory is ".".
+              *  Assume that "." exists.
+              */
+             break;
+ 
+-        l = (size_t)(p - fname);
++        l = (size_t)(dirch - fname);
+         p = AGALOC(l + 1, "fname");
+         memcpy(p, fname, l);
+         p[l] = NUL;
+--- a/autoopts/save.c
++++ b/autoopts/save.c
+@@ -110,7 +110,7 @@
+      */
+     if (stat(res, &stBuf) != 0) do {
+         char z[AG_PATH_MAX];
+-        char * dirchp;
++        char const * dirchp;
+ 
+         /*
+          *  IF we could not, check to see if we got a full
+@@ -804,17 +804,18 @@
+ 
+     do {
+         char * temp_str;
++        char const * marker;
+         char const * dir = opts->pOptDesc[ opts->specOptIdx.save_opts ].optArg.argString;
+         size_t flen;
+ 
+         if (dir == NULL)
+             break;
+-        temp_str = strchr(dir, '>');
+-        if (temp_str == NULL)
+-            break;
+-        if (temp_str[1] == '>')
++        marker = strchr(dir, '>');
++        if (marker == NULL)
++            break;
++        if (marker[1] == '>')
+             save_flags = SVFL_UPDATE;
+-        flen = (temp_str - dir);
++        flen = (marker - dir);
+         if (flen == 0)
+             break;
+         temp_str = AGALOC(flen + 1, "flag search str");
+--- a/autoopts/stack.c
++++ b/autoopts/stack.c
+@@ -81,7 +81,8 @@
+          */
+         for (i = 0, dIdx = 0, ct = arg_list->useCt; --ct >= 0; i++) {
+             char const * pzSrc = arg_list->apzArgs[ i ];
+-            char *       pzEq  = strchr(pzSrc, '=');
++            /* Stacked arguments are owned, mutable allocations. */
++            char *       pzEq  = strchr((char *)pzSrc, '=');
+             int          res;
+ 
+ 
+@@ -129,7 +130,8 @@
+          */
+         for (i = 0, dIdx = 0, ct = arg_list->useCt; --ct >= 0; i++) {
+             const char * pzSrc = arg_list->apzArgs[ i ];
+-            char *       pzEq  = strchr(pzSrc, '=');
++            /* Stacked arguments are owned, mutable allocations. */
++            char *       pzEq  = strchr((char *)pzSrc, '=');
+ 
+             if (pzEq != NULL)
+                 *pzEq = NUL;
+--- a/autoopts/usage.c
++++ b/autoopts/usage.c
+@@ -1150,7 +1150,6 @@
+      */
+     if (displayEnum) {
+         int        ct     = opts->optCt;
+-        int        optNo  = 0;
+         tOptDesc * od     = opts->pOptDesc;
+ 
+         fputc(NL, option_usage_fp);
+@@ -1161,7 +1160,7 @@
+             case OPARG_TYPE_MEMBERSHIP:
+                 (*(od->pOptProc))(OPTPROC_EMIT_USAGE, od);
+             }
+-        } while (od++, optNo++, (--ct > 0));
++        } while (od++, (--ct > 0));
+     }
+ 
+     /*

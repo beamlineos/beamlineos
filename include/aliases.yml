@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+#
+# URL aliases for sources owned by this project. FDSDK elements use FDSDK's own aliases.
+
+gitlab: https://gitlab.com/
+github: https://github.com/
+kernel: https://git.kernel.org/pub/scm/
+kernel_files: https://cdn.kernel.org/pub/
+pypi: https://files.pythonhosted.org/packages/
+crates: https://static.crates.io/
+gnome_gitlab: https://gitlab.gnome.org/
+gnome: https://gitlab.gnome.org/GNOME/
+gnu: https://ftp.gnu.org/gnu/
+savannah: https://git.savannah.gnu.org/git/
+mirbsd: https://mbsd.evolvis.org/MirOS/dist/mir/cpio/
+debian: https://deb.debian.org/debian/
+microsoft_pki: https://www.microsoft.com/pkiops/certs/

@@ -1,0 +1,66 @@
+; SPDX-License-Identifier: MIT
+; Extension control (0.0.4.3A). The CLI has no entrypoint transition.
+(type beamlinectl_t)
+(type beamlinectl_exec_t)
+(type beamlinectl_state_t)
+(type beamlinectl_runtime_t)
+(type beamlinectl_boot_state_t)
+(typeattributeset beamline_untrusted_type (beamlinectl_runtime_t beamlinectl_boot_state_t))
+(filecon "/run/beamline/boot-state(/.*)?" any (system_u object_r beamlinectl_boot_state_t lr_platform))
+(filecon "/run/beamline/boot-complete" file (system_u object_r beamlinectl_boot_state_t lr_platform))
+(typeattributeset beamline_confined_service (beamlinectl_t))
+(typeattributeset beamline_confined_exec_type (beamlinectl_exec_t))
+(typeattributeset beamline_bus_service (beamlinectl_t))
+(filecon "/usr/libexec/beamlinectld" file (system_u object_r beamlinectl_exec_t lr_platform))
+(filecon "/var/lib/beamline/state(/.*)?" any (system_u object_r beamlinectl_state_t lr_platform))
+(filecon "/data/var/lib/beamline/state(/.*)?" any (system_u object_r beamlinectl_state_t lr_platform))
+(filecon "/run/beamline(/.*)?" any (system_u object_r beamlinectl_runtime_t lr_platform))
+(typetransition init_t beamlinectl_exec_t process beamlinectl_t)
+(allow beamlinectl_t beamlinectl_exec_t (file (entrypoint)))
+(allow beamline_session_domain beamlinectl_runtime_t (dir (search getattr)))
+(allow beamline_session_domain beamlinectl_runtime_t (sock_file (getattr write)))
+(allow beamlinectl_t beamlinectl_runtime_t (dir (search getattr write add_name remove_name)))
+(allow beamlinectl_t beamlinectl_runtime_t (file (getattr create open write unlink)))
+(allow beamlinectl_t beamlinectl_runtime_t (sock_file (getattr read write)))
+(allow beamlinectl_t beamlinectl_state_t (dir (getattr search open read lock write add_name remove_name)))
+(allow beamlinectl_t beamlinectl_state_t (file (getattr open read create write append unlink)))
+(allow beamlinectl_t var_lib_t (dir (getattr search)))
+(allow beamlinectl_t var_lib_t (file (getattr)))
+(allow beamlinectl_t var_lib_t (lnk_file (getattr read)))
+; With the host confext unit masked (update tests), merge metadata still comes from
+; the initrd's tmpfs overlay. Device validation remains mandatory; no writes are granted.
+(allow beamlinectl_t tmpfs_t (dir (getattr search)))
+(allow beamlinectl_t tmpfs_t (file (getattr open read)))
+
+; PID 1 creates/owns StateDirectory; tmpfiles re-applies labels. Neither changes a choice.
+(typeattribute beamlinectl_state_maintainer)
+(typeattributeset beamlinectl_state_maintainer (init_t platform_service_t))
+; StateDirectory setup reads FS_IOC_FSGETXATTR before setting its project metadata.
+(allow init_t beamlinectl_state_t (dir (create ioctl mounton)))
+(allow platform_service_t beamlinectl_state_t (dir (create)))
+(neverallow beamline_platform_domain beamlinectl_state_t (file (execute execute_no_trans entrypoint execmod)))
+(allow beamlinectl_state_maintainer beamlinectl_state_t (dir (getattr search open read setattr relabelfrom relabelto)))
+(allow beamlinectl_state_maintainer beamlinectl_state_t (file (getattr open read setattr relabelfrom relabelto)))
+(allow beamlinectl_state_maintainer beamlinectl_state_t (lnk_file (getattr read setattr relabelfrom relabelto)))
+(typeattribute beamlinectl_state_writer_excluded)
+(typeattributeset beamlinectl_state_writer_excluded (and beamline_domain (not beamlinectl_t)))
+(neverallow beamlinectl_state_writer_excluded beamlinectl_state_t (file (create write append unlink rename link)))
+(neverallow beamlinectl_state_writer_excluded beamlinectl_state_t (dir (write add_name remove_name rmdir rename reparent)))
+
+(type beamline_extension_unit_t)
+(typeattributeset beamline_immutable_file_type (beamline_extension_unit_t))
+(filecon "/usr/lib/systemd/system/beamline-extension@[.]service" file (system_u object_r beamline_extension_unit_t lr_platform))
+(filecon "/usr/lib/systemd/system/beamline-extensions-refresh[.]service" file (system_u object_r beamline_extension_unit_t lr_platform))
+(allow beamlinectl_t beamline_extension_unit_t (service (start stop status)))
+(allow beamlinectl_t init_t (system (status)))
+; PolicyKit consumes the authenticated subject's passed pidfd.
+(allow polkitd_t beamlinectl_t (fd (use)))
+(allow polkitd_t beamlinectl_t (anon_inode (getattr ioctl)))
+
+; Native boot copy reads only FS_IOC_GETFLAGS on source markers.
+(allow platform_service_t beamlinectl_state_t (file (ioctl)))
+(allowx platform_service_t beamlinectl_state_t (ioctl file (0x6601)))
+(neverallowx platform_service_t beamlinectl_state_t (ioctl file (not (0x6601))))
+
+; Explicit idempotent cleanup, limited by the same closed polkit unit list.
+(filecon "/usr/lib/systemd/system/beamline-extension-unlink@[.]service" file (system_u object_r beamline_extension_unit_t lr_platform))

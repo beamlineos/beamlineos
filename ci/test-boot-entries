@@ -1,0 +1,23 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Boot-entry test on the checked-out Virt image (docs/spec.md §13, §15, §20): the default boot
+# is the production UKI, the development UKI boots with SELinux permissive, and the RecoveryOS
+# stub reports itself. One QEMU run, three boots chained with bootctl set-oneshot. Extensions
+# are not merged, as in ci/boot. The image itself is never modified.
+#   ./ci/test-boot-entries [path/to/installed.qcow2]
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+image="${1:-$OUT/installed/reference.qcow2}"
+[ -f "$image" ] || die "$image not found; run ./ci/test-install first"
+log "boot entries: production, development, RecoveryOS stub"
+python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" --reboot \
+    --extra-unit "$REPO/tests/vm/beamline-boot-entries.service" \
+    --wants beamline-boot-entries.service \
+    --kernel-arg systemd.mask=systemd-sysext.service \
+    --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
+    --require BEAMLINE_ENTRY_PRODUCTION_OK --require BEAMLINE_ENTRY_DEVELOPMENT_OK \
+    --expect BEAMLINE_RECOVERY_STUB \
+    --log "$OUT/serial-boot-entries.log"

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-desktop, docs/decisions.md D105): unlock dev's session through GDM, as GNOME
+# Shell's lock screen does (desktop-unlock.js). The client runs as dev in user_t, like the Shell;
+# GDM maps a caller outside a session to the user's graphical session. beamline-desktop-check.service
+# starts this unit. Injected through a systemd.extra-unit credential; never part of an image.
+
+[Unit]
+Description=Check unlocking the GNOME session
+
+[Service]
+Type=oneshot
+User=dev
+SELinuxContext=user_u:user_r:user_t:s0:c0
+ImportCredential=beamline.test.desktop.unlock
+TimeoutStartSec=120
+StandardOutput=journal+console
+StandardError=journal+console
+ExecStart=/usr/bin/gjs -m %d/beamline.test.desktop.unlock

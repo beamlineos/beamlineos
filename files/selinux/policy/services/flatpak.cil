@@ -1,0 +1,63 @@
+; SPDX-License-Identifier: MIT
+;
+; Flatpak's system helper (0.0.4.2 step 4E, docs/decisions.md D96), from the desktop-gnome
+; extension. It installs, updates and removes system-wide Flatpak apps for sessions, after polkit,
+; and runs the exports triggers from SYSTEM. /var/lib/flatpak gets a type of its own: sessions run
+; the apps installed there, which are unendorsed code (P0), so it is executable by sessions only;
+; no platform domain may execute it (policy.cil), and only the helper writes it.
+
+(type flatpak_helper_t)
+(type flatpak_helper_exec_t)
+(type flatpak_var_lib_t)
+(typeattributeset beamline_confined_service (flatpak_helper_t))
+(typeattributeset beamline_confined_exec_type (flatpak_helper_exec_t))
+(typeattributeset beamline_bus_service (flatpak_helper_t))
+(typeattributeset beamline_untrusted_type (flatpak_var_lib_t))
+(filecon "/usr/libexec/flatpak-system-helper" file (system_u object_r flatpak_helper_exec_t lr_platform))
+(typetransition init_t flatpak_helper_exec_t process flatpak_helper_t)
+(allow flatpak_helper_t flatpak_helper_exec_t (file (entrypoint)))
+(filecon "/var/lib/flatpak(/.*)?" any (system_u object_r flatpak_var_lib_t lr_session))
+(filecon "/data/var/lib/flatpak(/.*)?" any (system_u object_r flatpak_var_lib_t lr_session))
+(typetransition flatpak_helper_t var_lib_t dir "flatpak" flatpak_var_lib_t)
+(typetransition beamline_platform_broad_domain var_lib_t dir "flatpak" flatpak_var_lib_t)
+; Deploying keeps files root-owned (chown); revokefs-fuse runs as the calling user (setuid, setgid)
+(allow flatpak_helper_t self (capability (dac_override net_admin chown setuid setgid)))
+(allow flatpak_helper_t self (udp_socket (create)))
+; The system installation
+(allow flatpak_helper_t var_lib_t (dir (getattr search write add_name)))
+(allow flatpak_helper_t flatpak_var_lib_t (dir (getattr search read open write add_name remove_name create rmdir rename setattr)))
+(allow flatpak_helper_t flatpak_var_lib_t (file (getattr open read write create link rename unlink setattr lock map ioctl)))
+(allow flatpak_helper_t flatpak_var_lib_t (lnk_file (getattr read create rename unlink link setattr)))
+; Signature checks (gpg and its agent's sockets) and child repositories that clients pull into, in
+; the temporary directories sessions also write; nothing there is executed (policy.cil)
+(allow flatpak_helper_t tmp_t (dir (getattr search read open write add_name remove_name create rmdir setattr watch)))
+(allow flatpak_helper_t tmp_t (file (getattr open read write create link rename unlink setattr map)))
+(allow flatpak_helper_t tmp_t (lnk_file (getattr read)))
+(allow flatpak_helper_t tmp_t (sock_file (getattr create setattr unlink write)))
+; Its random seed (/dev/urandom; /dev is one type until Stage 2 labels devices)
+(allow flatpak_helper_t device_t (chr_file (getattr open read)))
+; Sessions run system-wide apps and runtimes, and read their exports (desktop files, icons)
+(allow user_t flatpak_var_lib_t (dir (getattr search read open watch)))
+; bubblewrap locks the runtime's and the app's .ref while they run, so they are not removed underneath;
+; programs ask whether a file they open is a terminal (TCGETS; D105)
+(allow user_t flatpak_var_lib_t (file (getattr open read map execute execute_no_trans watch lock ioctl)))
+(allow user_t flatpak_var_lib_t (lnk_file (getattr read)))
+; Flatpak runs the exports triggers (SYSTEM's scripts) in a bubblewrap sandbox. As root, bwrap
+; unshares its namespaces (loopback set up through netlink), builds a new root in a tmpfs, binds
+; SYSTEM and the installation into it and mounts /proc and devpts there.
+(allow flatpak_helper_t self (capability (sys_admin)))
+(allow flatpak_helper_t self (netlink_route_socket (create bind getattr read write nlmsg_read nlmsg_write)))
+(allow flatpak_helper_t tmpfs_t (filesystem (mount unmount)))
+(allow flatpak_helper_t proc_t (filesystem (mount)))
+(allow flatpak_helper_t devpts_t (filesystem (mount)))
+(allow flatpak_helper_t system_fs_t (filesystem (unmount)))
+(allow flatpak_helper_t tmpfs_t (dir (getattr search read open write add_name create mounton)))
+(allow flatpak_helper_t tmpfs_t (file (getattr open create write mounton)))
+(allow flatpak_helper_t tmpfs_t (lnk_file (getattr create)))
+(allow flatpak_helper_t root_t (dir (mounton)))
+(allow flatpak_helper_t device_t (dir (mounton)))
+(allow flatpak_helper_t tmp_t (dir (mounton)))
+(allow flatpak_helper_t flatpak_var_lib_t (dir (mounton)))
+(allow flatpak_helper_t proc_t (dir (mounton write)))
+(allow flatpak_helper_t var_t (dir (read open)))
+(allow flatpak_helper_t var_lib_t (dir (read open)))

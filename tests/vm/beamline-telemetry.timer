@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT
+#
+# 0.0.4.1 everyday desktop evaluation (docs/decisions.md D75): sample resource pressure into the
+# journal every 30 seconds. Injected through a systemd.extra-unit credential; never part of an
+# image.
+
+[Unit]
+Description=Resource-pressure samples for the 0.0.4.1 evaluation
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=30s
+AccuracySec=1s

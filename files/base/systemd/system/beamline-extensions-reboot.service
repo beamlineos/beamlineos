@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+#
+# Started when beamline-extensions-fetch.service has fetched this snapshot's extensions
+# (0.0.4.3 step 5, docs/decisions.md D112): reboot once the first account exists, so that the next
+# boot merges the extensions before any service starts. Logins wait for it.
+
+[Unit]
+Description=Reboot to merge the fetched extensions
+# Only once the first boot's work is done: the machine ID is committed after first-boot-complete,
+# and without it the next boot would be a first boot again.
+After=beamline-first-user.service first-boot-complete.target systemd-machine-id-commit.service
+Before=systemd-user-sessions.service
+SuccessAction=reboot
+
+[Service]
+Type=oneshot

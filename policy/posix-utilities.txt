@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: MIT
+# POSIX.1-2024, Issue 8: the utilities the posix and posix-devel extensions must provide
+# (§7.2, §7.3; docs/decisions.md D63, D69, D88).
+# https://pubs.opengroup.org/onlinepubs/9799919799/idx/utilities.html
+# https://pubs.opengroup.org/onlinepubs/9799919799/xrat/V4_xcu_chap01.html
+# https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap02.html
+# Format: extensions provider utility group.
+#   extensions: posix, posix-devel or both;
+#   provider: command or builtin (builtins are checked in the extension's bash, with no external
+#     commands in PATH);
+#   group: the utility's POSIX option group, from the margin code of its SYNOPSIS: mandatory (none),
+#     UP (User Portability), SD (Software Development), CD (C-Language Development).
+# posix carries the mandatory and UP utilities; posix-devel the mandatory, SD and CD ones (the
+# owner's decision, D88). Recorded exception: man and more (UP) are in posix-devel too, so it keeps
+# manual lookup. bg, fc, fg and jobs remain bash builtins there, just not required.
+# This is a contents check; it does not claim POSIX conformance (§7.2).
+# XSI-only, FR, UU and optional localedef are outside this scope.
+# SCCS and daemon/privilege tools are excluded; lp belongs in printing-scanning.
+both builtin alias mandatory
+both command awk mandatory
+both command basename mandatory
+both command bc mandatory
+posix builtin bg UP
+both command cat mandatory
+both builtin cd mandatory
+both command chgrp mandatory
+both command chmod mandatory
+both command chown mandatory
+both command cksum mandatory
+both command cmp mandatory
+both command comm mandatory
+both builtin command mandatory
+both command cp mandatory
+both command csplit mandatory
+both command cut mandatory
+both command date mandatory
+both command dd mandatory
+both command df mandatory
+both command diff mandatory
+both command dirname mandatory
+both command du mandatory
+both command echo mandatory
+both command ed mandatory
+both command env mandatory
+posix command ex UP
+both command expand mandatory
+both command expr mandatory
+both command false mandatory
+posix builtin fc UP
+posix builtin fg UP
+both command file mandatory
+both command find mandatory
+both command fold mandatory
+both command gencat mandatory
+both command getconf mandatory
+both builtin getopts mandatory
+both command gettext mandatory
+both command grep mandatory
+both builtin hash mandatory
+both command head mandatory
+both command iconv mandatory
+both command id mandatory
+posix builtin jobs UP
+both command join mandatory
+both command kill mandatory
+both command ln mandatory
+both command locale mandatory
+both command logger mandatory
+both command logname mandatory
+both command ls mandatory
+both command m4 mandatory
+both command man UP
+both command mkdir mandatory
+both command mkfifo mandatory
+both command more UP
+both command msgfmt mandatory
+both command mv mandatory
+both command ngettext mandatory
+both command nice mandatory
+both command nohup mandatory
+both command od mandatory
+both command paste mandatory
+both command patch mandatory
+both command pathchk mandatory
+both command pax mandatory
+both command pr mandatory
+both command printf mandatory
+both command ps mandatory
+both command pwd mandatory
+both builtin read mandatory
+both command readlink mandatory
+both command realpath mandatory
+both command renice mandatory
+both command rm mandatory
+both command rmdir mandatory
+both command sed mandatory
+both command sh mandatory
+both command sleep mandatory
+both command sort mandatory
+both command split mandatory
+both command strings mandatory
+both command stty mandatory
+both command tabs mandatory
+both command tail mandatory
+both command tee mandatory
+both command test mandatory
+both command time mandatory
+both command timeout mandatory
+both command touch mandatory
+both command tput mandatory
+both command tr mandatory
+both command true mandatory
+both command tsort mandatory
+both command tty mandatory
+both builtin ulimit mandatory
+both builtin umask mandatory
+both builtin unalias mandatory
+both command uname mandatory
+both command unexpand mandatory
+both command uniq mandatory
+both command uudecode mandatory
+both command uuencode mandatory
+posix command vi UP
+both builtin wait mandatory
+both command wc mandatory
+both command who mandatory
+both command xargs mandatory
+posix-devel command ar SD
+posix-devel command c17 CD
+posix-devel command ctags CD,SD
+posix-devel command lex CD
+posix-devel command make SD
+posix-devel command nm SD
+posix-devel command strip SD
+posix-devel command xgettext CD
+posix-devel command yacc CD

@@ -1,0 +1,43 @@
+; SPDX-License-Identifier: MIT
+;
+; systemd-journald (0.0.4.2 step 4A, docs/decisions.md D91). It parses what every process sends
+; it: log lines, the kernel's ring buffer and audit records. Confined, it writes the journal and
+; nothing else on DATA, executes nothing but SYSTEM code, and reaches PID 1 only as a service does.
+
+(type journald_t)
+(type journald_exec_t)
+(typeattributeset beamline_confined_service (journald_t))
+(typeattributeset beamline_confined_exec_type (journald_exec_t))
+(filecon "/usr/lib/systemd/systemd-journald" file (system_u object_r journald_exec_t lr_platform))
+(typetransition init_t journald_exec_t process journald_t)
+(allow journald_t journald_exec_t (file (entrypoint)))
+
+; Its own capabilities: reading other processes' metadata, and the audit stream
+(allow journald_t self (capability (audit_control dac_read_search sys_ptrace)))
+(allow journald_t self (cap_userns (sys_ptrace)))
+(allow journald_t self (netlink_audit_socket (create bind getattr setopt getopt read write nlmsg_read nlmsg_write)))
+; Who sent each message: /proc of every process, as metadata for its fields
+(allow journald_t beamline_domain (dir (getattr search)))
+(allow journald_t beamline_domain (file (getattr open read ioctl)))
+(allow journald_t beamline_domain (lnk_file (getattr read)))
+(allow journald_t beamline_domain (process (getattr signull)))
+; The kernel's ring buffer and the console; the stdout streams PID 1 connects to it, which are the
+; kernel's when PID 1 set them up in the initrd
+(allow journald_t kernel_t (system (syslog_read syslog_mod)))
+(allow journald_t kernel_t (unix_dgram_socket (getattr read write)))
+(allow journald_t kernel_t (unix_stream_socket (getattr getopt setopt read write shutdown)))
+(allow journald_t device_t (chr_file (getattr open read write ioctl)))
+; Its runtime state and the volatile journal (/run/systemd/journal, /run/log), and units' invocation
+; links (/run/systemd/units, /run/user/<uid>/systemd/units)
+(allow journald_t run_t (dir (getattr search read open write add_name remove_name create rmdir setattr)))
+(allow journald_t run_t (file (getattr open read write create rename unlink setattr map lock)))
+(allow journald_t run_t (sock_file (getattr create setattr unlink read write)))
+(allow journald_t run_t (lnk_file (getattr read)))
+(allow journald_t user_runtime_t (dir (getattr search)))
+(allow journald_t user_runtime_t (lnk_file (getattr read)))
+; The persistent journal on DATA (/var/log/journal), unlabelled until its first relabel; nothing
+; else on DATA
+(typeattribute journald_journal_type)
+(typeattributeset journald_journal_type (var_log_t unlabeled_t))
+(allow journald_t journald_journal_type (dir (getattr search read open write add_name remove_name create rmdir setattr)))
+(allow journald_t journald_journal_type (file (getattr open read write create rename unlink setattr map lock)))

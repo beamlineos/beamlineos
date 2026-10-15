@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Hide Settings' Secure Shell row when the system has no SSH server (0.0.4.1 K11, D89): neither
+# sshd.service nor ssh.socket exists, so the switch could only fail. The Remote Desktop row beside it
+# is already hidden the same way. Against gnome-control-center 67660ef941 (gnome-build-meta f871a50).
+
+diff -ru a/panels/system/cc-system-panel.blp b/panels/system/cc-system-panel.blp
+--- a/panels/system/cc-system-panel.blp	2026-10-13 07:49:38
++++ b/panels/system/cc-system-panel.blp	2026-10-13 07:49:38
+@@ -47,7 +47,7 @@
+           action-target: "'remote-desktop'";
+         }
+ 
+-        $CcListRow {
++        $CcListRow secure_shell_row {
+           title: _("Se_cure Shell");
+           subtitle: _("SSH network access");
+           icon-name: "utilities-terminal-symbolic";
+diff -ru a/panels/system/cc-system-panel.c b/panels/system/cc-system-panel.c
+--- a/panels/system/cc-system-panel.c	2026-10-13 07:49:38
++++ b/panels/system/cc-system-panel.c	2026-10-13 07:49:38
+@@ -42,6 +42,7 @@
+     AdwActionRow *datetime_row;
+     AdwActionRow *region_row;
+     AdwActionRow *remote_desktop_row;
++    AdwActionRow *secure_shell_row;
+     AdwActionRow *users_row;
+ 
+     CcSecureShellPage *secure_shell_dialog;
+@@ -135,6 +136,7 @@
+     gtk_widget_class_bind_template_child (widget_class, CcSystemPanel, datetime_row);
+     gtk_widget_class_bind_template_child (widget_class, CcSystemPanel, region_row);
+     gtk_widget_class_bind_template_child (widget_class, CcSystemPanel, remote_desktop_row);
++    gtk_widget_class_bind_template_child (widget_class, CcSystemPanel, secure_shell_row);
+     gtk_widget_class_bind_template_child (widget_class, CcSystemPanel, users_row);
+     gtk_widget_class_bind_template_child (widget_class, CcSystemPanel, software_updates_group);
+ 
+@@ -162,6 +164,10 @@
+     /* Hide the remote-desktop page if the g-r-d service is either "masked", "static", or "not-found". */
+     gtk_widget_set_visible (GTK_WIDGET (self->remote_desktop_row),
+                             service_state == CC_SERVICE_STATE_ENABLED || service_state == CC_SERVICE_STATE_DISABLED);
++    /* Hide the secure-shell page too when the system has no SSH server: the switch could only fail. */
++    gtk_widget_set_visible (GTK_WIDGET (self->secure_shell_row),
++                            cc_get_service_state ("sshd.service", G_BUS_TYPE_SYSTEM) != CC_SERVICE_STATE_NOT_FOUND ||
++                            cc_get_service_state ("ssh.socket", G_BUS_TYPE_SYSTEM) != CC_SERVICE_STATE_NOT_FOUND);
+     gtk_widget_set_visible (GTK_WIDGET (self->software_updates_group), show_software_updates_group (self));
+ 
+     cc_panel_add_static_subpage (CC_PANEL (self), "about", CC_TYPE_ABOUT_PAGE);

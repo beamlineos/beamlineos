@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Beamline: `systemd-sysinstall --boot-loader=no` skips `bootctl install`, for images whose partition
+# definitions put the ESP's boot chain in place themselves: Beamline's ESP starts Debian's shim, with
+# systemd-boot as shim's second stage, and `bootctl install` would replace the default loader in
+# /EFI/BOOT/ with systemd-boot (D113). `bootctl link` still runs. Independent of the other systemd
+# patches.
+
+diff --git a/src/sysinstall/sysinstall.c b/src/sysinstall/sysinstall.c
+--- a/src/sysinstall/sysinstall.c
++++ b/src/sysinstall/sysinstall.c
+@@ -62,6 +62,7 @@
+ static char *arg_kernel_image = NULL;
+ static bool arg_reboot = false;
+ static int arg_touch_variables = -1;  /* tri-state */
++static bool arg_boot_loader = true;
+ static MachineCredentialContext arg_credentials = {};
+ static bool arg_copy_locale = true;
+ static bool arg_copy_keymap = true;
+@@ -144,6 +145,7 @@
+         char *kernel_filename;
+         int kernel_fd;
+         bool touch_variables;
++        bool install_boot_loader;
+ 
+         sd_varlink *repart_link;
+ 
+@@ -243,6 +245,12 @@
+                                 return r;
+                         break;
+ 
++                OPTION_LONG("boot-loader", "BOOL", "Whether to install systemd-boot into the ESP"):
++                        r = parse_boolean_argument("--boot-loader=", opts.arg, &arg_boot_loader);
++                        if (r < 0)
++                                return r;
++                        break;
++
+                 OPTION_LONG("kernel", "IMAGE", "Explicitly pick kernel image to install"):
+                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_kernel_image);
+                         if (r < 0)
+@@ -1637,11 +1645,16 @@
+         if (r < 0)
+                 return r;
+ 
+-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_BOOTLOADER, NULL, UINT_MAX);
++        /* Images whose partition definitions provide the ESP's boot chain themselves (for example shim
++         * with systemd-boot as its second stage) skip this: bootctl would replace the default loader
++         * in /EFI/BOOT/ with systemd-boot. */
++        if (context->install_boot_loader) {
++                (void) sysinstall_context_notify(context, PROGRESS_INSTALL_BOOTLOADER, NULL, UINT_MAX);
+ 
+-        r = invoke_bootctl_install(&bootctl_link, context->touch_variables, root_dir, root_fd);
+-        if (r < 0)
+-                return r;
++                r = invoke_bootctl_install(&bootctl_link, context->touch_variables, root_dir, root_fd);
++                if (r < 0)
++                        return r;
++        }
+ 
+         (void) sysinstall_context_notify(context, PROGRESS_UNMOUNT_PARTITIONS, NULL, UINT_MAX);
+ 
+@@ -2031,6 +2044,7 @@
+                 .copy_timezone = p.copy_timezone,
+                 .erase = p.erase,
+                 .touch_variables = p.variables,
++                .install_boot_loader = true,
+                 .node = TAKE_PTR(p.node),
+                 .kernel_fd = -EBADF,
+         };
+@@ -2226,6 +2240,7 @@
+ 
+         context.node = TAKE_PTR(arg_node);
+         context.touch_variables = arg_touch_variables;
++        context.install_boot_loader = arg_boot_loader;
+         context.erase = arg_erase;
+ 
+         if (arg_summary) {

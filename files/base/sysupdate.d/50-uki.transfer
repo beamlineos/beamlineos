@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MIT
+#
+# systemd-sysupdate transfers (docs/spec.md §16, docs/decisions.md D52): a snapshot is the
+# production and development UKIs, the SYSTEM image and its verity hash tree, and the
+# extension images built with it, all under the snapshot id as version. The machine follows
+# one channel, a directory with a signed SHA256SUMS. The URL is a placeholder until
+# publication (0.1); tests replace these files through /run/sysupdate.d.
+#
+# The production UKI, installed with three boot attempts: if none reaches
+# boot-complete.target, systemd-boot falls back to the previous one.
+
+[Transfer]
+ProtectVersion=%A
+Verify=yes
+
+[Source]
+Type=url-file
+Path=https://updates.beamline.invalid/channels/latest/
+MatchPattern=beamline_@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=beamline_@v+@l-@d.efi \
+             beamline_@v+@l.efi \
+             beamline_@v.efi
+# Writable: systemd-boot takes a read-only file as "no boot counting" and never renames it.
+Mode=0644
+TriesLeft=3
+TriesDone=0
+InstancesMax=2

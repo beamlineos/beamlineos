@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: MIT
+#
+# Snapshot identifier (docs/spec.md §17.2), shipped as IMAGE_VERSION in os-release.
+# Committed as `dev`; tools/integrate.py writes the real id only while a cycle runs.
+
+snapshot-id: dev

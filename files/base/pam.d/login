@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+#
+# Console login (docs/security.md §16). FDSDK's shadow strips pam_selinux; this stack puts
+# it back, so login sessions get their SELinux user context (seusers, default_contexts).
+
+auth       required     pam_securetty.so
+auth       include      system-auth
+account    required     pam_nologin.so
+account    include      system-auth
+password   include      system-auth
+session    required     pam_selinux.so close
+session    include      system-auth
+session    required     pam_loginuid.so
+session    required     pam_selinux.so open

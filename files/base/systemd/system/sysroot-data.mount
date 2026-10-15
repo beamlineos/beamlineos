@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+#
+# initrd only (docs/spec.md §14, §15; docs/decisions.md D56): DATA, read-write at /sysroot/data
+# before switch-root, so systemd-confext-sysroot.service can merge /etc's mutable layer before
+# PID 1 reads /etc. The mount moves to the host with the root. First-boot growth still works:
+# the host grows the partition (systemd-repart), then the mounted filesystem (systemd-growfs
+# from /etc/fstab, ordered after repart).
+
+[Unit]
+Description=DATA, for the root's /etc and /var
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+RequiresMountsFor=/sysroot
+Before=initrd-switch-root.target
+
+[Mount]
+What=/dev/disk/by-partlabel/data
+Where=/sysroot/data
+Type=ext4

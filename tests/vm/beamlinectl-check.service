@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Check Beamline extension control
+ConditionPathExists=!/etc/initrd-release
+After=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+ImportCredential=beamline.test.ctl
+StandardOutput=journal+console
+StandardError=journal+console
+ExecStart=/usr/bin/sh %d/beamline.test.ctl

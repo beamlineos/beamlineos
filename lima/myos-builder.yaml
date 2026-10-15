@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT
+#
+# Linux builder VM for Apple Silicon hosts (docs/spec.md §23). Every `bst` invocation runs
+# here; the BuildStream cache stays on the VM's own disk, never on a macOS share.
+#
+# Created by ./ci/bootstrap, which mounts only this repository (writable) at the same path.
+
+minimumLimaVersion: 2.0.0
+
+base:
+- template:_images/fedora-44
+
+vmType: vz
+arch: aarch64
+cpus: 12
+memory: 32GiB
+disk: 200GiB
+
+# M3 or newer with macOS 15+: KVM inside the builder for nested-mode boots (§24.2).
+nestedVirtualization: true
+
+mountType: virtiofs
+mounts: []
+
+containerd:
+  system: false
+  user: false
+
+# One clock discipline only (docs/decisions.md D40). Lima's guest agent keeps the guest
+# clock on the host's; chronyd fighting it set a 7% tick correction, and the agent's
+# backwards steps every few seconds made freshly written files look newer than the clock
+# (meson "clock skew", automake "newly created file is older than distributed files").
+provision:
+- mode: system
+  script: |
+    #!/bin/sh
+    set -eu
+    systemctl disable --now chronyd.service 2>/dev/null || true

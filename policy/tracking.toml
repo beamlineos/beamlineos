@@ -1,0 +1,274 @@
+# SPDX-License-Identifier: MIT
+#
+# Upstream tracking policy (docs/spec.md §31). Read by tools/integrate.py.
+#
+# [component.<name>]
+#   url       upstream git repository
+#   branch    designated upstream development branch; the element's `track:` must match
+#   elements  BuildStream elements whose git source (first source) carries this component
+#   refs      file holding those elements' refs: project.refs or junction.refs
+#   select    "head" (default): branch HEAD at resolution time
+#             "gitlab-ci-green": newest branch commit whose upstream pipeline succeeded
+#             (`gitlab_project`, on `gitlab_api`, default https://gitlab.com)
+#             "github-archive": branch HEAD, downloaded as GitHub's archive of that commit
+#             (`github` = owner/repo); the commit goes to `commit_variable` in `commit_file`,
+#             the tarball sha256 to the element's ref
+#
+# [component.<name>.pin] is a temporary, visible exception (§31.2): the integration cycle
+# uses `ref` (github-archive: the commit) instead of the designated HEAD and every manifest
+# reports it as PINNED.
+#   ref, reason, issue
+#
+# [fixed] lists Layer 0 inputs (§31.3): pinned build tooling, recorded as provenance only.
+
+[lockfile.beamlinectl]
+lockfile = "files/beamlinectl/Cargo.lock"
+element = "base/beamlinectl.bst"
+refs = "project.refs"
+
+[component.freedesktop-sdk]
+url = "https://gitlab.com/freedesktop-sdk/freedesktop-sdk.git"
+branch = "master"
+elements = ["junctions/freedesktop-sdk.bst"]
+refs = "junction.refs"
+select = "gitlab-ci-green"
+gitlab_project = "freedesktop-sdk/freedesktop-sdk"
+
+[component.gnome-build-meta]
+# A recipe library for the GNOME desktop (docs/decisions.md D28): built against Beamline's
+# FDSDK; GNOME component refs come from the selected commit.
+url = "https://gitlab.gnome.org/GNOME/gnome-build-meta.git"
+branch = "master"
+elements = ["junctions/gnome-build-meta.bst"]
+refs = "junction.refs"
+select = "gitlab-ci-green"
+gitlab_api = "https://gitlab.gnome.org"
+gitlab_project = "GNOME/gnome-build-meta"
+
+[component.linux]
+# The commit is torvalds/linux.git master on git.kernel.org; the tree is GitHub's archive of
+# that commit (docs/spec.md §11.2, docs/decisions.md D32).
+url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
+branch = "master"
+elements = ["kernel/linux-virt.bst", "kernel/selinux-headers.bst"]
+refs = "project.refs"
+select = "github-archive"
+github = "torvalds/linux"
+commit_file = "include/kernel/linux-commit.yml"
+commit_variable = "linux-commit"
+
+[component.systemd]
+url = "https://github.com/systemd/systemd.git"
+branch = "main"
+elements = ["overrides/systemd-base.bst"]
+refs = "project.refs"
+
+[component.dash]
+url = "https://git.kernel.org/pub/scm/utils/dash/dash.git"
+branch = "master"
+elements = ["base/shell-compat.bst"]
+refs = "project.refs"
+
+[component.uutils]
+url = "https://github.com/uutils/coreutils.git"
+branch = "main"
+elements = ["posix/uutils-coreutils.bst"]
+renamed_from = { "posix/uutils-coreutils.bst" = "admin/uutils-coreutils.bst" }
+refs = "project.refs"
+
+[component.uutils-findutils]
+url = "https://github.com/uutils/findutils.git"
+branch = "main"
+elements = ["posix/uutils-findutils.bst"]
+refs = "project.refs"
+
+[component.uutils-diffutils]
+url = "https://github.com/uutils/diffutils.git"
+branch = "main"
+elements = ["posix/uutils-diffutils.bst"]
+refs = "project.refs"
+
+[component.uutils-grep]
+url = "https://github.com/uutils/grep.git"
+branch = "main"
+elements = ["posix/uutils-grep.bst"]
+refs = "project.refs"
+
+[component.uutils-sed]
+url = "https://github.com/uutils/sed.git"
+branch = "main"
+elements = ["posix/uutils-sed.bst"]
+refs = "project.refs"
+
+[component.uutils-awk]
+url = "https://github.com/uutils/awk.git"
+branch = "main"
+elements = ["posix/uutils-awk.bst"]
+refs = "project.refs"
+
+[component.uutils-bsdutils]
+url = "https://github.com/uutils/bsdutils.git"
+branch = "main"
+elements = ["posix/uutils-bsdutils.bst"]
+refs = "project.refs"
+
+[component.selinux]
+# Build-time policy tools only (secilc, setfiles); the runtime libselinux is FDSDK's.
+url = "https://github.com/SELinuxProject/selinux.git"
+branch = "main"
+elements = ["security/selinux-tools.bst"]
+refs = "project.refs"
+
+[component.gnu-ctags]
+# GNU etags' ctags mode, without installing the editor (D69). GNU Git is authoritative.
+url = "https://git.savannah.gnu.org/git/emacs.git"
+branch = "master"
+elements = ["posix-devel/ctags.bst"]
+refs = "project.refs"
+select = "github-archive"
+github = "emacs-mirror/emacs"
+commit_file = "include/posix-devel/emacs-commit.yml"
+commit_variable = "emacs-commit"
+
+[component.gnu-time]
+url = "https://git.savannah.gnu.org/git/time.git"
+branch = "master"
+elements = ["posix/time.bst"]
+refs = "project.refs"
+
+[component.gnu-sharutils]
+url = "https://git.savannah.gnu.org/git/sharutils.git"
+branch = "master"
+elements = ["posix/sharutils.bst"]
+refs = "project.refs"
+
+[component.gnulib]
+url = "https://git.savannah.gnu.org/git/gnulib.git"
+branch = "master"
+elements = ["build-tools/gnulib.bst"]
+refs = "project.refs"
+
+[archive.pax]
+url = "https://mbsd.evolvis.org/MirOS/dist/mir/cpio/paxmirabilis-20201030.tgz"
+sha256 = "1cc892c9c8ce265d28457bab4225eda71490d93def0a1d2271430c2863b728dc"
+elements = ["posix/pax.bst"]
+refs = "project.refs"
+reason = "Canonical maintained distribution; the publisher's Git mirror is unavailable. D63."
+
+[archive.posix-manuals]
+url = "https://cdn.kernel.org/pub/linux/docs/man-pages/man-pages-posix/man-pages-posix-2017-a.tar.xz"
+sha256 = "ce67bb25b5048b20dad772e405a83f4bc70faf051afa289361c81f9660318bc3"
+elements = ["posix/manuals.bst"]
+refs = "project.refs"
+reason = "Latest published manual corpus (2017); utility coverage independently follows POSIX.1-2024. D63."
+
+[archive.bootstrap-gc]
+url = "https://github.com/bdwgc/bdwgc/releases/download/v8.2.10/gc-8.2.10.tar.gz"
+sha256 = "832cf4f7cf676b59582ed3b1bbd90a8d0e0ddbc3b11cb3b2096c5177ce39cc47"
+elements = ["build-tools/gc.bst"]
+refs = "project.refs"
+reason = "Deliberately fixed build-only bootstrap for AutoGen/Guile, never installed. D63."
+
+[archive.bootstrap-guile]
+url = "https://ftp.gnu.org/gnu/guile/guile-2.2.7.tar.xz"
+sha256 = "cdf776ea5f29430b1258209630555beea6d2be5481f9da4d64986b077ff37504"
+elements = ["build-tools/guile.bst"]
+refs = "project.refs"
+reason = "Build-only AutoGen requires the Guile 2.2 API; deliberate bootstrap input, never installed. D63."
+
+[archive.bootstrap-autogen]
+url = "https://ftp.gnu.org/gnu/autogen/rel5.18.16/autogen-5.18.16.tar.xz"
+sha256 = "f8a13466b48faa3ba99fe17a069e71c9ab006d9b1cfabe699f8c60a47d5bb49a"
+elements = ["build-tools/autogen.bst"]
+refs = "project.refs"
+reason = "Fixed build-only parser generator for sharutils HEAD, never installed. D63."
+
+[archive.debian-shim-signed]
+url = "https://deb.debian.org/debian/pool/main/s/shim-signed/shim-signed_1.51~1+deb13u1+16.1-2~deb13u1_arm64.deb"
+sha256 = "e228a68b298865e0f1b35f93dac8fc9644a47bde3487419efe305777e2d4a1f0"
+elements = ["boot/debian-shim-signed.bst"]
+refs = "project.refs"
+reason = "Debian's Microsoft-signed shim (trixie, arm64), the first stage of Beamline's Secure Boot chain; replaced by Debian's next signed release deliberately. D113."
+
+[archive.debian-shim-helpers]
+url = "https://deb.debian.org/debian/pool/main/s/shim-helpers-arm64-signed/shim-helpers-arm64-signed_1+16.1+2~deb13u1_arm64.deb"
+sha256 = "0563a90af1f9990a592a79f52845747daff51c1d345769adc07830d2547da325"
+elements = ["boot/debian-shim-helpers.bst"]
+refs = "project.refs"
+reason = "MokManager and fallback matching the shim above (Debian trixie, arm64). D113."
+
+[archive.microsoft-uefi-ca-2011]
+url = "https://www.microsoft.com/pkiops/certs/MicCorUEFCA2011_2011-06-27.crt"
+sha256 = "48e99b991f57fc52f76149599bff0a58c47154229b9f8d603ac40d3500248507"
+elements = ["boot/microsoft-uefi-ca-2011.bst"]
+refs = "project.refs"
+reason = "Public certificate: verifies shim's signature and goes into the test firmware's db. D113."
+
+[archive.microsoft-uefi-ca-2023]
+url = "https://www.microsoft.com/pkiops/certs/microsoft%20uefi%20ca%202023.crt"
+sha256 = "f6124e34125bee3fe6d79a574eaa7b91c0e7bd9d929c1a321178efd611dad901"
+elements = ["boot/microsoft-uefi-ca-2023.bst"]
+refs = "project.refs"
+reason = "Public certificate: verifies shim's signature and goes into the test firmware's db. D113."
+
+[archive.microsoft-kek-ca-2011]
+url = "https://www.microsoft.com/pkiops/certs/MicCorKEKCA2011_2011-06-24.crt"
+sha256 = "a1117f516a32cefcba3f2d1ace10a87972fd6bbe8fe0d0b996e09e65d802a503"
+elements = ["boot/microsoft-kek-ca-2011.bst"]
+refs = "project.refs"
+reason = "Public certificate for the test firmware's KEK, as on a PC sold with Microsoft's keys. D113."
+
+[archive.microsoft-kek-ca-2023]
+url = "https://www.microsoft.com/pkiops/certs/microsoft%20corporation%20kek%202k%20ca%202023.crt"
+sha256 = "3cd3f0309edae228767a976dd40d9f4affc4fbd5218f2e8cc3c9dd97e8ac6f9d"
+elements = ["boot/microsoft-kek-ca-2023.bst"]
+refs = "project.refs"
+reason = "Public certificate for the test firmware's KEK, as on a PC sold with Microsoft's keys. D113."
+
+[fixed]
+"junctions/buildstream-plugins.bst" = "buildstream-plugins 2.8.0 (PyPI sdist)"
+"junctions/buildstream-plugins-community.bst" = "buildstream-plugins-community 2.3.3 (PyPI sdist)"
+
+# The patched Shell inherits the exact GNOME source set, including its two subprojects.
+# It is not a separate HEAD track. The integration resolver writes every inherited ref.
+[recipe.gnome-shell]
+component = "gnome-build-meta"
+junction = "junctions/gnome-build-meta.bst"
+upstream_element = "core/gnome-shell.bst"
+element = "overrides/gnome-shell.bst"
+refs = "project.refs"
+
+# Settings without parental controls and with the Secure Shell row patch (D89); like Shell, it
+# inherits gnome-build-meta's exact sources, not a separate HEAD track.
+[recipe.gnome-control-center]
+component = "gnome-build-meta"
+junction = "junctions/gnome-build-meta.bst"
+upstream_element = "core/gnome-control-center.bst"
+element = "overrides/gnome-control-center.bst"
+refs = "project.refs"
+
+# GDM with SELinux support (D105); like Shell, it inherits gnome-build-meta's exact sources. Its
+# local source, files/gdm, is a copy of gnome-build-meta's at the recipe's commit.
+[recipe.gdm]
+component = "gnome-build-meta"
+junction = "junctions/gnome-build-meta.bst"
+upstream_element = "core/gdm.bst"
+element = "overrides/gdm.bst"
+refs = "project.refs"
+
+# Build-policy override; retain the exact FDSDK-selected libfuse source, not a new track.
+[recipe.fuse3]
+component = "freedesktop-sdk"
+junction = "junctions/freedesktop-sdk.bst"
+upstream_element = "components/fuse3.bst"
+element = "overrides/fuse3.bst"
+refs = "project.refs"
+
+# Carries upstream's unreleased raster-printing fix as a patch (D84, K2); retain the exact
+# FDSDK-selected libcupsfilters source, not a new track. Drop once FDSDK selects a release with it.
+[recipe.libcupsfilters]
+component = "freedesktop-sdk"
+junction = "junctions/freedesktop-sdk.bst"
+upstream_element = "components/libcupsfilters.bst"
+element = "overrides/libcupsfilters.bst"
+refs = "project.refs"

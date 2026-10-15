@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+#
+# The development UKI (SELinux permissive), picked from the boot menu; no boot counting.
+
+[Transfer]
+ProtectVersion=%A
+Verify=yes
+
+[Source]
+Type=url-file
+Path=https://updates.beamline.invalid/channels/latest/
+MatchPattern=beamline-dev_@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=beamline-dev_@v.efi
+Mode=0444
+InstancesMax=2

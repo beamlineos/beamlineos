@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+#
+# The SYSTEM image's dm-verity hash tree, into the matching verity slot.
+
+[Transfer]
+ProtectVersion=%A
+Verify=yes
+
+[Source]
+Type=url-file
+Path=https://updates.beamline.invalid/channels/latest/
+MatchPattern=beamline_@v_@u.root-verity.raw
+
+[Target]
+Type=partition
+Path=auto
+MatchPattern=beamline_@v
+MatchPartitionType=root-verity
+ReadOnly=1

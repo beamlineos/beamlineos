@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+#
+# initrd only (docs/decisions.md D56): /sysroot/var, bound from DATA as /etc/fstab binds /var in
+# the host, so /etc's mutable layer is at /sysroot/var/lib/extensions.mutable/etc.
+
+[Unit]
+Description=/var on DATA, for the root
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+Requires=sysroot-data.mount
+After=sysroot-data.mount
+Before=initrd-switch-root.target
+
+[Mount]
+What=/sysroot/data/var
+Where=/sysroot/var
+Type=none
+Options=bind

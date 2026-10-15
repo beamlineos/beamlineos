@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-settings, docs/decisions.md D56), the test's second boot: the allowlisted settings came
+# back from /etc's mutable layer, merged in the initrd, so PID 1 already set the hostname; and
+# the file outside the allowlist is gone, because the initrd rebuilt the layer from the
+# allowlist before merging it. Never part of an image, so it may use dash.
+
+[Unit]
+Description=Check allowlisted /etc settings and the scoped merge
+ConditionPathExists=/var/lib/beamline-test/settings-set
+ConditionPathExists=!/etc/initrd-release
+After=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/sh -c 'read -r kernel < /proc/sys/kernel/hostname; tz="$(timedatectl show -p Timezone --value)"; loc="$(hostnamectl location)"; . /etc/locale.conf; echo "hostname $kernel, timezone $tz, location $loc, LANG $LANG"; [ "$kernel" = beamline-settings-test ] && [ "$tz" = Europe/Berlin ] && [ "$loc" = beamline-test-bench ] && [ "$LANG" = C.UTF-8 ] && [ ! -e /etc/beamline-forbidden ] && [ ! -e /var/lib/extensions.mutable/etc/beamline-forbidden ]'
+ExecStart=/usr/bin/systemd-escape BEAMLINE_SETTINGS_OK

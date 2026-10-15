@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: MIT
+# ci/test-shell: Alice's record names the stub (beamline-default-shell@alice sets it on the
+# reference disk, D113). Login activates her home and selects it; inactive homed accounts
+# deliberately advertise a fallback shell through NSS.
+# dev keeps dash to drive the refusal assertions before Alice's login.
+
+expect [a-z0-9-]+ login:
+send dev\n
+expect Password:
+send dev\n
+expect \$ 
+send /usr/libexec/beamline-shell -c 'echo SHELL_COMMAND_RAN'; echo "SHELL_COMMAND_STATUS=$?"\n
+expect SHELL_COMMAND_STATUS=1
+expect \$ 
+send /usr/libexec/beamline-shell /etc/passwd; echo "SHELL_SCRIPT_STATUS=$?"\n
+expect SHELL_SCRIPT_STATUS=1
+expect \$ 
+send /usr/libexec/beamline-shell </dev/null; echo "SHELL_NONTERMINAL_STATUS=$?"\n
+expect SHELL_NONTERMINAL_STATUS=1
+expect \$ 
+send /usr/libexec/beamline-shell\n
+expect beamlinectl enable posix --now
+expect homectl update USER --shell=/usr/bin/bash
+expect Set your Flatpak terminal's command to /usr/bin/bash
+expect \$ 
+send exit\n
+expect [a-z0-9-]+ login:
+send alice\n
+expect Password:
+send alice\n
+expect beamlinectl enable posix --now
+expect homectl update USER --shell=/usr/bin/bash
+expect Set your Flatpak terminal's command to /usr/bin/bash
+expect [a-z0-9-]+ login:

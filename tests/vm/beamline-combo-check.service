@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-combos; 0.0.4.1, docs/decisions.md D75): the desktop combined with extensions.
+# The script and the extension list arrive as credentials. Injected through a systemd.extra-unit
+# credential; never part of an image, so it may use dash.
+
+[Unit]
+Description=Check the desktop combined with extensions
+ConditionPathExists=!/etc/initrd-release
+After=beamline-boot-ok.service systemd-homed-firstboot.service
+
+[Service]
+Type=oneshot
+ImportCredential=beamline.test.combo
+ImportCredential=beamline.test.combo-script
+RuntimeDirectory=beamline-combo
+StandardOutput=journal+console
+TimeoutStartSec=900
+ExecStart=/usr/bin/sh %d/beamline.test.combo-script

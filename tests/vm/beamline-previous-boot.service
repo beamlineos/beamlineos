@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+#
+# VM test (ci/test-reboot): on the test's second boot, the machine ID is the one committed at
+# first boot (docs/decisions.md D56), so the journal holds the previous boot under the same machine.
+# `journalctl -b -1` fails when the ID changed. Injected through a systemd.extra-unit
+# credential; never part of an image.
+
+[Unit]
+Description=Check the previous boot is in this machine's journal
+ConditionPathExists=/var/lib/beamline-test/rebooted
+After=beamline-boot-ok.service
+
+[Service]
+Type=oneshot
+StandardOutput=journal+console
+ExecStart=/usr/bin/systemd-id128 machine-id
+ExecStart=/usr/bin/journalctl --boot=-1 --lines=1 --quiet --no-pager
+ExecStart=/usr/bin/systemd-escape BEAMLINE_PREVIOUS_BOOT_OK

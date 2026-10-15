@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+# The default is the stub; bash becomes available when posix is enabled (§6).
+/usr/libexec/beamline-shell
+/usr/bin/sh
+/bin/sh
+/usr/bin/dash
+/usr/bin/bash

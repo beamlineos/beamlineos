@@ -1,0 +1,3 @@
+system_r:init_t:s0	system_r:init_t:s0 admin_r:admin_t:s0 user_r:user_t:s0
+system_r:platform_service_t:s0	system_r:platform_service_t:s0 admin_r:admin_t:s0 user_r:user_t:s0
+system_r:xdm_t:s0	user_r:user_t:s0

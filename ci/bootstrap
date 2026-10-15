@@ -1,0 +1,54 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Prepare a build host.
+#   macOS: create/start the Lima builder VM, then bootstrap inside it.
+#   Linux: install BuildStream and the QEMU/firmware used by nested boots (Fedora only).
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+
+if is_macos; then
+    command -v limactl >/dev/null || die "limactl not found: brew install lima"
+    command -v qemu-system-aarch64 >/dev/null || die "QEMU not found: brew install qemu"
+
+    if ! limactl list --quiet 2>/dev/null | grep -qx "$LIMA_INSTANCE"; then
+        log "creating Lima VM $LIMA_INSTANCE"
+        limactl create --tty=false --name="$LIMA_INSTANCE" --mount-only "$REPO:w" "$REPO/lima/myos-builder.yaml"
+    fi
+    if [ "$(limactl list --format '{{.Status}}' "$LIMA_INSTANCE")" != Running ]; then
+        log "starting Lima VM $LIMA_INSTANCE"
+        limactl start --tty=false "$LIMA_INSTANCE"
+    fi
+    in_builder ./ci/bootstrap
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. /etc/os-release
+[ "$ID" = fedora ] || die "unsupported builder distribution '$ID' (expected Fedora)"
+
+SUDO=
+[ "$(id -u)" -eq 0 ] || SUDO=sudo
+
+case "$HOST_ARCH" in
+    aarch64) qemu_packages="qemu-system-aarch64-core edk2-aarch64" ;;
+    x86_64) qemu_packages="qemu-system-x86-core edk2-ovmf" ;;
+    *) die "unsupported builder architecture $HOST_ARCH" ;;
+esac
+
+log "installing BuildStream, buildbox and QEMU"
+# shellcheck disable=SC2086
+$SUDO dnf install -y --setopt=install_weak_deps=False \
+    buildstream buildbox bubblewrap \
+    git-core lzip patch python3 python3-dulwich python3-tomlkit ShellCheck \
+    qemu-img $qemu_packages
+# buildstream-plugins must be importable by the system Python bst runs under (its shebang
+# uses -sP, so user site-packages are ignored): gnome-build-meta's freedesktop-sdk-extra
+# junction loads its simple_mirror source-mirror plugin from the buildstream-plugins package
+# metadata (origin: pip), not from Beamline's own plugin junction (D73). The dnf package is
+# the pinned 2.8.0, matching junctions/buildstream-plugins.bst.
+# shellcheck disable=SC2086
+$SUDO dnf install -y --setopt=install_weak_deps=False buildstream-plugins
+
+bst --version
