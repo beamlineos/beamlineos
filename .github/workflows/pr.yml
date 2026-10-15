@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   check:
-    if: github.repository == 'c-lin-chunyi/beamline'
+    if: github.repository == 'beamlineos/beamlineos'
     runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4

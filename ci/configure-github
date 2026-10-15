@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Apply the checked-in P0b repository policy explicitly; preparation never calls this.
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+cd "$REPO"
+[ "${1:-}" = --apply ] && [ "$#" = 1 ] || die "usage: ci/configure-github --apply"
+gh api --method PATCH repos/beamlineos/beamlineos \
+    --input infra/github/repository.json --silent
+gh api --method PUT repos/beamlineos/beamlineos/branches/main/protection \
+    --input infra/github/main-protection.json --silent
+log "Applied P0b repository settings and main protection"
