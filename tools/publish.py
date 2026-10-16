@@ -235,7 +235,7 @@ def validate_manifest(manifest, snapshot):
     return manifest
 
 
-def verify_public(package, manifest, base, binary, config, progress, concurrency=64):
+def verify_public_metadata(package, manifest, base):
     snapshot = manifest["snapshot"]
     validate_manifest(manifest, snapshot)
     prefix = f"snapshots/{snapshot}/aarch64/"
@@ -248,6 +248,11 @@ def verify_public(package, manifest, base, binary, config, progress, concurrency
                 for name, artifact in manifest["artifacts"].items() if name.startswith("update/")}
     if selected != declared or any(snapshot not in name for name in declared):
         raise ValueError("publication disagrees with the signed channel")
+    return len(package_files(package, manifest))
+
+
+def verify_public(package, manifest, base, binary, config, progress, concurrency=64):
+    verify_public_metadata(package, manifest, base)
     verified = set()
     with tempfile.TemporaryDirectory(prefix="beamline-publish-extract-") as temp:
         target = Path(temp) / "artifact"
@@ -376,7 +381,18 @@ def main():
                                              args.download_concurrency)
                     report["publication"] = publish(package, manifest, remote, replicate, verify)
                     if args.repeat:
-                        report["repeat"] = publish(package, manifest, remote, replicate, verify)
+                        def verify_repeat():
+                            # This invocation has just reconstructed every immutable blob.
+                            # Repeat cloud operations and recheck public metadata; separate
+                            # invocations still reconstruct the complete artifact set.
+                            progress(phase="verify-repeat-metadata")
+                            count = verify_public_metadata(package, manifest, args.public_url)
+                            prefix = f"snapshots/{args.snapshot}/aarch64/"
+                            for name in ("publication.json.gpg", "publication.json"):
+                                if public_get(args.public_url, prefix + name) != (package / name).read_bytes():
+                                    raise ValueError(f"public commit marker differs: {name}")
+                            return {"verified_metadata": count + 2, "body_verification": "reused first pass in same invocation"}
+                        report["repeat"] = publish(package, manifest, remote, replicate, verify_repeat)
                         if report["repeat"]["chunks_added"] or report["repeat"]["metadata_uploaded"]:
                             raise ValueError("repeat publication unexpectedly created objects")
                     report["publication_url"] = args.public_url.rstrip("/") + f"/snapshots/{args.snapshot}/aarch64/publication.json"
