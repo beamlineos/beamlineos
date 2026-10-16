@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Beamline immutable image backend (P1 infrastructure test)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+User=beamline-images
+Group=beamline-images
+WorkingDirectory=/opt/beamline
+ExecStart=/opt/beamline/ci/serve-images 20261015.1247 20261015.1430 --state-root /var/lib/beamline-images --cache-root /var/cache/beamline-images
+StateDirectory=beamline-images
+CacheDirectory=beamline-images
+UMask=0022
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=90
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# fusermount3 needs its setuid helper; do not set NoNewPrivileges=yes or
+# PrivateDevices=yes. Backend Caddy and FUSE share this unit's mount namespace.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Owner-applied public site. The localhost backend supplies health and immutable
+# GET/HEAD/range downloads. No store credentials or image compression middleware.
+images.beamlineos.org {
+	reverse_proxy 127.0.0.1:9080
+}
