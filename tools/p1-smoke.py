@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
@@ -100,7 +101,7 @@ def verify_snapshot(directory, snapshot, keyring):
             "installer_zst_sha256": installer["zst_sha256"], "signature": "valid"}
 
 
-def r2_round_trip(account, bucket, public_url):
+def r2_round_trip(account, bucket, public_url, progress=None):
     if not re.fullmatch(r"[0-9a-f]{32}", account):
         raise ValueError("R2_ACCOUNT_ID must contain 32 lowercase hexadecimal characters")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", bucket):
@@ -120,6 +121,9 @@ def r2_round_trip(account, bucket, public_url):
         raise ValueError("invalid smoke run identity")
     key = f"p1/smoke/{run}-{attempt}/{uuid.uuid4().hex}.txt"
     payload = ("Beamline P1 R2 smoke test\n" + key + "\n").encode()
+    progress = {} if progress is None else progress
+    progress.update(key=key, bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest(),
+                    s3_write="pending", s3_read="pending", public_read="pending")
     with tempfile.TemporaryDirectory(prefix="beamline-r2-smoke-") as temp:
         work = Path(temp)
         # Do not inherit the Mac owner's AWS profiles or credential files.
@@ -142,18 +146,24 @@ def r2_round_trip(account, bucket, public_url):
             return result.stdout
         (work / "upload.txt").write_bytes(payload)
         aws("put-object", "--body", str(work / "upload.txt"), "--content-type", "text/plain", "--cache-control", "no-store")
+        progress["s3_write"] = "passed"
         head = json.loads(aws("head-object"))
         if head.get("ContentLength") != len(payload):
             raise ValueError("R2 object size differs")
         aws("get-object", str(work / "download.txt"))
         if (work / "download.txt").read_bytes() != payload:
             raise ValueError("R2 S3 download differs")
+        progress["s3_read"] = "passed"
         url = public_url.rstrip("/") + "/" + key
-        with urllib.request.urlopen(url, timeout=30) as response:
-            if response.status != 200 or response.read(len(payload) + 1) != payload:
-                raise ValueError("public R2 download differs")
-    return {"key": key, "bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest(),
-            "s3_write": "passed", "s3_read": "passed", "public_read": "passed"}
+        request = urllib.request.Request(url, headers={"User-Agent": "beamline-p1-smoke/1"})
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                if response.status != 200 or response.read(len(payload) + 1) != payload:
+                    raise ValueError("public R2 download differs")
+        except urllib.error.HTTPError as exc:
+            raise ValueError(f"public R2 read failed (HTTP {exc.code})") from None
+        progress["public_read"] = "passed"
+    return progress
 
 
 def main():
@@ -174,8 +184,9 @@ def main():
             report["snapshots"].append(verify_snapshot(args.snapshot_root / snapshot, snapshot,
                 ROOT / "files/keys/dev/update/import-pubring.pgp"))
         if not args.snapshots_only:
-            report["r2"] = r2_round_trip(os.environ.get("R2_ACCOUNT_ID", ""), os.environ.get("R2_BUCKET", ""),
-                                         os.environ.get("R2_PUBLIC_URL", "https://store.beamlineos.org"))
+            report["r2"] = {}
+            r2_round_trip(os.environ.get("R2_ACCOUNT_ID", ""), os.environ.get("R2_BUCKET", ""),
+                          os.environ.get("R2_PUBLIC_URL", "https://store.beamlineos.org"), report["r2"])
         report["result"] = "passed"
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
         # Avoid publishing local filesystem paths, endpoints, profiles or credential values.

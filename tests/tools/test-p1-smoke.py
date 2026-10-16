@@ -160,11 +160,24 @@ class R2Checks(unittest.TestCase):
             def __enter__(self): return self
             def __exit__(self, *args): return False
             def read(self, _limit): return payloads[0]
+        def public_read(request, **kwargs):
+            self.assertEqual(request.get_header("User-agent"), "beamline-p1-smoke/1")
+            return PublicResponse()
         with patch.dict(os.environ, {"AWS_ACCESS_KEY_ID": "job-key", "AWS_SECRET_ACCESS_KEY": "job-secret",
                                      "AWS_PROFILE": "owner-profile", "AWS_SESSION_TOKEN": "owner-token"}), \
                 patch.object(smoke.subprocess, "run", side_effect=aws), \
-                patch.object(smoke.urllib.request, "urlopen", return_value=PublicResponse()):
+                patch.object(smoke.urllib.request, "urlopen", side_effect=public_read):
             result = smoke.r2_round_trip("a" * 32, "bucket", "https://example.invalid")
+            payloads.clear()
+            progress = {}
+            with patch.object(smoke.urllib.request, "urlopen", side_effect=smoke.urllib.error.HTTPError(
+                    "https://example.invalid", 403, "Forbidden", None, None)):
+                with self.assertRaisesRegex(ValueError, "public R2 read failed \\(HTTP 403\\)"):
+                    smoke.r2_round_trip("a" * 32, "bucket", "https://example.invalid", progress)
+            self.assertEqual(progress["s3_write"], "passed")
+            self.assertEqual(progress["s3_read"], "passed")
+            self.assertEqual(progress["public_read"], "pending")
+            self.assertTrue(progress["key"].startswith("p1/smoke/"))
         self.assertEqual(result["public_read"], "passed")
         self.assertTrue(result["key"].startswith("p1/smoke/"))
 
