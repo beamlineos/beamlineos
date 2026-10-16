@@ -63,7 +63,8 @@ class Publication(unittest.TestCase):
         (self.root / "publication.json.gpg").write_bytes(b"publication signature")
         self.remote = Remote()
 
-    def replicate(self):
+    def replicate(self, existing):
+        self.assertEqual(existing, self.remote.chunk_map)
         self.remote.events.append("replicate")
         self.remote.chunk_map["store/chunk"] = 123
 

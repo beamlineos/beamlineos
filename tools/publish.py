@@ -279,7 +279,7 @@ def publish(package, manifest, remote, replicate, verify):
         if held is not None and held != wanted:
             raise ValueError(f"immutable object conflict: {prefix + name}")
     before = remote.chunks()
-    replicate()
+    replicate(before)
     after = remote.chunks()
     uploaded = sum(remote.put(prefix + name, wanted) for name, wanted in data.items())
     verification = verify()
@@ -302,8 +302,9 @@ def main():
     mode.add_argument("--prepare-only", action="store_true")
     mode.add_argument("--verify-only", action="store_true")
     parser.add_argument("--repeat", action="store_true", help="repeat publication and require zero new objects")
+    parser.add_argument("--upload-concurrency", type=int, default=128)
     args = parser.parse_args()
-    report = {"schema": 1, "snapshot": args.snapshot, "result": "failed", "phase": "prepare"}
+    report = {"schema": 1, "snapshot": args.snapshot, "result": "running", "phase": "prepare"}
     def progress(**values):
         report.update(values)
         args.report.parent.mkdir(parents=True, exist_ok=True)
@@ -311,6 +312,8 @@ def main():
     try:
         if not re.fullmatch(r"\d{8}\.\d{4}", args.snapshot):
             raise ValueError("snapshot must be YYYYMMDD.HHMM")
+        if not 1 <= args.upload_concurrency <= 256:
+            raise ValueError("upload concurrency must be between 1 and 256")
         if not args.public_url.startswith("https://") or "?" in args.public_url or "#" in args.public_url or "@" in args.public_url:
             raise ValueError("public store URL must be HTTPS without credentials, query or fragment")
         if not args.verify_only and args.snapshot_root is None:
@@ -351,9 +354,17 @@ def main():
                 if not args.prepare_only:
                     remote = R2(work)
                     indexes = sorted({str(package / a["index"]) for a in manifest["artifacts"].values()})
-                    def replicate():
-                        progress(phase="upload-chunks")
-                        run_desync(binary, config, "cache", "-n", "16", "-s", cache / "store", "-c", remote.store,
+                    def replicate(existing):
+                        # The complete S3 inventory is already available. Avoid a separate
+                        # HEAD for every existing chunk, especially on repeat publication.
+                        ignore = work / "existing-chunks.txt"
+                        ids = {key.rsplit("/", 1)[1].removesuffix(".cacnk") for key in existing
+                               if re.fullmatch(r"store/([0-9a-f]{4})/\1[0-9a-f]{60}\.cacnk", key)}
+                        ignore.write_text("".join(chunk + "\n" for chunk in sorted(ids)))
+                        progress(phase="upload-chunks", existing_store_chunks=len(existing),
+                                 upload_concurrency=args.upload_concurrency)
+                        run_desync(binary, config, "cache", "-n", args.upload_concurrency,
+                                   "--ignore-chunks", ignore, "-s", cache / "store", "-c", remote.store,
                                    *indexes, env=remote.env, tick=lambda: progress())
                     def verify():
                         return verify_public(package, manifest, args.public_url, binary, config, progress)
@@ -365,7 +376,7 @@ def main():
                     report["publication_url"] = args.public_url.rstrip("/") + f"/snapshots/{args.snapshot}/aarch64/publication.json"
             progress(result="passed", phase="complete")
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
-        progress(error=str(exc) if isinstance(exc, ValueError) else type(exc).__name__)
+        progress(result="failed", error=str(exc) if isinstance(exc, ValueError) else type(exc).__name__)
     print(json.dumps(report, indent=2), flush=True)
     return 0 if report["result"] == "passed" else 1
 
