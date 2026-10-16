@@ -22,7 +22,6 @@ ExecStartPost=/usr/local/libexec/beamline-image-ready /srv/beamline-images/mount
 ExecStop=/usr/bin/env /usr/bin/fusermount3 -u /srv/beamline-images/mounts/%i
 ExecStopPost=-/usr/bin/env /usr/bin/fusermount3 -u -z /srv/beamline-images/mounts/%i
 Restart=on-failure
-RestartMode=direct
 RestartSec=5
 TimeoutStartSec=45
 TimeoutStopSec=30
