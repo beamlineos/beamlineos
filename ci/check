@@ -23,6 +23,7 @@ log "policy helper regression checks"
 python3 tests/tools/test-check-policy.py
 python3 tests/tools/test-pin-sysusers.py
 python3 tests/tools/test-make-enrollment.py
+python3 tests/tools/test-p1-smoke.py
 # The export tool and its regression checks stay in the private repository.
 if [ -f tools/export-public.py ]; then
     python3 tests/tools/test-export-public.py
@@ -54,7 +55,8 @@ except ImportError:
         print("warning: no YAML module for python3; skipping (the builder has one)", file=sys.stderr)
         sys.exit(0)
 files = ["project.conf", "project.refs"] + glob.glob("include/**/*.yml", recursive=True) \
-    + glob.glob("elements/**/*.bst", recursive=True) + glob.glob("lima/*.yaml")
+    + glob.glob("elements/**/*.bst", recursive=True) + glob.glob("lima/*.yaml") \
+    + glob.glob(".github/workflows/*.yml")
 for path in files:
     with open(path, encoding="utf-8") as f:
         load(f)
@@ -65,7 +67,7 @@ log "shellcheck: ci/"
 if command -v shellcheck >/dev/null; then
     shellcheck --external-sources ci/lib.sh ci/bootstrap ci/check ci/build ci/build-kernel \
         ci/image ci/boot ci/test-reboot ci/test-verity ci/test-boot-entries ci/test-update ci/test-shell ci/test-run0 ci/test-settings ci/test-security ci/test-base ci/test-posix ci/test-devel ci/test-printing ci/test-desktop ci/test-combos ci/test-beamlinectl ci/test-vms ci/daily-telemetry ci/content-inventory ci/test-all ci/integrate
-    for script in ci/export-public ci/import-public ci/configure-github ci/check-hosted; do
+    for script in ci/export-public ci/import-public ci/configure-github ci/check-hosted ci/p1-smoke; do
         if [ -f "$script" ]; then shellcheck --external-sources "$script"; fi
     done
 elif [ "${CI:-}" = true ]; then

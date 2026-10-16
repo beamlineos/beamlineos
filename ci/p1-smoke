@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Verify saved P1 inputs and exercise R2 without publishing a snapshot or channel.
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+cd "$REPO"
+if is_macos; then
+    PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+    export PATH
+fi
+exec python3 tools/p1-smoke.py "$@"

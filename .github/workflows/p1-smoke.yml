@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT
+name: p1-smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p1-manual
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    if: >-
+      github.repository == 'beamlineos/beamlineos' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'c-lin-chunyi'
+    runs-on: [self-hosted, macOS, ARM64, beamline-aarch64]
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - run: ./ci/p1-smoke
+      env:
+        BEAMLINE_SNAPSHOT_ROOT: ${{ vars.BEAMLINE_SNAPSHOT_ROOT }}
+        R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: p1-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+        path: out/p1/smoke.json
+        if-no-files-found: warn
+        retention-days: 14
