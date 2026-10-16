@@ -98,6 +98,7 @@ def evict_cache(store, maximum):
 def caddy_config(site, paths, address):
     """Set strong ETags before file_server handles conditional/range requests."""
     lines = ["{", "    admin off", "    auto_https off", "}", f"http://{address} {{",
+             "    header Cache-Control no-store",
              "    respond /healthz 200"]
     for name, digest in sorted(paths.items()):
         lines.extend([f"    route {json.dumps('/' + name)} {{",

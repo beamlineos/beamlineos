@@ -235,7 +235,7 @@ def validate_manifest(manifest, snapshot):
     return manifest
 
 
-def verify_public(package, manifest, base, binary, config, progress):
+def verify_public(package, manifest, base, binary, config, progress, concurrency=64):
     snapshot = manifest["snapshot"]
     validate_manifest(manifest, snapshot)
     prefix = f"snapshots/{snapshot}/aarch64/"
@@ -256,7 +256,7 @@ def verify_public(package, manifest, base, binary, config, progress):
                 continue
             progress(phase="verify-public", verifying=name, verified_unique_blobs=len(verified))
             print(f"Reconstructing from public chunks: {name}", flush=True)
-            run_desync(binary, config, "extract", "-n", "16", "-s", base.rstrip("/") + "/store/",
+            run_desync(binary, config, "extract", "-n", concurrency, "-s", base.rstrip("/") + "/store/",
                        package / artifact["index"], target, tick=lambda: progress())
             if target.stat().st_size != artifact["size"] or checks.sha256(target) != artifact["sha256"]:
                 raise ValueError(f"reconstructed artifact differs: {name}")
@@ -303,8 +303,10 @@ def main():
     mode.add_argument("--verify-only", action="store_true")
     parser.add_argument("--repeat", action="store_true", help="repeat publication and require zero new objects")
     parser.add_argument("--upload-concurrency", type=int, default=128)
+    parser.add_argument("--download-concurrency", type=int, default=64)
     args = parser.parse_args()
-    report = {"schema": 1, "snapshot": args.snapshot, "result": "running", "phase": "prepare"}
+    report = {"schema": 1, "snapshot": args.snapshot, "result": "running", "phase": "prepare",
+              "download_concurrency": args.download_concurrency}
     def progress(**values):
         report.update(values)
         args.report.parent.mkdir(parents=True, exist_ok=True)
@@ -314,6 +316,8 @@ def main():
             raise ValueError("snapshot must be YYYYMMDD.HHMM")
         if not 1 <= args.upload_concurrency <= 256:
             raise ValueError("upload concurrency must be between 1 and 256")
+        if not 1 <= args.download_concurrency <= 256:
+            raise ValueError("download concurrency must be between 1 and 256")
         if not args.public_url.startswith("https://") or "?" in args.public_url or "#" in args.public_url or "@" in args.public_url:
             raise ValueError("public store URL must be HTTPS without credentials, query or fragment")
         if not args.verify_only and args.snapshot_root is None:
@@ -347,7 +351,8 @@ def main():
                     target = package / name
                     target.parent.mkdir(exist_ok=True)
                     target.write_bytes(data)
-                report["verification"] = verify_public(package, manifest, args.public_url, binary, config, progress)
+                report["verification"] = verify_public(package, manifest, args.public_url, binary, config, progress,
+                                                       args.download_concurrency)
             else:
                 package, manifest = prepare(args.snapshot_root, args.snapshot, cache, binary, config)
                 progress(phase="prepared", artifacts=len(manifest["artifacts"]))
@@ -367,7 +372,8 @@ def main():
                                    "--ignore-chunks", ignore, "-s", cache / "store", "-c", remote.store,
                                    *indexes, env=remote.env, tick=lambda: progress())
                     def verify():
-                        return verify_public(package, manifest, args.public_url, binary, config, progress)
+                        return verify_public(package, manifest, args.public_url, binary, config, progress,
+                                             args.download_concurrency)
                     report["publication"] = publish(package, manifest, remote, replicate, verify)
                     if args.repeat:
                         report["repeat"] = publish(package, manifest, remote, replicate, verify)
