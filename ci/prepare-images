@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# One-shot metadata/configuration bundle; the owner deploys native services.
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+cd "$REPO"
+exec python3 tools/prepare_images.py "$@"
