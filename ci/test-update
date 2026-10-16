@@ -13,24 +13,78 @@
 # A `latest` without update artifacts predates sysupdate support: the test is skipped, and
 # says so in its log.
 #   ./ci/test-update
+#   ./ci/test-update --from 20261015.1247 --to 20261015.1430 \
+#       --snapshot-root out/p1/snapshots --channel-url https://images.beamlineos.org/snapshots/20261015.1430/aarch64/update/ \
+#       --log-dir out/p1/update-public
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
 # shellcheck source=ci/lib-install.sh
 . "$REPO/ci/lib-install.sh"
 
-channel="$OUT/update"
-log_file="$OUT/serial-update.log"
-[ -f "$channel/SHA256SUMS.gpg" ] || die "$channel has no signed SHA256SUMS; run ./ci/image first"
-
 snapshots="$REPO/out/snapshots"
-old="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["snapshot"])' "$snapshots/latest.json")"
+log_dir="$OUT"
+requested_old=
+requested_new=
+candidate_url=
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            echo "usage: ci/test-update [--from SNAPSHOT] [--to SNAPSHOT] [--snapshot-root DIR] [--channel-url URL] [--log-dir DIR]"
+            exit 0 ;;
+        --from|--to|--snapshot-root|--channel-url|--log-dir)
+            [ "$#" -ge 2 ] || die "$1 requires a value"
+            case "$1" in
+                --from) requested_old="$2" ;;
+                --to) requested_new="$2" ;;
+                --snapshot-root) snapshots="$2" ;;
+                --channel-url) candidate_url="$2" ;;
+                --log-dir) log_dir="$2" ;;
+            esac
+            shift 2 ;;
+        *) die "unknown argument: $1" ;;
+    esac
+done
+python3 - "$requested_old" "$requested_new" <<'PY'
+import re, sys
+if any(value and not re.fullmatch(r"\d{8}\.\d{4}", value) for value in sys.argv[1:]):
+    raise SystemExit("explicit snapshots must be YYYYMMDD.HHMM")
+PY
+if [ -n "$candidate_url" ]; then
+    [ -n "$requested_new" ] || die "--channel-url requires --to"
+    candidate_url="$(python3 - "$candidate_url" <<'PY'
+import sys, urllib.parse
+url = sys.argv[1]
+p = urllib.parse.urlsplit(url)
+if (p.scheme not in ("http", "https") or not p.netloc or p.username or p.password or p.query or p.fragment
+        or any(c.isspace() for c in url)):
+    raise SystemExit("channel URL must be HTTP(S) without credentials, query, fragment or whitespace")
+print(url.rstrip("/") + "/")
+PY
+)"
+fi
+mkdir -p "$log_dir"
+log_file="$log_dir/serial-update.log"
+if [ -n "$requested_old" ]; then
+    old="$requested_old"
+else
+    old="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["snapshot"])' "$snapshots/latest.json")"
+fi
 if [ ! -d "$snapshots/$old/update" ]; then
+    [ -z "$requested_old" ] || die "explicit predecessor $old has no saved update channel"
     log "update: SKIPPED, snapshot $old has no update artifacts (it predates sysupdate support)"
     echo "SKIPPED: snapshot $old has no update artifacts (it predates sysupdate support)" > "$log_file"
     exit 0
 fi
-new="$(cd "$channel" && for f in beamline_*.efi; do v="${f#beamline_}"; echo "${v%.efi}"; done)"
+if [ -n "$candidate_url" ]; then
+    new="$requested_new"
+else
+    channel="$OUT/update"
+    if [ -n "$requested_new" ]; then channel="$snapshots/$requested_new/update"; fi
+    [ -f "$channel/SHA256SUMS.gpg" ] || die "$channel has no signed SHA256SUMS; run ./ci/image first"
+    new="$(cd "$channel" && for f in beamline_*.efi; do v="${f#beamline_}"; echo "${v%.efi}"; done)"
+    [ -z "$requested_new" ] || [ "$new" = "$requested_new" ] || die "saved target channel has a different version"
+fi
 if [ "$new" = dev ]; then
     # Outside an integration cycle the candidate's version is `dev`, which version ordering puts
     # before every snapshot (digits sort after letters): sysupdate finds nothing newer.
@@ -55,20 +109,24 @@ zstd -q -d "$old_medium" -o "$work/old-install.raw"
 DIR_WORK="$work/prepare"
 mkdir -p "$DIR_WORK" "$work/old"
 log "update: installing $old from its medium"
-install_medium "$work/old-install.raw" "$work/old" plain "$OUT/serial-update-install.log"
+install_medium "$work/old-install.raw" "$work/old" plain "$log_dir/serial-update-install.log"
 serve_channel "$snapshots/$old/update"
 log "update: $old's first boot, with its own channel"
-prepare_reference "$work/old" plain "$OUT/serial-update-reference.log"
+prepare_reference "$work/old" plain "$log_dir/serial-update-reference.log"
 kill "$server" 2>/dev/null || true
 server=
 
-port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
-python3 -m http.server --bind 127.0.0.1 --directory "$channel" "$port" >"$work/http.log" 2>&1 &
-server=$!
+if [ -z "$candidate_url" ]; then
+    port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+    python3 -m http.server --bind 127.0.0.1 --directory "$channel" "$port" >"$work/http.log" 2>&1 &
+    server=$!
+    candidate_url="http://10.0.2.2:$port/"
+fi
+log "update: candidate channel $candidate_url"
 
 # The candidate's transfer definitions, pointed at this host (QEMU's user network reaches it as
 # 10.0.2.2), as a tmpfiles.extra credential that writes them to /run/sysupdate.d.
-python3 - "$REPO/files/base/sysupdate.d" "http://10.0.2.2:$port/" "$snapshots/$old/update" "$work/tmpfiles-new.conf" > "$work/tmpfiles.extra" <<'EOF'
+python3 - "$REPO/files/base/sysupdate.d" "$candidate_url" "$snapshots/$old/update" "$work/tmpfiles-new.conf" > "$work/tmpfiles.extra" <<'EOF'
 import glob, os, sys
 src, url, old_channel, candidate_conf = sys.argv[1:]
 candidate_lines = []
@@ -145,6 +203,7 @@ python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$work/old/reference.q
     --wants beamline-update-new-transfers.service --wants beamline-update-test.service --wants beamline-update-fail.service \
     --kernel-arg systemd.mask=beamline-extension@desktop-gnome.service \
     --require BEAMLINE_CTL_UPDATE_CHOICE_OK --require BEAMLINE_CTL_ROLLBACK_CHOICE_OK \
+    --require "BEAMLINE_UPDATE_ENFORCING $old" --require "BEAMLINE_UPDATE_ENFORCING $new" \
     --require BEAMLINE_UPDATED_OK --expect BEAMLINE_ROLLED_BACK --timeout 1500 \
     --fail-on BEAMLINE_UPDATE_TEST_FAILED \
     --log "$log_file"

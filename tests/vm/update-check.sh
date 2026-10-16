@@ -2,6 +2,9 @@
 # Candidate/previous-version update and rollback probe, injected as a credential.
 set -eu
 . /usr/lib/os-release
+read -r enforcing < /sys/fs/selinux/enforce || [ -n "$enforcing" ]
+[ "$enforcing" = 1 ]
+echo "BEAMLINE_UPDATE_ENFORCING $IMAGE_VERSION"
 read -r old < "$CREDENTIALS_DIRECTORY/beamline.test.old" || [ -n "$old" ]
 read -r new < "$CREDENTIALS_DIRECTORY/beamline.test.new" || [ -n "$new" ]
 state=/var/lib/beamline-test
