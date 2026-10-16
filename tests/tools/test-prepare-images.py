@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Signed serving metadata and disposable-cache boundary regressions."""
+"""Signed metadata and complete native-service deployment bundle regressions."""
 import hashlib
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -11,32 +12,11 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
-import serve_images as serving
+import prepare_images as serving
 import publish
 
 
-class Cache(unittest.TestCase):
-    def test_eviction_respects_watermarks_and_leaves_unrelated_files(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            store = Path(temporary)
-            chunk = store / "aaaa" / ("a" * 64 + ".cacnk")
-            chunk.parent.mkdir()
-            chunk.write_bytes(b"12345678")
-            other = store / "unrelated"
-            other.write_bytes(b"leave this alone")
-            working = chunk.parent / ".tmp-cacnk123"
-            working.write_bytes(b"write in progress")
-            link = chunk.parent / ("aaaa" + "b" * 60 + ".cacnk")
-            link.symlink_to(other)
-            external = store / "external"
-            external.mkdir()
-            foreign = external / ("c" * 64 + ".cacnk")
-            foreign.write_bytes(b"outside the chunk store")
-            (store / "cccc").symlink_to(external, target_is_directory=True)
-            self.assertEqual(serving.evict_cache(store, 8), {"cache_bytes": 8, "evicted_chunks": 0})
-            self.assertEqual(serving.evict_cache(store, 7), {"cache_bytes": 0, "evicted_chunks": 1})
-            self.assertTrue(other.exists() and working.exists() and link.is_symlink() and foreign.exists())
-
+class LocalMetadata(unittest.TestCase):
     def test_local_metadata_cannot_be_replaced_or_follow_a_symlink(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "metadata"
@@ -89,14 +69,45 @@ class Metadata(unittest.TestCase):
 
     def test_signed_metadata_and_aliases_prepare_one_shared_mount(self):
         with patch.object(serving, "public_get", self.get):
-            state = self.root / "state"
-            state.mkdir()
-            blobs, configuration = serving.prepare("https://store.example", [self.snapshot], state, "127.0.0.1:9080")
-        self.assertEqual(len(blobs), 1)
-        download = state / "site/snapshots" / self.snapshot / "aarch64/virt-aarch64.install.raw.zst"
+            bundle = self.root / "bundle"
+            count = serving.prepare("https://store.example", [self.snapshot], bundle)
+        self.assertEqual(count, 1)
+        download = bundle / "data/site/snapshots" / self.snapshot / "aarch64/virt-aarch64.install.raw.zst"
         self.assertTrue(download.is_symlink())
-        self.assertTrue(configuration.is_file())
         self.assertFalse((download.parent / "indexes").exists())
+        self.assertTrue((bundle / "data/Caddyfile").is_file())
+        self.assertEqual(len(list((bundle / "data/images").glob("*.env"))), 1)
+        self.assertTrue((bundle / "systemd/beamline-images.target.d/snapshots.conf").is_file())
+
+    def test_late_failure_does_not_leave_a_deployable_partial_bundle(self):
+        def late_failure(base, key):
+            if self.snapshot not in key:
+                raise ValueError("missing second release")
+            return self.get(base, key)
+        bundle = self.root / "bundle"
+        with patch.object(serving, "public_get", late_failure), self.assertRaisesRegex(ValueError, "second release"):
+            serving.prepare("https://store.example", [self.snapshot, "20261015.1430"], bundle)
+        self.assertFalse(bundle.exists())
+
+    def test_preparation_does_not_replace_an_existing_deployment_bundle(self):
+        bundle = self.root / "bundle"
+        bundle.mkdir()
+        (bundle / "leave-me").write_text("existing configuration")
+        with self.assertRaisesRegex(ValueError, "already exists"):
+            serving.prepare("https://store.example", [self.snapshot], bundle)
+        self.assertEqual((bundle / "leave-me").read_text(), "existing configuration")
+
+    def test_private_host_umask_still_produces_a_readable_deployment(self):
+        bundle = self.root / "bundle"
+        previous = os.umask(0o077)
+        try:
+            with patch.object(serving, "public_get", self.get):
+                serving.prepare("https://store.example", [self.snapshot], bundle)
+        finally:
+            os.umask(previous)
+        self.assertEqual((bundle / "data/site").stat().st_mode & 0o777, 0o755)
+        self.assertEqual((bundle / "data/Caddyfile").stat().st_mode & 0o777, 0o644)
+        self.assertEqual((bundle / "libexec/beamline-image-ready").stat().st_mode & 0o777, 0o755)
 
     def test_signature_failure_leaves_no_accepted_local_release(self):
         self.objects["publication.json"] += b"changed"
