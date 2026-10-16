@@ -111,7 +111,9 @@ def build_bundle(base, snapshots, bundle):
     dropin = systemd / "beamline-images.target.d/snapshots.conf"
     dropin.parent.mkdir()
     units = " ".join(f"beamline-image@{digest}.service" for digest in sorted(blobs))
-    dropin.write_text(f"# SPDX-License-Identifier: MIT\n[Unit]\nRequires={units}\nAfter={units}\n")
+    # The target groups independent mounts. Requires would propagate one
+    # process's normal restart through the target on systemd 252.
+    dropin.write_text(f"# SPDX-License-Identifier: MIT\n[Unit]\nWants={units}\nAfter={units}\n")
     dropin = systemd / "caddy.service.d/beamline-images.conf"
     dropin.parent.mkdir()
     dropin.write_text("# SPDX-License-Identifier: MIT\n[Unit]\nWants=beamline-images.target\nAfter=beamline-images.target\n")
