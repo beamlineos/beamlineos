@@ -73,11 +73,6 @@ config:
         install -m644 "/extensions/${name}.${kind}.raw" "${out}/${name}_%{version}.${kind}.raw"
       done
     done
-    # Compatibility aliases for clients whose immutable transfer definitions still
-    # name admin (D63). These are the exact signed posix bytes, not a second extension.
-    for kind in sysext confext; do
-      ln "${out}/posix_%{version}.${kind}.raw" "${out}/admin_%{version}.${kind}.raw"
-    done
 
   - |
     cd "%{install-root}"

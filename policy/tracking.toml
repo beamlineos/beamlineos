@@ -73,7 +73,6 @@ refs = "project.refs"
 url = "https://github.com/uutils/coreutils.git"
 branch = "main"
 elements = ["posix/uutils-coreutils.bst"]
-renamed_from = { "posix/uutils-coreutils.bst" = "admin/uutils-coreutils.bst" }
 refs = "project.refs"
 
 [component.uutils-findutils]

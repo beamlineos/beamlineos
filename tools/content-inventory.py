@@ -43,7 +43,7 @@ def images(update):
     for path in sorted(glob.glob(os.path.join(update, "*.raw"))):
         name = os.path.basename(path)
         match = re.fullmatch(r"(.+)_[^_]+\.(sysext|confext)\.raw", name)
-        if match and match[1] != "admin":  # admin_* are legacy names for posix's bytes (D63)
+        if match:
             found[f"{match[1]}.{match[2]}"] = (path, True)
     return found
 

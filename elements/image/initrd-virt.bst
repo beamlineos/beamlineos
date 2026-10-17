@@ -56,7 +56,6 @@ config:
       "${tree}/usr/lib/systemd/system/beamline-extension@"*.service.d \
       "${tree}/usr/lib/systemd/system/beamline-extension-unlink@.service" \
       "${tree}/usr/lib/systemd/system/beamline-extension-unlink@"*.service.d \
-      "${tree}/usr/lib/systemd/system/beamline-extensions-migrate.service" \
       "${tree}/usr/lib/systemd/system/beamline-extensions-refresh.service" \
       "${tree}/usr/lib/systemd/system/beamline-extensions-start.service" \
       "${tree}/usr/lib/systemd/system/beamline-extension-state.service" \

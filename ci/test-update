@@ -130,11 +130,6 @@ python3 - "$REPO/files/base/sysupdate.d" "$candidate_url" "$snapshots/$old/updat
 import glob, os, sys
 src, url, old_channel, candidate_conf = sys.argv[1:]
 candidate_lines = []
-legacy_admin = bool(glob.glob(os.path.join(old_channel, "admin_*.sysext.raw")))
-# Keep old clients' original image names, exercising the DATA migration bridge.
-# New snapshots also carry compatibility aliases; identify native posix by its absence
-# in the old channel, so later updates test the canonical definitions.
-legacy_admin = legacy_admin and not glob.glob(os.path.join(old_channel, "posix_*.sysext.raw"))
 for name in sorted(os.listdir(src)):
     lines = []
     for line in open(os.path.join(src, name)):
@@ -149,12 +144,8 @@ for name in sorted(os.listdir(src)):
                      for kind in ("sysext", "confext") if name.endswith(f"-{kind}.transfer")), None)
     if resource:
         extension, kind = resource
-        old_extension = "admin" if legacy_admin and extension == "posix" else extension
-        if not glob.glob(os.path.join(old_channel, f"{old_extension}_*.{kind}.raw")):
+        if not glob.glob(os.path.join(old_channel, f"{extension}_*.{kind}.raw")):
             continue
-    if legacy_admin and name in ("71-posix-sysext.transfer", "81-posix-confext.transfer"):
-        name = name.replace("posix", "admin")
-        lines = [line.replace("posix_", "admin_") for line in lines]
     body = "".join(lines).replace("\\", "\\\\").replace("\n", "\\n").replace("%", "%%")
     print(f"f+ /run/sysupdate.d/{name} 0644 - - - {body}")
 with open(candidate_conf, "w") as stream:

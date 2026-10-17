@@ -61,11 +61,11 @@ class SourceIntake(unittest.TestCase):
 
     def test_rename_preserves_crate_refs_and_removes_old_key(self):
         entries = [{'ref': 'a' * 40}, {'ref': [{'name': 'crate', 'sha': 'b' * 64}]}]
-        integrate.write_source_entries('project.refs', {'admin/tools.bst': entries})
-        comp = dict(self.comp, renamed_from={'posix/tools.bst': 'admin/tools.bst'})
+        integrate.write_source_entries('project.refs', {'old/tools.bst': entries})
+        comp = dict(self.comp, renamed_from={'posix/tools.bst': 'old/tools.bst'})
         integrate.migrate_sources({'component': {'tools': comp}})
         self.assertEqual(integrate.source_entries('project.refs', 'posix/tools.bst'), entries)
-        self.assertEqual(integrate.source_entries('project.refs', 'admin/tools.bst'), [])
+        self.assertEqual(integrate.source_entries('project.refs', 'old/tools.bst'), [])
 
     def test_retry_restores_first_intake_without_upstream_lookup(self):
         entries = [{'ref': 'a' * 40}, {'ref': [{'name': 'crate', 'sha': 'b' * 64}]}]

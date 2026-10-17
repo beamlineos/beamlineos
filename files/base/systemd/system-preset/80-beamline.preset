@@ -14,7 +14,6 @@ enable beamline-avc-follow.service
 enable beamlinectld.socket
 enable beamline-extension-state.service
 enable beamline-printing-start.service
-enable beamline-extensions-migrate.service
 enable beamline-extension@.service desktop-gnome posix posix-devel printing-scanning
 enable beamline-extensions-start.service
 
