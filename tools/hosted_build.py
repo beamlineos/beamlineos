@@ -205,6 +205,21 @@ def worker_dockerfile():
         "&& dnf clean all\n")
 
 
+def run_logged(args, path):
+    command = list(map(str, args))
+    print("+ " + " ".join(command), flush=True)
+    with path.open("w") as log:
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              text=True, bufsize=1) as process:
+            for line in process.stdout:
+                log.write(line)
+                log.flush()
+                print(line, end="", flush=True)
+            code = process.wait()
+    if code:
+        raise subprocess.CalledProcessError(code, command)
+
+
 def host(phase):
     identity()
     if platform.system() != "Linux" or platform.machine() != "aarch64":
@@ -224,16 +239,12 @@ def host(phase):
     container = base / "container"
     container.mkdir()
     with serve_cache(base, "aarch64", PREFIX, evidence, disk=True):
-        with (evidence / "buildstream.log").open("w") as log:
-            try:
-                run(["docker", "run", "--rm", "--privileged", "--network", "host",
-                     "--mount", f"type=bind,src={ROOT},dst=/work",
-                     "--mount", f"type=bind,src={container},dst=/build-state",
-                     "--workdir", "/work", "beamline-hosted-build", "python3",
-                     "/work/tools/hosted_build.py", "container-" + phase],
-                    stdout=log, stderr=subprocess.STDOUT)
-            finally:
-                print((evidence / "buildstream.log").read_text(), flush=True)
+        run_logged(["docker", "run", "--rm", "--privileged", "--network", "host",
+                    "--mount", f"type=bind,src={ROOT},dst=/work",
+                    "--mount", f"type=bind,src={container},dst=/build-state",
+                    "--workdir", "/work", "beamline-hosted-build", "python3", "-u",
+                    "/work/tools/hosted_build.py", "container-" + phase],
+                   evidence / "buildstream.log")
     run(["git", "diff", "--exit-code", "HEAD", "--"])
     result = json.loads((container / "result.json").read_text())
     result.update(source=os.environ["GITHUB_SHA"], run=os.environ["GITHUB_RUN_ID"],

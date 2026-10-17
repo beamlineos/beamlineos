@@ -75,6 +75,7 @@ jobs:
 
   recover:
     needs: compile
+    if: ${{ !cancelled() && needs.compile.result == 'success' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:

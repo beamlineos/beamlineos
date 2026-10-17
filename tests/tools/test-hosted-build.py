@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 import copy
+import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -15,6 +17,35 @@ from hosted_experiment import cache_config
 
 
 class HostedBuildTest(unittest.TestCase):
+    def test_worker_output_reaches_console_and_log_before_exit_and_retains_failure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            receipt = root / "receipt"
+            log = root / "worker.log"
+
+            class Console(io.StringIO):
+                def flush(self):
+                    if "worker is running\n" in self.getvalue() and log.exists():
+                        if "worker is running\n" in log.read_text():
+                            receipt.touch()
+                    super().flush()
+
+            child = (
+                "import pathlib, sys, time; "
+                "print('worker is running', flush=True); "
+                f"receipt = pathlib.Path({str(receipt)!r}); "
+                "deadline = time.monotonic() + 5\n"
+                "while not receipt.exists() and time.monotonic() < deadline: time.sleep(0.01)\n"
+                "print('worker stderr', file=sys.stderr, flush=True)\n"
+                "sys.exit(7 if receipt.exists() else 9)\n")
+            console = Console()
+            with patch.object(sys, "stdout", console):
+                with self.assertRaises(subprocess.CalledProcessError) as failure:
+                    build.run_logged([sys.executable, "-u", "-c", child], log)
+            self.assertEqual(failure.exception.returncode, 7)
+            self.assertEqual(log.read_text(), "worker is running\nworker stderr\n")
+            self.assertIn("worker stderr\n", console.getvalue())
+
     def test_compile_config_disables_remote_artifacts_and_sources(self):
         with tempfile.TemporaryDirectory() as temp:
             config = json.loads(build.config(Path(temp), False).read_text())
