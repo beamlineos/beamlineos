@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Build the standalone serving artifact; no uploads, image builds or deployment.
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+cd "$REPO"
+rustup target add wasm32-unknown-unknown
+npm ci --prefix infra/images --ignore-scripts --no-audit --no-fund
+npm --prefix infra/images run build

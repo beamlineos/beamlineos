@@ -9,3 +9,7 @@
 __pycache__/
 
 .DS_Store
+
+# Worker build tools and local Cloudflare state
+node_modules/
+/.wrangler/

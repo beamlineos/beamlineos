@@ -20,3 +20,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - run: ./ci/check-hosted
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+    - run: ./ci/test-images

@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+// Copied into out/images-worker by ci/build-images. Deploy that artifact.
+{
+  "name": "beamline-images",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-12",
+  "workers_dev": true,
+  "routes": [{ "pattern": "images.beamlineos.org", "custom_domain": true }],
+  "vars": { "STORE_ORIGIN": "https://store.beamlineos.org" },
+  "limits": { "cpu_ms": 300000, "subrequests": 100000 },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/", "/snapshots", "/snapshots/*", "/healthz"]
+  },
+  "rules": [{ "type": "CompiledWasm", "globs": ["**/*.wasm"], "fallthrough": true }]
+}

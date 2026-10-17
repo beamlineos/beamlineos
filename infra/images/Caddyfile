@@ -1,5 +1,0 @@
-# SPDX-License-Identifier: MIT
-# Owner-applied public site. Generated routes serve stock desync mounts directly.
-images.beamlineos.org {
-	import /srv/beamline-images/Caddyfile
-}

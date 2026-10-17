@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Exercise real workerd/WASM against locally signed desync fixtures.
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+cd "$REPO"
+./ci/build-images
+npm --prefix infra/images test

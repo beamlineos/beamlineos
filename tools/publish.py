@@ -5,6 +5,7 @@
 ci/publish SNAPSHOT --prepare-only      validate and index without cloud credentials
 ci/publish SNAPSHOT [--repeat]          upload, verify through public HTTP, commit manifest
 ci/publish SNAPSHOT --verify-only      reconstruct the signed public release without inputs
+ci/publish --refresh-page              rebuild only the HTML index from committed publications
 """
 
 import argparse
@@ -112,6 +113,24 @@ class R2:
     def chunks(self):
         result = json.loads(self.call("list-objects-v2", "--prefix", "store/"))
         return {x["Key"]: x["Size"] for x in result.get("Contents", []) or []}
+
+    def publications(self):
+        result = json.loads(self.call("list-objects-v2", "--prefix", "snapshots/"))
+        return [x["Key"] for x in result.get("Contents", []) or [] if x["Key"].endswith("/publication.json")]
+
+    def version(self, key):
+        dest = self.work / "page-download"
+        result = self.call("get-object", "--key", safe_path(key), str(dest), missing=True)
+        return (None, None) if result is None else (dest.read_bytes(), json.loads(result)["ETag"])
+
+    def replace_page(self, key, data, etag):
+        body = self.work / "page-upload"
+        body.write_bytes(data)
+        condition = ("--if-match", etag) if etag is not None else ("--if-none-match", "*")
+        result = self.call("put-object", "--key", safe_path(key), "--body", str(body), *condition,
+                           "--content-type", "text/html; charset=utf-8", "--cache-control", "public, max-age=60",
+                           conditional=True)
+        return result is not None
 
 
 def sign_manifest(path):
@@ -298,7 +317,7 @@ def publish(package, manifest, remote, replicate, verify):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("snapshot")
+    parser.add_argument("snapshot", nargs="?")
     parser.add_argument("--snapshot-root", type=Path, default=os.environ.get("BEAMLINE_SNAPSHOT_ROOT"))
     parser.add_argument("--cache-root", type=Path)
     parser.add_argument("--public-url", default="https://store.beamlineos.org")
@@ -306,6 +325,7 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--prepare-only", action="store_true")
     mode.add_argument("--verify-only", action="store_true")
+    mode.add_argument("--refresh-page", action="store_true", help="update only the static download index; no image transfer")
     parser.add_argument("--repeat", action="store_true", help="repeat publication and require zero new objects")
     parser.add_argument("--upload-concurrency", type=int, default=128)
     parser.add_argument("--download-concurrency", type=int, default=64)
@@ -317,15 +337,17 @@ def main():
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_bytes(canonical(report))
     try:
-        if not re.fullmatch(r"\d{8}\.\d{4}", args.snapshot):
+        if not args.refresh_page and not re.fullmatch(r"\d{8}\.\d{4}", args.snapshot or ""):
             raise ValueError("snapshot must be YYYYMMDD.HHMM")
+        if args.refresh_page and (args.snapshot or args.repeat):
+            raise ValueError("--refresh-page takes no snapshot or --repeat")
         if not 1 <= args.upload_concurrency <= 256:
             raise ValueError("upload concurrency must be between 1 and 256")
         if not 1 <= args.download_concurrency <= 256:
             raise ValueError("download concurrency must be between 1 and 256")
         if not args.public_url.startswith("https://") or "?" in args.public_url or "#" in args.public_url or "@" in args.public_url:
             raise ValueError("public store URL must be HTTPS without credentials, query or fragment")
-        if not args.verify_only and args.snapshot_root is None:
+        if not args.verify_only and not args.refresh_page and args.snapshot_root is None:
             raise ValueError("set BEAMLINE_SNAPSHOT_ROOT")
         cache = (args.cache_root or (args.snapshot_root.parent / "publish-cache" if args.snapshot_root else ROOT / "out/publish-cache")).resolve()
         cache.mkdir(parents=True, exist_ok=True)
@@ -337,9 +359,13 @@ def main():
             work = Path(temp)
             config = work / "desync.json"
             config.write_text("{}\n")
-            binary = install(cache)
+            binary = None if args.refresh_page else install(cache)
             progress()
-            if args.verify_only:
+            if args.refresh_page:
+                from image_page import refresh
+                progress(phase="refresh-page")
+                report["download_page"] = refresh(R2(work))
+            elif args.verify_only:
                 package = work / "release"
                 package.mkdir()
                 prefix = f"snapshots/{args.snapshot}/aarch64/"
@@ -396,6 +422,9 @@ def main():
                         if report["repeat"]["chunks_added"] or report["repeat"]["metadata_uploaded"]:
                             raise ValueError("repeat publication unexpectedly created objects")
                     report["publication_url"] = args.public_url.rstrip("/") + f"/snapshots/{args.snapshot}/aarch64/publication.json"
+                    from image_page import refresh
+                    progress(phase="refresh-page")
+                    report["download_page"] = refresh(remote)
             progress(result="passed", phase="complete")
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
         progress(result="failed", error=str(exc) if isinstance(exc, ValueError) else type(exc).__name__)
