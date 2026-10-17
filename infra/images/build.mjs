@@ -23,10 +23,16 @@ await build({ entryPoints: [path.join(here, 'worker.mjs')], outfile: path.join(o
   loader: { '.pgp': 'binary' }, external: ['*.wasm'], minify: true, legalComments: 'eof' });
 await cp(path.join(here, 'public'), path.join(output, 'public'), { recursive: true });
 await copyFile(path.join(here, 'wrangler.jsonc'), path.join(output, 'wrangler.jsonc'));
+const preview = JSON.parse((await readFile(path.join(here, 'wrangler.jsonc'), 'utf8'))
+  .split('\n').filter(line => !line.trimStart().startsWith('//')).join('\n'));
+preview.name = 'beamline-images-preview'; preview.routes = [];
+preview.vars.BENCHMARK_MODE = 'true';
+preview.r2_buckets = [{ binding: 'STORE_R2', bucket_name: 'beamlineos-store' }];
+await writeFile(path.join(output, 'wrangler.preview.jsonc'), JSON.stringify(preview, null, 2) + '\n');
 await copyFile(path.join(here, 'reader/LICENSE.desync'), path.join(output, 'LICENSE.desync'));
 await copyFile(path.join(root, 'LICENSE'), path.join(output, 'LICENSE'));
 await copyFile(path.join(here, 'node_modules/openpgp/LICENSE'), path.join(output, 'LICENSE.openpgp'));
-const files = ['worker.mjs', 'reader.wasm', 'wrangler.jsonc', 'public/index.html',
+const files = ['worker.mjs', 'reader.wasm', 'wrangler.jsonc', 'wrangler.preview.jsonc', 'public/index.html',
   'public/snapshots/index.html', 'LICENSE', 'LICENSE.desync', 'LICENSE.openpgp'];
 const sums = [];
 for (const name of files) {

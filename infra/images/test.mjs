@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import http from 'node:http';
+import { ChunkWindow } from './prefetch.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +20,7 @@ const configuration = JSON.parse((await fs.readFile(path.join(output, 'wrangler.
 const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'beamline-images-test-'));
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const objects = new Map(), faults = new Map(), requests = [];
-let productionStore;
+let productionStore, chunkDelayMs = 0;
 const bytes = Buffer.alloc(3 << 20);
 let random = 0x1430;
 for (let i = 0; i < bytes.length; i++) {
@@ -82,6 +83,9 @@ const origin = http.createServer(async (request, response) => {
       }
     }
     if (!data) { response.writeHead(404); response.end(); return; }
+    if (key.startsWith('store/') && chunkDelayMs) {
+      await new Promise(resolve => setTimeout(resolve, chunkDelayMs + (key.includes(firstId) ? 100 : 0)));
+    }
     if (fault === 'corrupt') { data = Buffer.from(data); data[Math.floor(data.length / 2)] ^= 1; }
     response.writeHead(200, { 'Content-Length': data.length }); response.end(data);
   } catch { response.writeHead(404); response.end(); }
@@ -91,6 +95,37 @@ let mf;
 let checks = 0;
 const check = (condition, message) => { assert.ok(condition, message); checks++; };
 try {
+  let releaseFirst;
+  const firstHeld = new Promise(resolve => { releaseFirst = resolve; });
+  const loaded = [];
+  const window = new ChunkWindow(40, async n => {
+    loaded.push(n);
+    if (n === 0) await firstHeld;
+    return new Uint8Array([n]);
+  }, () => 262144, { countLimit: 32 });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  check(loaded.length > 4, 'later fetches progress while the first chunk is slow');
+  check(window.stats.maxReservedBytes <= 4 << 20, 'encoded and decoded reservations are bounded');
+  check(window.stats.maxInFlight <= 6 && window.pending.size <= 32, 'concurrency and lookahead are bounded');
+  const stoppedAt = loaded.length;
+  await new Promise(resolve => setTimeout(resolve, 20));
+  check(loaded.length === stoppedAt, 'a stalled consumer applies backpressure');
+  releaseFirst();
+  const ordered = [];
+  for (let n = 0; n < 40; n++) ordered.push((await window.next())[0]);
+  check(ordered.every((value, n) => value === n), 'out of order fetch completion preserves output order');
+  window.close();
+  let cancelledRequests = 0;
+  const cancelled = new ChunkWindow(100, async () => { cancelledRequests++; return new Uint8Array(1); }, () => 65536);
+  cancelled.close();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const cancelledAt = cancelledRequests;
+  await new Promise(resolve => setTimeout(resolve, 20));
+  check(cancelledRequests === cancelledAt && cancelled.reserved === 0, 'cancellation releases reservations and stops scheduling');
+  await assert.rejects(() => cancelled.next()); checks++;
+  const brokenWindow = new ChunkWindow(2, async () => { throw new Error('corrupt chunk'); }, () => 65536);
+  await assert.rejects(() => brokenWindow.next(), /corrupt chunk/); checks++; brokenWindow.close();
+
   const w = (await WebAssembly.instantiate(await fs.readFile(path.join(output, 'reader.wasm')), {})).instance.exports;
   const pointer = w.alloc(rawIndex.length);
   const load = data => {
@@ -120,7 +155,9 @@ try {
         'worker.mjs': { type: 'esm', contents: await fs.readFile(path.join(output, 'worker.mjs'), 'utf8') },
         'reader.wasm': { type: 'wasm', contents: new Uint8Array(await fs.readFile(path.join(output, 'reader.wasm'))) },
       } },
-      env: { STORE_ORIGIN: { type: 'text', value: `http://127.0.0.1:${origin.address().port}` }, ASSETS: { type: 'assets' } },
+      env: { STORE_ORIGIN: { type: 'text', value: `http://127.0.0.1:${origin.address().port}` },
+        BENCHMARK_MODE: { type: 'text', value: 'true' }, STORE_R2: { type: 'r2', name: 'images-fixture' },
+        ASSETS: { type: 'assets' } },
       assets: { directory: path.join(output, 'public'), hasUserWorker: true,
         runWorkerFirst: configuration.assets.run_worker_first },
     } }],
@@ -179,6 +216,85 @@ try {
   check(Buffer.from(await response.arrayBuffer()).equals(objects.get(good.prefix + 'publication.json')), 'preserve signed manifest bytes');
   response = await get('/' + good.prefix + 'update/SHA256SUMS');
   check(Buffer.from(await response.arrayBuffer()).equals(objects.get(good.prefix + 'update/SHA256SUMS')), 'channel metadata');
+
+  const performanceReport = { controlledOriginDelayMs: 25, runs: [], micro: [] };
+  const childPids = async () => {
+    if (process.platform !== 'linux') return [];
+    const children = (await fs.readFile(`/proc/self/task/${process.pid}/children`, 'utf8')).trim().split(/\s+/).filter(Boolean);
+    const found = [];
+    for (const pid of children) {
+      if ((await fs.readFile(`/proc/${pid}/comm`, 'utf8')).trim() === 'workerd') found.push(pid);
+    }
+    return found;
+  };
+  const workerPids = await childPids();
+  const ticks = process.platform === 'linux' ? Number(execFileSync('getconf', ['CLK_TCK'])) : 1;
+  const pageSize = process.platform === 'linux' ? Number(execFileSync('getconf', ['PAGESIZE'])) : 1;
+  const usage = async () => {
+    if (!workerPids.length) return null;
+    let cpuSeconds = 0, processRssBytes = 0;
+    for (const pid of workerPids) {
+      const text = await fs.readFile(`/proc/${pid}/stat`, 'utf8');
+      const fields = text.slice(text.lastIndexOf(')') + 2).split(' ');
+      cpuSeconds += (Number(fields[11]) + Number(fields[12])) / ticks;
+      processRssBytes += Number(fields[21]) * pageSize;
+    }
+    return { cpuSeconds, processRssBytes };
+  };
+  chunkDelayMs = 25;
+  for (const [scheduling, prefetch] of [['legacy', 4], ['rolling', 4], ['rolling', 16], ['rolling', 32]]) {
+    for (let repeat = 0; repeat < 3; repeat++) {
+      const before = await usage(), start = performance.now(), requestCount = requests.length;
+      const download = await get(good.url, { headers: { 'X-Beamline-Scheduling': scheduling, 'X-Beamline-Prefetch': String(prefetch) } });
+      check(hash(Buffer.from(await download.arrayBuffer())) === digest, 'delayed-origin download preserves exact bytes');
+      const after = await usage(), seconds = (performance.now() - start) / 1000;
+      performanceReport.runs.push({ scheduling, prefetch, repeat: repeat + 1, bytes: bytes.length, seconds,
+        mibPerSecond: bytes.length / (1 << 20) / seconds, originRequests: requests.length - requestCount,
+        workerdProcessCpuSeconds: before && after ? after.cpuSeconds - before.cpuSeconds : null,
+        workerdProcessRssBytes: after?.processRssBytes ?? null });
+    }
+  }
+  chunkDelayMs = 0;
+  
+  const microIndex = w.alloc(rawIndex.length);
+  new Uint8Array(w.memory.buffer, microIndex, rawIndex.length).set(rawIndex);
+  const microHandle = w.load_index(microIndex, rawIndex.length), microSize = Number(w.chunk_end(microHandle, 0));
+  w.free(microIndex, rawIndex.length);
+  const encoded = await fs.readFile(path.join(store, firstId.slice(0, 4), firstId + '.cacnk'));
+  const encodedPtr = w.alloc(encoded.length);
+  for (const verify of [false, true]) {
+    const cpu = process.cpuUsage(), start = performance.now(), iterations = 512;
+    for (let n = 0; n < iterations; n++) {
+      new Uint8Array(w.memory.buffer, encodedPtr, encoded.length).set(encoded);
+      const decoded = w.decode_chunk(encodedPtr, encoded.length, microSize);
+      check(Boolean(decoded) && (!verify || Boolean(w.verify_chunk(microHandle, 0, decoded, microSize))), 'WASM profiling preserves verification');
+      w.free(decoded, microSize);
+    }
+    const duration = (performance.now() - start) / 1000, spent = process.cpuUsage(cpu);
+    performanceReport.micro.push({ verify, bytes: iterations * microSize, seconds: duration,
+      mibPerSecond: iterations * microSize / (1 << 20) / duration, cpuSeconds: (spent.user + spent.system) / 1e6 });
+  }
+  w.free(encodedPtr, encoded.length); w.drop_index(microHandle);
+  await fs.writeFile(path.join(root, 'out/images-worker-performance.json'), JSON.stringify(performanceReport, null, 2) + '\n');
+
+  response = await get(good.url, { headers: { 'X-Beamline-Transport': 'r2', Range: 'bytes=0-127' } });
+  check(response.status === 502, 'missing R2 chunk is rejected');
+  const bucket = await mf.getR2Bucket('STORE_R2');
+  for (const [key, value] of objects) await bucket.put(key, value);
+  for (const directory of await fs.readdir(store)) {
+    for (const filename of await fs.readdir(path.join(store, directory))) {
+      await bucket.put(`store/${directory}/${filename}`, await fs.readFile(path.join(store, directory, filename)));
+    }
+  }
+  const beforeR2 = requests.length;
+  response = await get(good.url, { headers: { 'X-Beamline-Transport': 'r2' } });
+  check(hash(Buffer.from(await response.arrayBuffer())) === digest, 'R2 binding reconstructs the same bytes');
+  check(requests.length === beforeR2, 'R2 binding does not fetch the public origin');
+  for (const directory of await fs.readdir(store)) {
+    for (const filename of await fs.readdir(path.join(store, directory))) await bucket.delete(`store/${directory}/${filename}`);
+  }
+  response = await get(good.url, { headers: { 'X-Beamline-Transport': 'r2' } });
+  check(hash(Buffer.from(await response.arrayBuffer())) === digest, 'warm R2 reads use the immutable object cache');
 
   const concurrent = await Promise.all([get(good.url), get(good.url)]);
   for (const read of concurrent) check(hash(Buffer.from(await read.arrayBuffer())) === digest, 'concurrent reader');

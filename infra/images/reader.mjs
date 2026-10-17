@@ -30,8 +30,11 @@ export class Reader {
   id(number) {
     return Array.from(this.view(this.w.chunk_id(this.handle, number), 32), byte => byte.toString(16).padStart(2, '0')).join('');
   }
+  size(number) {
+    return Number(this.w.chunk_end(this.handle, number) - this.w.chunk_start(this.handle, number));
+  }
   decode(number, encoded) {
-    const expected = Number(this.w.chunk_end(this.handle, number) - this.w.chunk_start(this.handle, number));
+    const expected = this.size(number);
     const ptr = this.w.alloc(encoded.length); let output = 0;
     try {
       this.view(ptr, encoded.length).set(encoded);
