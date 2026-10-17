@@ -1,9 +1,13 @@
 # SPDX-License-Identifier: MIT
-name: p1-publish
+name: publish
 
 on:
   workflow_dispatch:
     inputs:
+      page_only:
+        description: Rebuild only the static download page from committed publications
+        type: boolean
+        default: false
       snapshot:
         description: Saved snapshot to publish and verify
         type: choice
@@ -32,6 +36,7 @@ jobs:
       with:
         persist-credentials: false
     - run: ./ci/publish "$PUBLISH_SNAPSHOT" --repeat
+      if: ${{ !inputs.page_only }}
       env:
         PUBLISH_SNAPSHOT: ${{ inputs.snapshot }}
         BEAMLINE_SNAPSHOT_ROOT: ${{ vars.BEAMLINE_SNAPSHOT_ROOT }}
@@ -39,10 +44,17 @@ jobs:
         R2_BUCKET: ${{ vars.R2_BUCKET }}
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - run: ./ci/publish --refresh-page
+      if: ${{ inputs.page_only }}
+      env:
+        R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: p1-publish-${{ inputs.snapshot }}-${{ github.run_id }}-${{ github.run_attempt }}
+        name: publish-${{ inputs.snapshot }}-${{ github.run_id }}-${{ github.run_attempt }}
         path: out/publish/report.json
         if-no-files-found: warn
         retention-days: 30
