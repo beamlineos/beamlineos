@@ -3,6 +3,7 @@
 import argparse
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -322,9 +323,14 @@ def graph_difference(actual, planned):
 def check_keys(actual, planned, evidence=None):
     difference = graph_difference(actual, planned)
     if evidence is not None:
-        write_json(evidence / "graph-actual.json", actual)
-        write_json(evidence / "graph-expected.json", planned)
-        write_json(evidence / "graph-difference.json", difference)
+        try:
+            write_json(evidence / "graph-actual.json", actual)
+            write_json(evidence / "graph-expected.json", planned)
+            write_json(evidence / "graph-difference.json", difference)
+        except OSError as recording_error:
+            if difference["matches"]:
+                raise
+            print("Could not record graph evidence: " + str(recording_error), file=sys.stderr, flush=True)
     if not difference["matches"]:
         print(json.dumps(difference, indent=2), flush=True)
         raise RuntimeError("Worker source graph differs from prepared keys; see graph-difference.json")
@@ -439,6 +445,53 @@ def worker_dockerfile(publisher=False):
             "RUN (getent group $BUILDER_GID || groupadd --gid $BUILDER_GID beamline) "
             "&& useradd --non-unique --uid $BUILDER_UID --gid $BUILDER_GID "
             "--home-dir /build-state/home --no-create-home beamline\n")
+
+
+def sandbox_probe():
+    evidence = paths()[1]
+    evidence.mkdir(parents=True, exist_ok=True)
+    before = {"uid": os.getuid(), "gid": os.getgid(), "netns": os.readlink("/proc/self/ns/net"),
+              "apparmor": Path("/proc/self/attr/current").read_text().strip(),
+              "status": [line for line in Path("/proc/self/status").read_text().splitlines()
+                         if line.startswith(("Cap", "NoNewPrivs:", "Seccomp:"))]}
+    write_json(evidence / "sandbox-host.json", before)
+    home = Path(os.environ["HOME"])
+    with tempfile.TemporaryFile(dir=home):
+        pass
+    script = ("import json,os; print(json.dumps({'uid':os.getuid(),'gid':os.getgid(),"
+              "'netns':os.readlink('/proc/self/ns/net'),"
+              "'devices':[s.split(':')[0].strip() for s in open('/proc/net/dev').readlines()[2:]]}))")
+    result = run(["bwrap", "--unshare-all", "--die-with-parent", "--ro-bind", "/", "/",
+                  "--dev-bind", "/dev", "/dev", "--proc", "/proc", "--uid", "0", "--gid", "0",
+                  "--clearenv", "/usr/bin/python3", "-c", script], stdout=subprocess.PIPE, text=True)
+    inside = json.loads(result.stdout)
+    if inside["uid"] != 0 or inside["gid"] != 0 or inside["netns"] == before["netns"] or inside["devices"] != ["lo"]:
+        raise RuntimeError("Build sandbox lacks isolated root/network namespaces")
+    write_json(evidence / "sandbox.json", {"host": before, "sandbox": inside, "passed": True})
+
+
+@contextmanager
+def container_security(phase, evidence):
+    enabled = Path("/sys/module/apparmor/parameters/enabled")
+    if phase == "publish" or not enabled.exists() or enabled.read_text().strip() != "Y":
+        yield []
+        return
+    profile = ROOT / "infra/hosted/apparmor.conf"
+    restriction = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")
+    write_json(evidence / "host-security.json", {
+        "apparmor": True, "profile": "beamline-hosted-build",
+        "restricted_userns": restriction.read_text().strip() if restriction.exists() else None})
+    run(["sudo", "-n", "apparmor_parser", "-r", profile])
+    try:
+        yield ["--security-opt", "apparmor=beamline-hosted-build"]
+    finally:
+        original = sys.exception()
+        try:
+            run(["sudo", "-n", "apparmor_parser", "-R", profile])
+        except (OSError, subprocess.SubprocessError) as error:
+            if original is None:
+                raise
+            print("Could not unload build profile: " + str(error), file=sys.stderr, flush=True)
 
 
 def worker(group):
@@ -766,13 +819,33 @@ def host(phase, group=None):
                 "--mount", f"type=bind,src={ROOT},dst=/work", "--mount", f"type=bind,src={state},dst=/build-state",
                 "--workdir", "/work", "beamline-hosted-build", "python3", "-u", "/work/tools/hosted_build.py",
                 "container-" + phase]
-    if group:
-        command += ["--group", group]
-    if phase in ("publish", "diagnose"):
-        run_logged(command, evidence / "worker.log")
-    else:
-        with serve_cache(service, "aarch64", PREFIX, evidence, disk=True):
+    probe = command[:-1] + ["container-probe"]
+    if phase == "prepare" and os.environ.get("BUILD_MODE") == "preflight":
+        try:
+            run_logged(probe, evidence / "sandbox-unprofiled.log")
+            status = 0
+        except subprocess.CalledProcessError as error:
+            status = error.returncode
+        write_json(evidence / "sandbox-unprofiled.json", {"exit_status": status})
+        for name in ("sandbox-host.json", "sandbox.json", "container-failure.json"):
+            path = evidence / name
+            if path.exists():
+                path.rename(evidence / ("unprofiled-" + name))
+        kernel = subprocess.run(["sudo", "-n", "dmesg", "--color=never"], capture_output=True, text=True)
+        (evidence / "sandbox-kernel.log").write_text("\n".join(
+            line for line in kernel.stdout.splitlines() if 'apparmor="DENIED"' in line)[-24000:])
+    with container_security(phase, evidence) as security:
+        command[3:3] = security
+        probe[3:3] = security
+        if phase != "publish":
+            run_logged(probe, evidence / "sandbox.log")
+        if group:
+            command += ["--group", group]
+        if phase in ("publish", "diagnose"):
             run_logged(command, evidence / "worker.log")
+        else:
+            with serve_cache(service, "aarch64", PREFIX, evidence, disk=True):
+                run_logged(command, evidence / "worker.log")
     clean_checkout()
 
 
@@ -780,11 +853,13 @@ def main():
     parser = argparse.ArgumentParser(description=HELP)
     parser.add_argument("phase", choices=("prepare", "diagnose", "worker", "assemble", "test", "publish",
                                           "container-prepare", "container-diagnose", "container-worker", "container-assemble",
-                                          "container-publish", "prepare-vm", "evidence-vm"))
+                                          "container-publish", "container-probe", "prepare-vm", "evidence-vm"))
     parser.add_argument("--group", choices=GROUPS)
     args = parser.parse_args()
     try:
-        if args.phase == "container-prepare":
+        if args.phase == "container-probe":
+            sandbox_probe()
+        elif args.phase == "container-prepare":
             prepare()
         elif args.phase == "container-diagnose":
             diagnose()
@@ -810,14 +885,22 @@ def main():
             host(args.phase, args.group)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as exc:
         evidence = paths()[1]
-        evidence.mkdir(parents=True, exist_ok=True)
         filename = "container-failure.json" if args.phase.startswith("container-") else "host-failure.json"
         try:
+            evidence.mkdir(parents=True, exist_ok=True)
             write_json(evidence / filename, {"phase": args.phase, "group": args.group, "error": str(exc)})
         except OSError as recording_error:
             print("Could not record failure: " + str(recording_error), file=sys.stderr, flush=True)
         raise
 
 
+def cli():
+    try:
+        main()
+    except subprocess.CalledProcessError as error:
+        print(str(error), file=sys.stderr, flush=True)
+        raise SystemExit(error.returncode if error.returncode >= 0 else 128 - error.returncode) from None
+
+
 if __name__ == "__main__":
-    main()
+    cli()

@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 import hosted_experiment as experiment
@@ -39,6 +40,24 @@ class HostedExperimentTest(unittest.TestCase):
         text = experiment.redact("failure key-value secret-value", env)
         self.assertEqual(text, "failure [REDACTED] [REDACTED]")
         self.assertNotIn("secret-value", json.dumps(experiment.cache_config("build/test/")))
+
+    def test_cache_log_failure_does_not_mask_worker_failure(self):
+        original = RuntimeError("worker failed")
+        server = MagicMock()
+        server.poll.return_value = None
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            blocked = root / "evidence"
+            blocked.write_text("not a directory")
+            with patch.object(experiment, "download_nativelink", return_value=root / "nativelink"), \
+                    patch.object(experiment.subprocess, "Popen", return_value=server), \
+                    patch.object(experiment.socket, "create_connection"):
+                with self.assertRaises(RuntimeError) as caught:
+                    with experiment.serve_cache(root, "aarch64", "build/", blocked):
+                        raise original
+                self.assertIs(caught.exception, original)
+        server.send_signal.assert_called_once()
+        server.wait.assert_called_once()
 
     def test_requires_matching_cross_job_evidence_and_overlap(self):
         result = {"arch": "aarch64", "prefix": "build/probes/1-1/aarch64/",

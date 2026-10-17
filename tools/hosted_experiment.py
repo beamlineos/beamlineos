@@ -14,6 +14,7 @@ import signal
 import shutil
 import socket
 import subprocess
+import sys
 import tarfile
 import time
 import urllib.request
@@ -257,16 +258,23 @@ def serve_cache(base, arch, object_prefix, evidence, disk=False):
                     time.sleep(0.2)
             yield
         finally:
-            if server.poll() is None:
-                server.send_signal(signal.SIGTERM)
-                try:
-                    server.wait(timeout=15)
-                except subprocess.TimeoutExpired:
-                    server.kill()
-                    server.wait()
-            clean_log = redact(raw_log.read_text(), environment)
-            (evidence / "nativelink.log").write_text(clean_log)
-            print(clean_log[-12000:], flush=True)
+            original = sys.exception()
+            try:
+                if server.poll() is None:
+                    server.send_signal(signal.SIGTERM)
+                    try:
+                        server.wait(timeout=15)
+                    except subprocess.TimeoutExpired:
+                        server.kill()
+                        server.wait()
+                clean_log = redact(raw_log.read_text(), environment)
+                (evidence / "nativelink.log").write_text(clean_log)
+                print(clean_log[-12000:], flush=True)
+            except (OSError, subprocess.SubprocessError) as cleanup_error:
+                if original is None:
+                    raise
+                print("Could not finish cache diagnostics: " + redact(str(cleanup_error), environment),
+                      file=sys.stderr, flush=True)
 
 
 def compare_reports(result, directory):
