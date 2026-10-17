@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: MIT
+name: validate
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Integration source selection
+        type: choice
+        options: [frozen, head]
+        default: frozen
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beamline-integration
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    if: >-
+      github.repository == 'beamlineos/beamlineos' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.actor == 'c-lin-chunyi' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/export/'))
+    runs-on: [self-hosted, macOS, ARM64, beamline-aarch64]
+    timeout-minutes: 240
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - run: ./ci/validate "$VALIDATION_MODE"
+      env:
+        VALIDATION_MODE: ${{ inputs.mode }}
+        BEAMLINE_SNAPSHOT_ROOT: ${{ vars.BEAMLINE_SNAPSHOT_ROOT }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: validation-${{ github.run_id }}-${{ github.run_attempt }}
+        path: out/validation/evidence/
+        if-no-files-found: error
+        retention-days: 30

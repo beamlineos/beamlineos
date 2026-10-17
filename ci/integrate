@@ -39,7 +39,7 @@ case "$status" in
 esac
 
 # The VM tests run in parallel lanes (ci/test-vms, D92).
-if "$REPO/ci/check" && "$REPO/ci/build" && "$REPO/ci/test-base" && "$REPO/ci/image" \
+if in_builder "$REPO/ci/check" && "$REPO/ci/build" && "$REPO/ci/test-base" && "$REPO/ci/image" \
     && "$REPO/ci/test-vms"; then
     # shellcheck disable=SC2086
     in_builder python3 tools/integrate.py --arch "$ARCH" record --result green $no_commit
