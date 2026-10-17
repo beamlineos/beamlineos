@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       seed_local:
-        description: Seed audited build dependencies from the Mac's existing native cache
+        description: Seed matching full-image prerequisites from the existing native cache
         type: boolean
         default: false
 
@@ -24,76 +24,205 @@ jobs:
   seed:
     if: >-
       github.repository == 'beamlineos/beamlineos' &&
-      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main' && inputs.seed_local
+      github.event_name == 'workflow_dispatch' &&
+      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, macOS, ARM64, beamline-aarch64]
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
     - run: ./ci/build-hosted seed-local
       env:
+        SEED_LOCAL: ${{ inputs.seed_local }}
         BEAMLINE_SNAPSHOT_ROOT: ${{ vars.BEAMLINE_SNAPSHOT_ROOT }}
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     - uses: actions/upload-artifact@v4
+      with:
+        name: build-context
+        path: out/hosted-build/context/
+        if-no-files-found: error
+        retention-days: 30
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: build-seed
         path: out/hosted-build/evidence/
         if-no-files-found: error
-        retention-days: 14
+        retention-days: 30
 
-  compile:
+  workers:
     needs: seed
-    if: >-
-      always() && !cancelled() && github.repository == 'beamlineos/beamlineos' &&
-      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main' &&
-      (!inputs.seed_local || needs.seed.result == 'success')
+    if: ${{ !cancelled() && needs.seed.result == 'success' }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        group: [base-posix, desktop, printing-scanning, installer]
     steps:
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
     - uses: actions/download-artifact@v4
-      if: inputs.seed_local
       with:
-        name: build-seed
-        path: out/hosted-build-input/
-    - run: ./ci/build-hosted compile
+        name: build-context
+        path: out/hosted-build-input/context/
+    - run: ./ci/build-hosted worker --group "$BUILD_GROUP"
       env:
+        BUILD_GROUP: ${{ matrix.group }}
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: build-compile
+        name: build-worker-${{ matrix.group }}
         path: out/hosted-build/evidence/
         if-no-files-found: error
-        retention-days: 14
+        retention-days: 30
 
-  recover:
-    needs: compile
-    if: ${{ !cancelled() && needs.compile.result == 'success' }}
+  assemble:
+    needs: [seed, workers]
+    if: ${{ !cancelled() && needs.seed.result == 'success' && needs.workers.result == 'success' }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 20
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
     - uses: actions/download-artifact@v4
       with:
-        name: build-compile
-        path: out/hosted-build-input/
-    - run: ./ci/build-hosted recover
+        name: build-context
+        path: out/hosted-build-input/context/
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: build-worker-*
+        path: out/hosted-build-input/workers/
+    - run: ./ci/build-hosted assemble
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - uses: actions/upload-artifact@v4
+      with:
+        name: image-manifest
+        path: out/hosted-build/image-manifest.json
+        if-no-files-found: error
+        retention-days: 2
+    - uses: actions/upload-artifact@v4
+      with:
+        name: image-installer
+        path: out/hosted-build/images/installer/
+        if-no-files-found: error
+        compression-level: 1
+        retention-days: 2
+    - uses: actions/upload-artifact@v4
+      with:
+        name: image-system
+        path: out/hosted-build/images/system/
+        if-no-files-found: error
+        compression-level: 1
+        retention-days: 2
+    - uses: actions/upload-artifact@v4
+      with:
+        name: image-posix
+        path: out/hosted-build/images/posix/
+        if-no-files-found: error
+        compression-level: 1
+        retention-days: 2
+    - uses: actions/upload-artifact@v4
+      with:
+        name: image-posix-devel
+        path: out/hosted-build/images/posix-devel/
+        if-no-files-found: error
+        compression-level: 1
+        retention-days: 2
+    - uses: actions/upload-artifact@v4
+      with:
+        name: image-desktop-gnome
+        path: out/hosted-build/images/desktop-gnome/
+        if-no-files-found: error
+        compression-level: 1
+        retention-days: 2
+    - uses: actions/upload-artifact@v4
+      with:
+        name: image-printing-scanning
+        path: out/hosted-build/images/printing-scanning/
+        if-no-files-found: error
+        compression-level: 1
+        retention-days: 2
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-assemble
+        path: out/hosted-build/evidence/
+        if-no-files-found: error
+        retention-days: 30
+
+  test:
+    needs: [seed, assemble]
+    if: ${{ !cancelled() && needs.seed.result == 'success' && needs.assemble.result == 'success' }}
+    runs-on: [self-hosted, macOS, ARM64, beamline-aarch64]
+    timeout-minutes: 240
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: build-context
+        path: out/hosted-build-input/context/
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: image-*
+        merge-multiple: true
+        path: out/hosted-build-input/images/
+    - run: ./ci/build-hosted test
+      env:
+        BEAMLINE_SNAPSHOT_ROOT: ${{ vars.BEAMLINE_SNAPSHOT_ROOT }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-vm
+        path: out/hosted-build/evidence/
+        if-no-files-found: error
+        retention-days: 30
+
+  publish:
+    needs: [seed, assemble, test]
+    if: ${{ !cancelled() && needs.seed.result == 'success' && needs.assemble.result == 'success' && needs.test.result == 'success' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: build-context
+        path: out/hosted-build-input/context/
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: image-*
+        merge-multiple: true
+        path: out/hosted-build-input/images/
+    - uses: actions/download-artifact@v4
+      with:
+        name: build-assemble
+        path: out/hosted-build-input/assemble/
+    - uses: actions/download-artifact@v4
+      with:
+        name: build-vm
+        path: out/hosted-build-input/vm/
+    - run: ./ci/build-hosted publish
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: build-recover
+        name: build-publication
         path: out/hosted-build/evidence/
         if-no-files-found: error
-        retention-days: 14
+        retention-days: 30
