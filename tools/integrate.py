@@ -489,8 +489,6 @@ def resolve_component(name, comp, arch):
 
 
 OVERRIDES = os.path.join(REPO, "elements", "overrides")
-COPIED_FROM = re.compile(r"^# Copied from: (?P<project>freedesktop-sdk|gnome-build-meta) (?P<sha>[0-9a-f]{40})\n"
-                         r"#\s+(?P<path>\S+)", re.M)
 
 
 def recipe_changed(mirror, old, new, path):
@@ -534,20 +532,25 @@ def override_drift(upstreams):
     if not os.path.isdir(OVERRIDES):
         return []
     warnings = []
-    for name in sorted(os.listdir(OVERRIDES)):
+    with open(os.path.join(REPO, "policy/overrides.toml"), "rb") as f:
+        registry = tomllib.load(f)["override"]
+    names = set(os.listdir(OVERRIDES))
+    if names != set(registry):
+        raise ValueError("override provenance must cover exactly elements/overrides")
+    for name in sorted(names):
         with open(os.path.join(OVERRIDES, name), encoding="utf-8") as f:
             text = f.read()
-        m = COPIED_FROM.search(text)
-        upstream = upstreams.get(m.group("project")) if m else None
+        original = registry[name]
+        upstream = upstreams.get(original["project"])
         if not upstream or not upstream.get("mirror"):
             continue
-        mirror, sha, commit = upstream["mirror"], m.group("sha"), upstream["commit"]
-        if sha != commit and recipe_changed(mirror, sha, commit, m.group("path")):
-            warnings.append(f"overrides/{name}: {m.group('project')} changed {m.group('path')} since "
+        mirror, sha, commit = upstream["mirror"], original["commit"], upstream["commit"]
+        if sha != commit and recipe_changed(mirror, sha, commit, original["path"]):
+            warnings.append(f"overrides/{name}: {original['project']} changed {original['path']} since "
                             f"{sha[:12]}; re-copy it from {commit[:12]}")
         for path in copied_local_sources(text, mirror, sha):
             if local_copy_differs(mirror, commit, path):
-                warnings.append(f"overrides/{name}: {path} differs from {m.group('project')}'s at "
+                warnings.append(f"overrides/{name}: {path} differs from {original['project']}'s at "
                                 f"{commit[:12]}; re-copy it")
     return warnings
 
@@ -561,20 +564,18 @@ GBM_NOT_CARRIED = {
     "components/systemd-ukify.bst", "components/systemd-libs.bst",
     "components/linux-module-cert.bst",
 }
-OVERRIDE_LINE = re.compile(r"^\s+(components/\S+\.bst):\s*(\S+\.bst)\s*$", re.M)
 
 
 def gbm_override_drift(gbm):
     """Beamline's FDSDK junction carries gnome-build-meta's FDSDK overrides (decisions
     D28). Report every difference from gbm's list at the selected commit (§31.4)."""
     theirs_text = run(["git", "-C", gbm["mirror"], "show", f"{gbm['commit']}:elements/freedesktop-sdk.bst"])
-    section = theirs_text[theirs_text.index("overrides:"):]
-    theirs = {k: v for k, v in OVERRIDE_LINE.findall(section) if k not in GBM_NOT_CARRIED}
+    theirs = {k: v for k, v in yaml().load(theirs_text)["config"]["overrides"].items()
+              if k not in GBM_NOT_CARRIED}
     with open(FDSDK_JUNCTION, encoding="utf-8") as f:
-        ours_text = f.read()
-    block = ours_text[ours_text.index("# BEGIN gnome-build-meta overrides"):
-                      ours_text.index("# END gnome-build-meta overrides")]
-    ours = {k: v[len(GBM_PREFIX):] for k, v in OVERRIDE_LINE.findall(block) if v.startswith(GBM_PREFIX)}
+        junction = yaml().load(f)
+    ours = {k: v[len(GBM_PREFIX):] for k, v in junction["config"]["overrides"].items()
+            if isinstance(v, str) and v.startswith(GBM_PREFIX)}
     problems = []
     for key in sorted(set(theirs) | set(ours)):
         if theirs.get(key) != ours.get(key):

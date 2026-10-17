@@ -169,5 +169,29 @@ class SourceIntake(unittest.TestCase):
                 integrate.inherited_recipes(policy, sources, previous, True, 'aarch64')
 
 
+class OverrideMetadata(unittest.TestCase):
+    def test_junction_overrides_are_read_without_comment_markers(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            junction = pathlib.Path(temporary) / 'sdk.bst'
+            junction.write_text('config:\n  overrides:\n    components/a.bst: junctions/gnome-build-meta.bst:sdk/a.bst\n'
+                                '    components/own.bst: overrides/own.bst\n')
+            upstream = 'config:\n  overrides:\n    components/a.bst: sdk/a.bst\n'
+            with patch.object(integrate, 'FDSDK_JUNCTION', str(junction)), patch.object(integrate, 'run', return_value=upstream):
+                self.assertEqual(integrate.gbm_override_drift({'mirror': '/unused', 'commit': 'a' * 40}), [])
+                junction.write_text(junction.read_text().replace('sdk/a.bst', 'sdk/b.bst'))
+                self.assertIn('components/a.bst', integrate.gbm_override_drift({'mirror': '/unused', 'commit': 'a' * 40})[0])
+
+    def test_unregistered_override_fails_instead_of_silently_skipping_drift(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            overrides = root / 'elements/overrides'
+            overrides.mkdir(parents=True)
+            (root / 'policy').mkdir()
+            (root / 'policy/overrides.toml').write_text('[override]\n')
+            (overrides / 'unknown.bst').write_text('kind: manual\n')
+            with patch.multiple(integrate, REPO=str(root), OVERRIDES=str(overrides)), self.assertRaisesRegex(ValueError, 'provenance'):
+                integrate.override_drift({})
+
+
 if __name__ == '__main__':
     unittest.main()

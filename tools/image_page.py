@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: MIT
 """Rebuild unstyled directory indexes from committed, signed publications only."""
+import json
 from html import escape
 from pathlib import Path
 import re
 import tempfile
 from urllib.parse import quote
+
+
+from publication import validate_manifest, verify_manifest_signature
 
 
 PAGE = "site/snapshots/index.html"
@@ -41,11 +45,6 @@ def render(manifests):
 
 
 def refresh(remote):
-    # Import lazily: publish invokes this module only after its commit marker, or
-    # in explicit page-only mode. No chunk inventory, transfer or extraction runs.
-    from publish import validate_manifest, verify_manifest_signature
-    import json
-
     written = False
     for _ in range(5):
         previous, etag = remote.version(PAGE)

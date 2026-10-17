@@ -45,23 +45,10 @@ while [ "$#" -gt 0 ]; do
         *) die "unknown argument: $1" ;;
     esac
 done
-python3 - "$requested_old" "$requested_new" <<'PY'
-import re, sys
-if any(value and not re.fullmatch(r"\d{8}\.\d{4}", value) for value in sys.argv[1:]):
-    raise SystemExit("explicit snapshots must be YYYYMMDD.HHMM")
-PY
+python3 "$REPO/tools/update_transfers.py" snapshots "$requested_old" "$requested_new"
 if [ -n "$candidate_url" ]; then
     [ -n "$requested_new" ] || die "--channel-url requires --to"
-    candidate_url="$(python3 - "$candidate_url" <<'PY'
-import sys, urllib.parse
-url = sys.argv[1]
-p = urllib.parse.urlsplit(url)
-if (p.scheme not in ("http", "https") or not p.netloc or p.username or p.password or p.query or p.fragment
-        or any(c.isspace() for c in url)):
-    raise SystemExit("channel URL must be HTTP(S) without credentials, query, fragment or whitespace")
-print(url.rstrip("/") + "/")
-PY
-)"
+    candidate_url="$(python3 "$REPO/tools/update_transfers.py" url "$candidate_url")"
 fi
 mkdir -p "$log_dir"
 log_file="$log_dir/serial-update.log"
@@ -126,31 +113,8 @@ log "update: candidate channel $candidate_url"
 
 # The candidate's transfer definitions, pointed at this host (QEMU's user network reaches it as
 # 10.0.2.2), as a tmpfiles.extra credential that writes them to /run/sysupdate.d.
-python3 - "$REPO/files/base/sysupdate.d" "$candidate_url" "$snapshots/$old/update" "$work/tmpfiles-new.conf" > "$work/tmpfiles.extra" <<'EOF'
-import glob, os, sys
-src, url, old_channel, candidate_conf = sys.argv[1:]
-candidate_lines = []
-for name in sorted(os.listdir(src)):
-    lines = []
-    for line in open(os.path.join(src, name)):
-        if line.startswith("#"):
-            continue
-        lines.append(f"Path={url}\n" if line.startswith("Path=https://") else line)
-    body = "".join(lines).replace("\\", "\\\\").replace("\n", "\\n").replace("%", "%%")
-    candidate_lines.append(f"f+ /run/sysupdate.d/{name} 0644 - - - {body}\n")
-    # The old immutable client only knows resources present in its snapshot.
-    # Candidate definitions appear after boot, where sysupdate repairs missing new resources.
-    resource = next(((name.split("-", 1)[1][:-len(f"-{kind}.transfer")], kind)
-                     for kind in ("sysext", "confext") if name.endswith(f"-{kind}.transfer")), None)
-    if resource:
-        extension, kind = resource
-        if not glob.glob(os.path.join(old_channel, f"{extension}_*.{kind}.raw")):
-            continue
-    body = "".join(lines).replace("\\", "\\\\").replace("\n", "\\n").replace("%", "%%")
-    print(f"f+ /run/sysupdate.d/{name} 0644 - - - {body}")
-with open(candidate_conf, "w") as stream:
-    stream.writelines(candidate_lines)
-EOF
+python3 "$REPO/tools/update_transfers.py" render "$REPO/files/base/sysupdate.d" "$candidate_url" \
+    --predecessor "$snapshots/$old/update" --candidate "$work/tmpfiles-new.conf" > "$work/tmpfiles.extra"
 
 cat > "$work/beamline-update-new-transfers.service" <<EOF
 # SPDX-License-Identifier: MIT

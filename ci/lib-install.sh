@@ -48,15 +48,8 @@ serve_channel() {
     python3 -m http.server --bind 127.0.0.1 --directory "$1" "$port" >"$DIR_WORK/http.log" 2>&1 &
     # shellcheck disable=SC2034 # the caller kills $server when it is done
     server=$!
-    python3 - "$REPO/files/base/sysupdate.d" "http://10.0.2.2:$port/" > "$DIR_WORK/tmpfiles.extra" <<'EOF'
-import os, sys
-src, url = sys.argv[1:]
-for name in sorted(os.listdir(src)):
-    lines = [f"Path={url}\n" if line.startswith("Path=https://") else line
-             for line in open(os.path.join(src, name)) if not line.startswith("#")]
-    body = "".join(lines).replace("\\", "\\\\").replace("\n", "\\n").replace("%", "%%")
-    print(f"f+ /run/sysupdate.d/{name} 0644 - - - {body}")
-EOF
+    python3 "$REPO/tools/update_transfers.py" render "$REPO/files/base/sysupdate.d" \
+        "http://10.0.2.2:$port/" > "$DIR_WORK/tmpfiles.extra"
 }
 
 # prepare_reference DIR secure-boot|plain LOG: DIR/reference.qcow2, a persistent overlay of
