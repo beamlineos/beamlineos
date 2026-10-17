@@ -11,6 +11,7 @@ from desync_tool import VERSION
 import snapshot as checks
 
 ROOT = Path(__file__).resolve().parents[1]
+USER_AGENT = "Beamline-CI/0.0 (+https://github.com/beamlineos/beamlineos)"
 KEYRING = ROOT / "files/keys/dev/update/import-pubring.pgp"
 
 
