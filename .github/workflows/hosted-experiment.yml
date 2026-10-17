@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: MIT
+name: hosted-experiment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-experiment
+  cancel-in-progress: false
+
+env:
+  R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+  R2_BUCKET: ${{ vars.R2_BUCKET }}
+
+jobs:
+  seed:
+    if: >-
+      github.repository == 'beamlineos/beamlineos' &&
+      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - {arch: x86_64, runner: ubuntu-24.04}
+        - {arch: aarch64, runner: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - run: ./ci/hosted-experiment host seed
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: hosted-seed-${{ matrix.arch }}
+        path: out/hosted-experiment/evidence/
+        if-no-files-found: error
+        retention-days: 14
+
+  writer:
+    needs: seed
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        writer: [a, b]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - run: ./ci/hosted-experiment host writer --writer "$EXPERIMENT_WRITER"
+      env:
+        EXPERIMENT_WRITER: ${{ matrix.writer }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: hosted-writer-${{ matrix.runner }}-${{ matrix.writer }}
+        path: out/hosted-experiment/evidence/
+        if-no-files-found: error
+        retention-days: 14
+
+  verify:
+    needs: writer
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - {arch: x86_64, runner: ubuntu-24.04}
+        - {arch: aarch64, runner: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: hosted-seed-${{ matrix.arch }}
+        path: out/hosted-inputs/seed/
+    - uses: actions/download-artifact@v4
+      with:
+        name: hosted-writer-${{ matrix.runner }}-a
+        path: out/hosted-inputs/writer-a/
+    - uses: actions/download-artifact@v4
+      with:
+        name: hosted-writer-${{ matrix.runner }}-b
+        path: out/hosted-inputs/writer-b/
+    - run: ./ci/hosted-experiment host verify
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: hosted-verify-${{ matrix.arch }}
+        path: out/hosted-experiment/evidence/
+        if-no-files-found: error
+        retention-days: 14
