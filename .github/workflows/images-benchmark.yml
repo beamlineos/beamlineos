@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: MIT
+name: images-benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_origin:
+        description: Owner-deployed preview HTTPS origin, empty for deployed baseline only
+        type: string
+        default: ''
+      include_r2:
+        description: Include the preview's R2 binding with immutable object caching
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beamline-images-benchmark
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    if: >-
+      github.repository == 'beamlineos/beamlineos' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - location: hosted-arm
+          runner: ubuntu-24.04-arm
+        - location: mac
+          runner: [self-hosted, macOS, ARM64, beamline-aarch64]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - run: ./ci/benchmark-images
+      env:
+        BEAMLINE_IMAGES_CANDIDATE: ${{ inputs.candidate_origin }}
+        BENCHMARK_R2: ${{ inputs.include_r2 }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: images-benchmark-${{ matrix.location }}
+        path: out/images-benchmark/
+        retention-days: 30
+        if-no-files-found: error

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { HttpError, getBytes, publication, indexBytes, sha256 } from './publication.mjs';
 import { Reader } from './reader.mjs';
+import { ChunkWindow } from './prefetch.mjs';
 
 const immutable = 'public, max-age=31536000, immutable, no-transform';
 let activeDownloads = 0;
@@ -48,13 +49,24 @@ async function artifact(request, env, release, file, filename) {
   if (request.method === 'HEAD' || selected.status === 304 || selected.status === 416) return new Response(null, selected);
   if (activeDownloads >= 4) throw new HttpError(503, 'Image reader busy; retry shortly');
   activeDownloads++;
-  let reader, finished = false;
+  let reader, window, finished = false;
+  const started = performance.now();
+  const metrics = { requests: 0, cacheHits: 0, headerWaitMs: 0, encodedBytes: 0 };
+  const benchmark = env.BENCHMARK_MODE === 'true';
+  const countLimit = benchmark ? Number(request.headers.get('X-Beamline-Prefetch') || 16) : 16;
+  const legacy = benchmark && request.headers.get('X-Beamline-Scheduling') === 'legacy';
+  if (![4, 16, 32].includes(countLimit)) { activeDownloads--; throw new HttpError(400, 'Invalid prefetch window'); }
   const active = new Set(), pending = new Map();
-  const finish = () => {
+  const finish = (outcome = 'complete') => {
     if (finished) return;
     finished = true;
     for (const controller of active) controller.abort();
-    pending.clear(); reader?.close(); activeDownloads--;
+    pending.clear(); window?.close();
+    if (benchmark) console.log(JSON.stringify({ event: 'image-download', filename, outcome,
+      bytes: selected.length, prefetch: countLimit, scheduling: legacy ? 'legacy' : 'rolling',
+      transport: env.IMAGE_TRANSPORT || 'public', wallMs: performance.now() - started,
+      ...metrics, window: window?.stats, wasmBytes: reader?.w?.memory.buffer.byteLength }));
+    reader?.close(); activeDownloads--;
   };
   try {
     reader = new Reader(await indexBytes(env, release, file), file.size);
@@ -66,7 +78,7 @@ async function artifact(request, env, release, file, filename) {
       const id = reader.id(number);
       const controller = new AbortController(); active.add(controller);
       try {
-        const encoded = await getBytes(env, `store/${id.slice(0, 4)}/${id}.cacnk`, 300000, { signal: controller.signal });
+        const encoded = await getBytes(env, `store/${id.slice(0, 4)}/${id}.cacnk`, 300000, { signal: controller.signal, metrics });
         if (finished) throw new Error('Download cancelled');
         const plain = reader.decode(number, encoded);
         return plain.subarray(parts[position * 3 + 1], parts[position * 3 + 1] + parts[position * 3 + 2]);
@@ -74,31 +86,45 @@ async function artifact(request, env, release, file, filename) {
     };
     
     
-    const first = await chunk(0);
-    pending.set(0, Promise.resolve({ data: first })); scheduled = 1;
+    if (!legacy) window = new ChunkWindow(count, chunk, position => reader.size(parts[position * 3]), { countLimit });
+    let first = legacy ? await chunk(0) : await window.next();
+    if (legacy) { pending.set(0, Promise.resolve({ data: first })); scheduled = 1; }
+    let firstPending = true;
     const body = new ReadableStream({
       async pull(controller) {
         try {
-          while (scheduled < count && pending.size < 4) {
+          while (legacy && scheduled < count && pending.size < countLimit) {
             const position = scheduled++;
             pending.set(position, chunk(position).then(data => ({ data }), error => ({ error })));
           }
-          const result = await pending.get(consumed);
-          pending.delete(consumed++);
-          if (result.error) throw result.error;
-          controller.enqueue(result.data);
+          let data;
+          if (legacy) {
+            const result = await pending.get(consumed);
+            pending.delete(consumed);
+            if (result.error) throw result.error;
+            data = result.data;
+          } else {
+            data = firstPending ? first : await window.next();
+          }
+          firstPending = false; first = null; consumed++;
+          controller.enqueue(data);
           if (consumed === count) { controller.close(); finish(); }
-        } catch (error) { console.error('Image stream failed:', error.message); finish(); controller.error(error); }
+        } catch (error) { console.error('Image stream failed:', error.message); finish('error'); controller.error(error); }
       },
-      cancel() { finish(); },
+      cancel() { finish('cancelled'); },
     });
     const fixed = new FixedLengthStream(selected.length);
-    body.pipeTo(fixed.writable).catch(() => finish());
+    body.pipeTo(fixed.writable).catch(() => finish('error'));
     return new Response(fixed.readable, selected);
-  } catch (error) { finish(); throw error; }
+  } catch (error) { finish('error'); throw error; }
 }
 
 async function route(request, env) {
+  if (env.BENCHMARK_MODE === 'true') {
+    const transport = request.headers.get('X-Beamline-Transport') || 'public';
+    if (!['public', 'r2'].includes(transport)) throw new HttpError(400, 'Invalid transport');
+    env = { ...env, IMAGE_TRANSPORT: transport };
+  }
   const url = new URL(request.url);
   if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method not allowed\n', {
     status: 405, headers: { Allow: 'GET, HEAD', 'Cache-Control': 'no-store' } });

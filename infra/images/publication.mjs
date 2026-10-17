@@ -46,15 +46,49 @@ function storeUrl(env, key) {
   return new URL(key, origin).href;
 }
 
-export async function getBytes(env, key, limit, { missing = 502, signal, cacheTtl = 31536000 } = {}) {
+export async function getBytes(env, key, limit, { missing = 502, signal, cacheTtl = 31536000, metrics } = {}) {
   const deadline = new AbortController();
+  const requestSignal = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal;
+  let bodyReader, abort;
   
   
   const timer = setTimeout(() => deadline.abort(), 30000);
   try {
-    const response = await fetch(storeUrl(env, key), { redirect: 'manual',
-      cf: { cacheEverything: true, cacheTtlByStatus: { '200': cacheTtl, '400-599': -1 } },
-      signal: signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal });
+    const started = performance.now();
+    let response, cacheMiss = false;
+    if (env.IMAGE_TRANSPORT === 'r2') {
+      if (!env.STORE_R2) throw new Error('R2 benchmark binding is missing');
+      const cache = caches.default;
+      const url = storeUrl(env, key);
+      response = await cache.match(url);
+      if (response && metrics) metrics.cacheHits++;
+      else {
+        cacheMiss = !response;
+      }
+      if (!response) {
+        const cancelled = new Promise((_, reject) => {
+          abort = () => { bodyReader?.cancel().catch(() => {}); reject(new Error('Store read cancelled')); };
+          requestSignal.addEventListener('abort', abort, { once: true });
+          if (requestSignal.aborted) abort();
+        });
+        const loading = env.STORE_R2.get(key).then(object => {
+          if (requestSignal.aborted) { object?.body?.cancel().catch(() => {}); throw new Error('Store read cancelled'); }
+          return object;
+        });
+        const object = await Promise.race([loading, cancelled]);
+        if (!object) throw new HttpError(missing, 'Store object unavailable');
+        if (object.size > limit) { await object.body.cancel(); throw new HttpError(502, 'Store object too large'); }
+        
+        
+        response = new Response(object.body, { headers: { 'Content-Length': String(object.size) } });
+      }
+    } else {
+      response = await fetch(storeUrl(env, key), { redirect: 'manual',
+        cf: { cacheEverything: true, cacheTtlByStatus: { '200': cacheTtl, '400-599': -1 } },
+        signal: requestSignal });
+      if (response.headers.get('CF-Cache-Status') === 'HIT' && metrics) metrics.cacheHits++;
+    }
+    if (metrics) { metrics.requests++; metrics.headerWaitMs += performance.now() - started; }
     if (response.status !== 200) {
       await response.body?.cancel();
       throw new HttpError(response.status === 404 ? missing : 502, 'Store object unavailable');
@@ -63,6 +97,7 @@ export async function getBytes(env, key, limit, { missing = 502, signal, cacheTt
       await response.body?.cancel(); throw new HttpError(502, 'Store object too large');
     }
     const reader = response.body.getReader();
+    bodyReader = reader;
     const pieces = []; let length = 0;
     try {
       for (;;) {
@@ -73,10 +108,20 @@ export async function getBytes(env, key, limit, { missing = 502, signal, cacheTt
         pieces.push(value);
       }
     } finally { reader.releaseLock(); }
-    const bytes = new Uint8Array(length); let at = 0;
-    for (const piece of pieces) { bytes.set(piece, at); at += piece.length; }
+    const bytes = pieces.length === 1 ? pieces[0] : new Uint8Array(length);
+    if (pieces.length !== 1) {
+      let at = 0;
+      for (const piece of pieces) { bytes.set(piece, at); at += piece.length; }
+    }
+    if (metrics) metrics.encodedBytes += length;
+    if (requestSignal.aborted) throw new Error('Store read cancelled');
+    if (cacheMiss && cacheTtl === 31536000) {
+      await caches.default.put(storeUrl(env, key), new Response(bytes, {
+        headers: { 'Cache-Control': 'public, max-age=31536000', 'Content-Length': String(length) },
+      }));
+    }
     return bytes;
-  } finally { clearTimeout(timer); }
+  } finally { clearTimeout(timer); if (abort) requestSignal.removeEventListener('abort', abort); }
 }
 
 const digest = value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
