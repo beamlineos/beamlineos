@@ -58,7 +58,7 @@ def bst(config_path, *args, **kwargs):
 
 def selection(config_path, deps):
     output = bst(config_path, "show", "--deps", deps, "--format", "%{name}|%{state}|%{full-key}",
-                 TARGET, capture_output=True, text=True).stdout
+                 TARGET, stdout=subprocess.PIPE, text=True).stdout
     rows = []
     for line in output.splitlines():
         name, state, key = line.split("|")
@@ -228,6 +228,8 @@ def host(phase):
     result = json.loads((container / "result.json").read_text())
     result.update(source=os.environ["GITHUB_SHA"], run=os.environ["GITHUB_RUN_ID"],
                   attempt=os.environ["GITHUB_RUN_ATTEMPT"])
+    result["passed"] = False
+    write_json(evidence / "result.json", result)
     predecessor = ROOT / "out/hosted-build-input/result.json"
     if predecessor.exists():
         compare(result, json.loads(predecessor.read_text()))

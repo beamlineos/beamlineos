@@ -58,6 +58,7 @@ def cache_config(object_prefix, fast_directory=None):
                 "bucket": "${R2_BUCKET}", "access_key_id": "${AWS_ACCESS_KEY_ID}",
                 "secret_access_key": "${AWS_SECRET_ACCESS_KEY}",
                 "key_prefix": object_prefix + suffix,
+                "multipart_max_concurrent_uploads": 2,
                 "retry": {"max_retries": 3, "delay": 0.3, "jitter": 0.5},
             }},
         }}
