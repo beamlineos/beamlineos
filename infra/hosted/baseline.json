@@ -364,5 +364,6 @@
       ]
     }
   },
-  "selection_manifest_sha256": "12c4c2ccd9b67ec0ae2da0fd5a95f436311ab7330fe6d967dbe826f90d5fb11b"
+  "selection_manifest_sha256": "12c4c2ccd9b67ec0ae2da0fd5a95f436311ab7330fe6d967dbe826f90d5fb11b",
+  "repository": {}
 }
