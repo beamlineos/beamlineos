@@ -195,6 +195,16 @@ def seed_local():
             shutil.copytree(reports, ROOT / "out/hosted-build/evidence", dirs_exist_ok=True)
 
 
+def worker_dockerfile():
+    return (
+        f"FROM {VERSIONS['fedora']}\n"
+        "RUN dnf install -y --setopt=install_weak_deps=False "
+        f"buildstream-{VERSIONS['buildstream']} buildbox-{VERSIONS['buildbox']} "
+        "buildstream-plugins-2.8.0 git-core lzip patch python3-dulwich "
+        "python3-requests python3-tomlkit bubblewrap fuse3 "
+        "&& dnf clean all\n")
+
+
 def host(phase):
     identity()
     if platform.system() != "Linux" or platform.machine() != "aarch64":
@@ -208,12 +218,7 @@ def host(phase):
     evidence = base / "evidence"
     evidence.mkdir()
     dockerfile = base / "Dockerfile"
-    dockerfile.write_text(
-        f"FROM {VERSIONS['fedora']}\n"
-        "RUN dnf install -y --setopt=install_weak_deps=False "
-        f"buildstream-{VERSIONS['buildstream']} buildbox-{VERSIONS['buildbox']} "
-        "buildstream-plugins-2.8.0 git-core lzip patch python3-dulwich bubblewrap fuse3 "
-        "&& dnf clean all\n")
+    dockerfile.write_text(worker_dockerfile())
     (base / ".dockerignore").write_text("*\n!Dockerfile\n")
     run(["docker", "build", "--tag", "beamline-hosted-build", "--file", dockerfile, base])
     container = base / "container"
