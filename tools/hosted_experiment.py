@@ -10,6 +10,7 @@ from pathlib import Path
 import platform
 import re
 import signal
+import shutil
 import socket
 import subprocess
 import tarfile
@@ -107,6 +108,8 @@ def cache_phase(phase, writer, base):
     report = {"phase": phase, "writer": writer, "cold_cache": True,
               "versions": VERSIONS, "artifacts": [], "started": time.time()}
     run(["rpm", "-q", "buildstream", "buildbox"])
+    (base / "packages.txt").write_text(
+        run(["rpm", "-qa"], capture_output=True, text=True).stdout)
 
     def bst(config, *args, **kwargs):
         return run(["bst", "--no-interactive", "--no-colors", "--config", config,
@@ -157,7 +160,10 @@ def probe(base, arch):
     result = {"arch": arch, "cpu_count": os.cpu_count(),
               "meminfo": Path("/proc/meminfo").read_text().splitlines()[:3],
               "disk_available_bytes": os.statvfs(base).f_bavail * os.statvfs(base).f_frsize,
-              "kvm_device": Path("/dev/kvm").exists(), "kvm_create_vm": False}
+              "kvm_device": Path("/dev/kvm").exists(), "kvm_create_vm": False,
+              "identity": run(["id"], capture_output=True, text=True).stdout.strip()}
+    if Path("/dev/kvm").exists():
+        result["kvm_acl"] = run(["getfacl", "-p", "/dev/kvm"], capture_output=True, text=True).stdout
     try:
         with open("/dev/kvm", "rb+", buffering=0) as dev:
             result["kvm_api"] = fcntl.ioctl(dev, 0xAE00, 0)
@@ -168,6 +174,7 @@ def probe(base, arch):
         result["kvm_error"] = str(error)
     qemu = "qemu-system-" + ("x86_64" if arch == "x86_64" else "aarch64")
     result["qemu"] = run([qemu, "--version"], capture_output=True, text=True).stdout.splitlines()[0]
+    result["qemu_path"] = str(Path(shutil.which(qemu)).resolve())
     for accel in ("kvm", "tcg"):
         machine = "q35" if arch == "x86_64" else "virt"
         cpu = "host" if accel == "kvm" else "max"
@@ -244,9 +251,10 @@ def host_phase(phase, writer):
         raise RuntimeError("Run this experiment in public GitHub Actions on native Linux")
     arch = platform.machine()
     object_prefix = prefix(os.environ["GITHUB_RUN_ID"], os.environ["GITHUB_RUN_ATTEMPT"], arch)
-    for name in ("R2_ACCOUNT_ID", "R2_BUCKET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
-        if not os.environ.get(name):
-            raise RuntimeError(f"Missing required experiment setting: {name}")
+    if phase != "probe":
+        for name in ("R2_ACCOUNT_ID", "R2_BUCKET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+            if not os.environ.get(name):
+                raise RuntimeError(f"Missing required experiment setting: {name}")
     base = ROOT / "out/hosted-experiment"
     base.mkdir(parents=True, exist_ok=False)
     evidence = base / "evidence"
@@ -256,8 +264,10 @@ def host_phase(phase, writer):
     run(["sudo", "apt-get", "install", "-y", "--no-install-recommends", package, "acl"])
                                                                                        
     if Path("/dev/kvm").exists():
-        run(["sudo", "setfacl", "-m", f"u:{os.getuid()}:rw", "/dev/kvm"])
+        run(["sudo", "chmod", "a+rw", "/dev/kvm"])
     probe(evidence, arch)
+    if phase == "probe":
+        return
     binary = download_nativelink(base, arch)
     config_path = base / "nativelink.json"
     write_json(config_path, cache_config(object_prefix))
@@ -309,6 +319,7 @@ def host_phase(phase, writer):
             if phase == "verify":
                 compare_reports(result, ROOT / "out/hosted-inputs")
             write_json(evidence / "result.json", result)
+            shutil.copyfile(container / "packages.txt", evidence / "packages.txt")
         finally:
             if server.poll() is None:
                 server.send_signal(signal.SIGTERM)
@@ -325,12 +336,14 @@ def host_phase(phase, writer):
 def main():
     parser = argparse.ArgumentParser(description=HELP)
     parser.add_argument("mode", choices=("host", "container"))
-    parser.add_argument("phase", choices=("seed", "writer", "verify"))
+    parser.add_argument("phase", choices=("seed", "writer", "verify", "probe"))
     parser.add_argument("--writer", choices=("a", "b"), default="a")
     args = parser.parse_args()
     if args.mode == "host":
         host_phase(args.phase, args.writer)
     else:
+        if args.phase == "probe":
+            parser.error("The probe runs on the host")
         cache_phase(args.phase, args.writer, Path("/experiment"))
 
 
