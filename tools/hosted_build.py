@@ -657,12 +657,12 @@ def evidence_vm():
 
 
 def verify_worker_downloads(snapshot_root, snapshot, evidence):
-    from publication import verify_manifest_signature, validate_manifest
+    from publication import USER_AGENT, verify_manifest_signature, validate_manifest
     directory = evidence / "public"
     directory.mkdir()
     base = f"https://images.beamlineos.org/snapshots/{snapshot}/aarch64/"
     for name in ("publication.json", "publication.json.gpg"):
-        with urllib.request.urlopen(base + name, timeout=120) as response:
+        with urllib.request.urlopen(urllib.request.Request(base + name, headers={"User-Agent": USER_AGENT}), timeout=120) as response:
             (directory / name).write_bytes(response.read())
     verify_manifest_signature(directory)
     manifest = validate_manifest(read(directory / "publication.json"), snapshot)
@@ -676,7 +676,7 @@ def verify_worker_downloads(snapshot_root, snapshot, evidence):
     for name, wanted in expected.items():
         print("Verifying Worker download: " + name, flush=True)
         size, prefix, hash_ = 0, b"", hashlib.sha256()
-        with urllib.request.urlopen(base + name, timeout=120) as response:
+        with urllib.request.urlopen(urllib.request.Request(base + name, headers={"User-Agent": USER_AGENT}), timeout=120) as response:
             etag = response.headers.get("ETag")
             while block := response.read(1024 * 1024):
                 hash_.update(block)
@@ -685,10 +685,10 @@ def verify_worker_downloads(snapshot_root, snapshot, evidence):
                     prefix += block[:128 - len(prefix)]
         if hash_.hexdigest() != wanted or not etag:
             raise RuntimeError("Worker file digest or validator differs: " + name)
-        with urllib.request.urlopen(urllib.request.Request(base + name, method="HEAD"), timeout=120) as response:
+        with urllib.request.urlopen(urllib.request.Request(base + name, method="HEAD", headers={"User-Agent": USER_AGENT}), timeout=120) as response:
             if response.headers.get("ETag") != etag or int(response.headers["Content-Length"]) != size:
                 raise RuntimeError("Worker HEAD differs: " + name)
-        request = urllib.request.Request(base + name, headers={"Range": f"bytes=0-{len(prefix)-1}"})
+        request = urllib.request.Request(base + name, headers={"User-Agent": USER_AGENT, "Range": f"bytes=0-{len(prefix)-1}"})
         with urllib.request.urlopen(request, timeout=120) as response:
             if response.status != 206 or response.read() != prefix or response.headers.get("ETag") != etag:
                 raise RuntimeError("Worker Range differs: " + name)

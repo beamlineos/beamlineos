@@ -23,6 +23,9 @@ class BenchmarkTest(unittest.TestCase):
         payload = b"unchanged immutable image"
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
+                if not self.headers.get("User-Agent", "").startswith("Beamline-CI/"):
+                    self.send_error(403)
+                    return
                 ranged = self.headers.get("Range") == "bytes=0-8"
                 body = payload[:9] if ranged else payload
                 self.send_response(206 if ranged else 200)

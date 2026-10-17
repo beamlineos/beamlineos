@@ -8,9 +8,10 @@ from pathlib import Path
 import platform
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 
-from publication import validate_manifest, verify_manifest_signature
+from publication import USER_AGENT, validate_manifest, verify_manifest_signature
 
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = "20261015.1430"
@@ -25,7 +26,7 @@ def origin(value):
 
 def measure(url, headers, size, sha256=None, bounds=None):
     started = time.monotonic()
-    request = urllib.request.Request(url, headers=headers)
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **headers})
     digest, prefix, count = hashlib.sha256(), hashlib.sha256(), 0
     with urllib.request.urlopen(request, timeout=90) as response:
         first = response.read(1)
@@ -73,7 +74,7 @@ def main():
             metadata.mkdir()
             prefix = host + f"/snapshots/{SNAPSHOT}/aarch64/"
             for name in ("publication.json", "publication.json.gpg"):
-                with urllib.request.urlopen(prefix + name, timeout=90) as response:
+                with urllib.request.urlopen(urllib.request.Request(prefix + name, headers={"User-Agent": USER_AGENT}), timeout=90) as response:
                     payload = response.read((256 << 10) + 1)
                 if len(payload) > 256 << 10:
                     raise ValueError("Oversized publication")
@@ -110,6 +111,10 @@ def main():
                         report["measurements"].append(item)
                         print(json.dumps(item), flush=True)
         report["passed"] = True
+    except urllib.error.HTTPError as error:
+        report["failure"] = {"url": error.url, "status": error.code,
+                             "headers": dict(error.headers), "body": error.read(2048).decode(errors="replace")}
+        raise
     finally:
         (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
 
