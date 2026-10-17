@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Render sysupdate test credentials for an immutable predecessor and its candidate."""
+                                                                                       
 
 import argparse
 from pathlib import Path

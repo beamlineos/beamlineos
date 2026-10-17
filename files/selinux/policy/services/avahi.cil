@@ -1,8 +1,8 @@
 ; SPDX-License-Identifier: MIT
-;
-; avahi-daemon (0.0.4.2 step 4C, docs/decisions.md D94). It answers and browses mDNS/DNS-SD on the
-; local network, so it parses packets from any host there; printing and the desktop find
-; printers and services through it over D-Bus.
+ 
+                                                                                                  
+                                                                                        
+                                              
 
 (type avahi_t)
 (type avahi_exec_t)
@@ -13,16 +13,16 @@
 (typetransition init_t avahi_exec_t process avahi_t)
 (allow avahi_t avahi_exec_t (file (entrypoint)))
 
-; It drops to the avahi user and chroots itself
+                                               
 (allow avahi_t self (capability (chown setuid setgid sys_chroot)))
-; mDNS: UDP port 5353 on every link, multicast; links and addresses through netlink
+                                                                                   
 (allow avahi_t self (udp_socket (create bind connect getattr getopt setopt read write)))
 (allow avahi_t self (netlink_route_socket (create bind getattr setopt getopt read write nlmsg_read)))
 (allow avahi_t node_t (udp_socket (node_bind)))
 (allow avahi_t port_t (udp_socket (name_bind)))
-; Its seed (/dev/urandom; /dev is one type until Stage 2 labels devices)
+                                                                        
 (allow avahi_t device_t (chr_file (getattr open read)))
-; Its runtime directory, /run/avahi-daemon: the pid file and the socket nss-mdns asks
+                                                                                     
 (allow avahi_t run_t (dir (getattr search read open write add_name remove_name setattr)))
 (allow avahi_t run_t (file (getattr open read write create unlink lock setattr)))
 (allow avahi_t run_t (sock_file (getattr create setattr unlink)))

@@ -37,7 +37,7 @@ build-depends:
 - filename: extensions/desktop-gnome.bst
   config:
     location: /extensions
-# For the path check only: the installer extension is never in the channel (D113).
+
 - filename: extensions/installer.bst
   config:
     location: /extensions
@@ -51,8 +51,8 @@ environment:
 config:
   commands:
   - |
-    # No two extensions ship one path with different content: overlayfs would show whichever
-    # merged last (D88).
+    
+    
     python3 "%{libexecdir}/%{os-id}-image-tools/extension-paths.py" compare /extensions/*.paths
 
   - |

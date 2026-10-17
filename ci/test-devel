@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Native development work over base alone; neither desktop nor posix images are merged.
+
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
 image="${1:-$OUT/installed/reference.qcow2}"

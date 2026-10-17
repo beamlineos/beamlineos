@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Static checks and isolated regression-test discovery."""
+                                                           
 
 import os
 from pathlib import Path
@@ -19,7 +19,7 @@ def run(*args):
 
 def main():
     os.chdir(ROOT)
-    # Each test gets a fresh interpreter; a test cannot poison another's imports or mocks.
+                                                                                          
     os.environ["PYTHONPATH"] = str(ROOT / "tools") + os.pathsep + os.environ.get("PYTHONPATH", "")
     run(sys.executable, "tools/check-policy.py", "--units", "files", "--allowlist", "policy/unit-shell-allowlist.txt",
         "--selinux-policy", "files/selinux/policy", "--extensions-policy", "files/base")

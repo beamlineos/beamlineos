@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# A sibling is eligible only after its own native test suite passes (§7.2, D63).
+
 kind: manual
 description: uutils bsdutils, built and tested from its designated HEAD
 build-depends:
@@ -26,7 +26,7 @@ sources:
 
 public:
   bst:
-    # This user command is removed from the finished base; its library artifact
-    # stages first via base/base.bst, then the preferred uutils implementation.
+    
+    
     overlap-whitelist:
     - /usr/bin/renice

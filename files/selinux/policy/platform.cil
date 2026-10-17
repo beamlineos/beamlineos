@@ -1,55 +1,55 @@
 ; SPDX-License-Identifier: MIT
-;
-; Platform domains, P3 (docs/security.md §3, §7.2, §16; docs/decisions.md D58, D90). kernel.cil
-; gives every platform domain the Stage 1 platform rules; this file gives the services that have
-; their own domain their entrypoints. Other services run in platform_service_t until Stage 2
-; confines them.
+ 
+                                                                                                  
+                                                                                                
+                                                                                            
+                
 
-; systemd loads the policy as the kernel's first process and re-executes itself, entering
-; init_t. PID 1 runs alone there (0.0.4.2 step 3, D90): a service it starts enters
-; platform_service_t, unless its executable has a domain below. systemd's own binaries are
-; init_exec_t and stay in init_t: PID 1, its executor (which applies a unit's execution context,
-; PAM and the transient bound of D70 before it executes the service) and systemd-shutdown (which
-; replaces PID 1).
+                                                                                         
+                                                                                  
+                                                                                          
+                                                                                                
+                                                                                                
+                  
 (typetransition kernel_t init_exec_t process init_t)
 (typetransition init_t bin_t process platform_service_t)
 (typetransition init_t usr_t process platform_service_t)
 
-; The settings services, the only writers of the allowlisted /etc settings (docs/security.md
-; §9.5). Stage 2 takes the write rights from the other platform domains.
+                                                                                            
+                                                                         
 (typetransition init_t hostnamed_exec_t process hostnamed_t)
 (typetransition init_t timedated_exec_t process timedated_t)
 (typetransition init_t localed_exec_t process localed_t)
-; What they create in /etc gets their setting's type, including the temporary files they write
-; and rename into place, which named transitions cannot match (timedated's ".#localtime..."
-; symlink, for one).
+                                                                                              
+                                                                                           
+                    
 (typetransition hostnamed_t etc_t file hostname_etc_t)
 (typetransition timedated_t etc_t file timezone_etc_t)
 (typetransition timedated_t etc_t lnk_file timezone_etc_t)
 (typetransition localed_t etc_t file locale_etc_t)
 
-; The updater: systemd-sysupdate and its daemon. Helpers it runs (systemd-pull, gpg) stay in
-; sysupdate_t, which never executes content from DATA (policy.cil).
+                                                                                            
+                                                                   
 (typetransition init_t sysupdate_exec_t process sysupdate_t)
 
-; systemd-homed and systemd-homework.
+                                     
 (typetransition init_t homed_exec_t process homed_t)
 
-; The extension merger (docs/decisions.md D58). Building a merged hierarchy creates its root,
-; work directory and metadata with the hierarchy's own immutable types: the mutable layer's
-; root on DATA becomes etc_t, the merged /usr's metadata usr_t in a tmpfs workspace, and
-; overlayfs probes the work directory with files of its type. sysext_t alone is exempt from the
-; immutable-file assertions for that; it is the mounter of the merged overlays, so overlayfs
-; performs copy-up on DATA with its credentials, after checking the caller's.
+                                                                                             
+                                                                                           
+                                                                                        
+                                                                                               
+                                                                                            
+                                                                             
 (typetransition init_t sysext_exec_t process sysext_t)
 (allow sysext_t beamline_immutable_file_type (file (all)))
 (allow sysext_t beamline_immutable_file_type (lnk_file (all)))
 (allow sysext_t beamline_immutable_file_type (dir (all)))
 (allow sysext_t beamline_immutable_file_type (chr_file (all)))
 
-; Unit definitions (0.0.4.2 step 5, D97). Generators run in a domain of their own and write only
-; their output directories; PID 1 writes its runtime units (links, transient units, runtime
-; drop-ins) and loads units only from SYSTEM's types and these.
+                                                                                                
+                                                                                           
+                                                               
 (typetransition init_t generator_exec_t process generator_t)
 (allow generator_t generator_exec_t (file (entrypoint)))
 (typetransition init_t run_t dir "system" init_unit_runtime_t)
@@ -70,9 +70,9 @@
 (allow init_t beamline_immutable_file_type (service (load)))
 (allow init_t beamline_unit_runtime_type (service (load)))
 
-; Levels of what a P3 service creates for a lower level (docs/security-mls.md §6, D99): GDM's
-; greeter state, system-wide Flatpak apps, /etc's allowlisted settings. Every target is below the
-; creator (tools/check-policy.py checks it).
+                                                                                              
+                                                                                                 
+                                            
 (rangetransition xdm_t var_lib_t dir lr_session)
 (rangetransition xdm_t xdm_var_lib_t dir lr_session)
 (rangetransition xdm_t xdm_var_lib_t file lr_session)

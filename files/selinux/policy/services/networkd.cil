@@ -1,10 +1,10 @@
 ; SPDX-License-Identifier: MIT
-;
-; systemd-networkd (0.0.4.2 step 4C, docs/decisions.md D94). It configures links, addresses and
-; routes from SYSTEM's .network files, runs the DHCP client, and publishes link state in
-; /run/systemd/netif for resolved and sd-network clients. systemd-networkd is a link to networkctl,
-; a multicall binary, so the label is networkctl's; sessions and admins may run networkctl (to
-; query links) in their own domains.
+ 
+                                                                                               
+                                                                                        
+                                                                                                   
+                                                                                              
+                                    
 
 (type networkd_t)
 (type networkd_exec_t)
@@ -17,8 +17,8 @@
 (allow user_t networkd_exec_t (file (execute execute_no_trans)))
 
 (allow networkd_t self (capability (net_admin net_bind_service net_raw)))
-; Links, addresses, routes and their families (netlink), devices appearing (uevents); the DHCP
-; client (UDP port 68, a packet socket) and IPv6 neighbour discovery (raw ICMPv6)
+                                                                                              
+                                                                                 
 (allow networkd_t self (netlink_route_socket (create bind getattr setopt getopt read write nlmsg_read nlmsg_write)))
 (allow networkd_t self (netlink_generic_socket (create bind getattr setopt getopt read write)))
 (allow networkd_t self (netlink_netfilter_socket (create)))
@@ -28,23 +28,23 @@
 (allow networkd_t self (rawip_socket (create bind getattr setopt getopt read write)))
 (allow networkd_t node_t (udp_socket (node_bind)))
 (allow networkd_t port_t (udp_socket (name_bind)))
-; Its BPF program that watches sysctl writes. Loading it, the verifier asks perfmon_capable(), which
-; falls back to CAP_SYS_ADMIN when CAP_PERFMON is missing; the program loads without either
+                                                                                                    
+                                                                                           
 (allow networkd_t self (capability2 (bpf)))
 (allow networkd_t self (bpf (prog_load prog_run)))
 (dontaudit networkd_t self (capability (sys_admin)))
 (allow networkd_t tmpfs_t (file (getattr read write)))
-; Network sysctls, per link
+                           
 (allow networkd_t proc_sys_net_t (dir (getattr search)))
 (allow networkd_t proc_sys_net_t (file (getattr open read write)))
-; Its namespace, compared with PID 1's
+                                      
 (allow networkd_t nsfs_t (file (getattr open read)))
 (allow networkd_t init_t (dir (getattr search)))
-; Its state: /run/systemd/netif (links, leases, its varlink socket), watched; /var/lib/systemd/network
+                                                                                                      
 (allow networkd_t run_t (dir (getattr search read open write add_name remove_name create watch)))
 (allow networkd_t run_t (file (getattr open read write create rename unlink setattr)))
 (allow networkd_t run_t (sock_file (getattr create setattr unlink watch)))
 (allow networkd_t root_t (dir (watch)))
 (allow networkd_t var_lib_t (dir (getattr search read open)))
-; Netdev kinds would load kernel modules; the Virt kernel has none (D46)
+                                                                        
 (dontaudit networkd_t kernel_t (system (module_request)))

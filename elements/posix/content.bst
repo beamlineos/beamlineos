@@ -6,8 +6,8 @@ description: |
   The wrappers add their respective binutils providers; neither depends on another image.
 
 depends:
-# Its original package artifacts provide the user tools and manuals removed
-# from finished SYSTEM. The extension delta retains those paths (D63).
+
+
 - base/base.bst
 - posix/uutils-coreutils.bst
 - posix/bash.bst
@@ -24,8 +24,8 @@ depends:
 - junctions/freedesktop-sdk.bst:components/jq.bst
 - junctions/freedesktop-sdk.bst:components/less.bst
 - junctions/freedesktop-sdk.bst:components/file.bst
-# avahi-browse, moved here from the base (D63), needs libgdbm, which nothing else in posix brought
-# (found by the library check, D88).
+
+
 - junctions/freedesktop-sdk.bst:components/gdbm.bst
 - posix/vi.bst
 - junctions/freedesktop-sdk.bst:components/e2fsprogs.bst

@@ -1,21 +1,21 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Boot the installed disk ci/test-install prepared (docs/decisions.md D113) on this host (HVF on
-# macOS, KVM or TCG on Linux) and wait for BEAMLINE_BOOT_OK on the serial console, after
-# BEAMLINE_SELINUX_OK (a policy is loaded) and BEAMLINE_SELINUX_ENFORCE=1 (the production boot
-# enforces, docs/security.md §16).
-# The kernel must set the clock from the RTC, and DMI identification must exist (D84: K3, K20).
-# A TPM (swtpm) is attached, a copy of the one the disk was installed and first booted with, and
-# the kernel and systemd must find it (D106, 0.0.4.3 step 1).
-# The kernel is locked down in integrity mode (D111, 0.0.4.3 step 4).
-# nsresourced, which complained at every boot that the kernel lacks the BPF LSM, is gone (D87).
-# The extensions are not merged: the base must boot healthy without any desktop
-# (docs/spec.md §5.1; ci/test-desktop covers the merged system). No
-# extension image is linked, but systemd-confext still refreshes /etc with its mutable layer, as
-# on every production boot (it labels the layer's root, docs/decisions.md D58). The image itself
-# is never modified.
-#   ./ci/boot [path/to/installed.qcow2]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -25,8 +25,8 @@ image="${1:-$OUT/installed/reference.qcow2}"
 tpm="$(mktemp -d "${TMPDIR:-/tmp}/beamline-tpm.XXXXXX")"
 trap 'rm -rf "$tpm"' EXIT INT TERM
 [ ! -d "$(dirname "$image")/tpm" ] || cp -R "$(dirname "$image")/tpm/." "$tpm/"
-# --reboot: on fresh UEFI variables shim's fallback creates the boot entry, and with a TPM it
-# resets once to boot it (D113).
+
+
 python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" --tpm "$tpm" --reboot \
     --extra-unit "$REPO/tests/vm/beamline-tpm-check.service" \
     --wants beamline-tpm-check.service \

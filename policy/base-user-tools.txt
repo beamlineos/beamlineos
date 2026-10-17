@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
-# User-facing commands removed from SYSTEM and provided by posix (§5, §7.2, D63).
-# Paths are exact. Service helpers, filesystem activation and systemd's framework stay.
-# shadow's legacy account/privilege tools are audited separately in 0.0.4 step 7.
+
+
+
 /usr/bin/addpart
 /usr/bin/asn1Coding
 /usr/bin/asn1Decoding

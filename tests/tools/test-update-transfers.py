@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""The old client receives only existing resources; the candidate gets its complete set."""
+                                                                                           
 from pathlib import Path
 import sys
 import tempfile

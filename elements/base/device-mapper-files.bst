@@ -25,8 +25,8 @@ config:
 
 public:
   bst:
-    # Trees that also contain FDSDK's whole lvm2 (desktop-gnome, through udisks) carry these
-    # same files from it; the copies are identical.
+    
+    
     overlap-whitelist:
     - '%{bindir}/dmsetup'
     - '%{indep-libdir}/udev/rules.d/10-dm.rules'

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Run a production Actions integration without touching preserved P1 outputs."""
+                                                                                 
 
 import argparse
 import json
@@ -22,7 +22,7 @@ def git(root, *args):
 
 
 def copy_file(source, target):
-    # APFS clones share storage until a write; unlike hardlinks, deletion/pruning is isolated.
+                                                                                              
     result = subprocess.run(["cp", "-c", "-p", str(source), str(target)], capture_output=True)
     if result.returncode:
         shutil.copy2(source, target)
@@ -67,7 +67,7 @@ def main():
         manifest = json.loads((baseline / "manifest.json").read_text())
         if manifest["snapshot"] != BASELINE or manifest["result"] != "green":
             raise ValueError("preserved baseline identity differs")
-        # Neither symlinks nor hardlinks expose the preserved store to integration pruning.
+                                                                                           
         shutil.copytree(baseline, snapshots / BASELINE, copy_function=copy_file)
         (snapshots / "latest.json").write_text(json.dumps({"snapshot": BASELINE}) + "\n")
         command = [str(source / "ci/integrate"), "--no-commit",

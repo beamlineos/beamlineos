@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Remove the paths a committed prune list names from a composed tree (docs/decisions.md D88).
+HELP = """Remove the paths a committed prune list names from a composed tree (docs/decisions.md D88).
 
   prune-tree.py --tree DIR [--keep-from LIST]... LIST...
 
@@ -26,7 +26,7 @@ import sys
 
 
 def compile_pattern(pattern):
-    """A path pattern as a regular expression over absolute paths."""
+                                                                     
     out, i = [], 0
     while i < len(pattern):
         if pattern.startswith("/**", i) and i + 3 == len(pattern):
@@ -65,14 +65,14 @@ def read_patterns(paths):
 
 
 def entries(tree):
-    """Absolute image paths of every file and symlink in the tree."""
+                                                                     
     for directory, dirs, files in os.walk(tree):
         for name in files + [d for d in dirs if os.path.islink(os.path.join(directory, d))]:
             yield "/" + os.path.relpath(os.path.join(directory, name), tree)
 
 
 def link_target(tree, path):
-    """The image path a symlink points at, resolved one step."""
+                                                                
     target = os.readlink(tree + path)
     if not target.startswith("/"):
         target = os.path.join(os.path.dirname(path), target)
@@ -80,7 +80,7 @@ def link_target(tree, path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--tree", required=True)
     parser.add_argument("--keep-from", action="append", default=[], metavar="LIST")
     parser.add_argument("lists", nargs="+", metavar="LIST")
@@ -101,7 +101,7 @@ def main():
                 removed.add(path)
                 break
 
-    # Links into removed paths, and the directories left empty, until nothing changes.
+                                                                                      
     dangling = 0
     while True:
         links = [path for path in entries(tree) if os.path.islink(tree + path)

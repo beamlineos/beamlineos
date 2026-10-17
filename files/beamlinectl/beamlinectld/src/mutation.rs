@@ -96,7 +96,7 @@ pub fn dispatch(request: &Request, state: &state::State, stream: Option<&UnixStr
             return Reply::error("org.varlink.service.PermissionDenied", json!({}));
         }
     };
-    // Authentication can block on a person. Only lock after it has finished, then reread.
+    
     let _lock = match state.lock(true) {
         Ok(lock) => lock,
         Err(error) => return state_error(error),
@@ -129,7 +129,7 @@ fn preflight(
             || extensions
                 .iter()
                 .any(|e| e.name != current.name && e.interactive && e.active);
-        // Check before saving or creating runtime overrides, even if the live state is partial.
+        
         if !persistent_safe || !live_safe {
             return Some(Reply::extension_error(
                 "WouldLeaveNoInteractiveEnvironment",
@@ -177,9 +177,9 @@ fn apply(
         state
             .runtime_marker("active", name, false)
             .map_err(|e| ("clear-active", e))?;
-        // The template stops CUPS first, then removes both links, even before a refresh.
+        
         control.job("StopUnit", &unit).map_err(|e| ("stop", e))?;
-        // Always unlink, including retries after an earlier failed stop/cleanup left the unit inactive.
+        
         control
             .job(
                 "StartUnit",
@@ -235,7 +235,7 @@ fn perform(
     }
     if now && def.live {
         if let Err((stage, error)) = apply(state, &def.name, op.adding(), control) {
-            // An already durable choice is deliberately retained. Report observed live state.
+            
             return failed(state, &def.name, stage, error);
         }
     }
@@ -333,7 +333,7 @@ mod tests {
         let reply = perform(&state, &def, Operation::Activate, true, &mut FailingControl);
         assert_eq!(reply.parameters["stage"], "mark-active");
         assert_eq!(reply.parameters["enabled"], true);
-        // A saved disable must still request reboot if only one hierarchy is merged.
+        
         use std::os::unix::fs::MetadataExt;
         std::fs::create_dir_all(root.join("usr/.systemd-sysext")).unwrap();
         let device = std::fs::metadata(root.join("usr")).unwrap().dev();

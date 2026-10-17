@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Require explicit SELinux transition refusal evidence from negative tests."""
+                                                                               
 import re, sys
 lines = open(sys.argv[1], errors='replace').read().splitlines()
 for source in ('user_t', 'admin_t'):

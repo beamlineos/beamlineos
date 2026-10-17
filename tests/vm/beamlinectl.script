@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Persistent choices authenticated through the real console agent; live checks span five boots.
+
 expect BEAMLINE_CTL_READY_0
 send \n
 expect [a-z0-9-]+ login:

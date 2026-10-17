@@ -1,11 +1,11 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Extension tests on the checked-out Virt image (docs/spec.md §29): merge the posix
-# extension on demand and use its tools, with the desktop not merged at boot (no GPU here);
-# then offer tampered and unsigned copies of the posix image, which must all be refused
-# (docs/security.md §15). The image itself is never modified.
-#   ./ci/test-posix [path/to/installed.qcow2]
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

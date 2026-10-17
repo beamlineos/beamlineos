@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-#
-# One telemetry sample (0.0.4.1, docs/decisions.md D75): pressure stall information, load, memory
-# and the two top-level slices' memory, as journal lines with stable keys. dash builtins only: the
-# base has no coreutils. tools/daily-telemetry.py collects these lines after a session.
+
+
+
+
 
 set -u
 

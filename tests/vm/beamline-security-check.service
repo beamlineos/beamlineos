@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/test-security, docs/security.md §15, docs/decisions.md D59): the negative security
-# tests. The script arrives as the beamline.test.security-script credential. Injected through a
-# systemd.extra-unit credential; never part of an image, so it may use dash.
+
+
+
+
 
 [Unit]
 Description=Negative security tests

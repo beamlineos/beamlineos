@@ -54,3 +54,43 @@ path = "elements/components/_private/systemd-base.bst"
 project = "freedesktop-sdk"
 commit = "c67967f99ce9aafd75bf5b3091f5d2da094bdd61"
 path = "elements/components/systemd.bst"
+
+[copy."files/gdm/gdm-autologin.pam"]
+mode = "100644"
+upstream_sha256 = "ada85f287fe31e6902875f88c4e627020bc6e9100948f845820c5ad60307d81b"
+local_sha256 = "d2ee14e54a8d51b2f0ac54966b70520117e45de8b0ee3d5b2ca61be4c12e81d1"
+
+[copy."files/gdm/gdm-fingerprint.pam"]
+mode = "100644"
+upstream_sha256 = "bf7a4fd349cbf05765e3aaea914e7ab8a1723372ece5d3d9203f29406069e6eb"
+local_sha256 = "bf7a4fd349cbf05765e3aaea914e7ab8a1723372ece5d3d9203f29406069e6eb"
+
+[copy."files/gdm/gdm-launch-environment.pam"]
+mode = "100644"
+upstream_sha256 = "5c9c828365e144c542e0eb74be3f315995791a0d64f56517ab36b8ccf69cd984"
+local_sha256 = "923c9fffb97963d1b705e8184f6cb55729e8849ec8c7e728be88babf872777f9"
+
+[copy."files/gdm/gdm-password.pam"]
+mode = "100644"
+upstream_sha256 = "ee71738f711942391594994ac293defb36020897bafa9786d87137101cc9d061"
+local_sha256 = "ee71738f711942391594994ac293defb36020897bafa9786d87137101cc9d061"
+
+[copy."files/gdm/gdm-pin.pam"]
+mode = "100644"
+upstream_sha256 = "97bd11d56fa207f4c0a0840ac49b6b4a9a8e16a4db705cb1f555212db5d8e80f"
+local_sha256 = "97bd11d56fa207f4c0a0840ac49b6b4a9a8e16a4db705cb1f555212db5d8e80f"
+
+[copy."files/gdm/gdm-smartcard.pam"]
+mode = "100644"
+upstream_sha256 = "8230277b33a684766c07fc310ac0453e2b94e9e8f473fe493d3cb36c411f9ac2"
+local_sha256 = "8230277b33a684766c07fc310ac0453e2b94e9e8f473fe493d3cb36c411f9ac2"
+
+[copy."files/gdm/gdm-sysusers.conf"]
+mode = "100644"
+upstream_sha256 = "241d3954c56b8595de7361bf1ed2bc72395cfba8d8ff49d907d0d580a5611e44"
+local_sha256 = "86a2b4e6626a1e2399bbff80f3c956d4c8ec762711ac6bd694aa8ee0ef4a6abf"
+
+[copy."files/gdm/org.gnome.login-screen.gschema.override"]
+mode = "100644"
+upstream_sha256 = "04a4632f0a4526ab5d6168f5c9d6acbfc6b797d279bec289fad63fb2f827d143"
+local_sha256 = "04a4632f0a4526ab5d6168f5c9d6acbfc6b797d279bec289fad63fb2f827d143"

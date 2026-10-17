@@ -17,8 +17,8 @@ StateDirectory=beamline/state
 StateDirectoryMode=0755
 ReadWritePaths=/run/beamline/active /run/beamline/inactive
 ProtectKernelTunables=yes
-# Module-directory bind mounts pin the old /usr across a sysext refresh (D118).
-# Keep module operations forbidden without masking paths inside that hierarchy.
+
+
 ProtectKernelLogs=yes
 ProtectControlGroups=yes
 RestrictNamespaces=yes

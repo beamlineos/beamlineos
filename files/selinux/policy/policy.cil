@@ -1,11 +1,11 @@
 ; SPDX-License-Identifier: MIT
-;
-; Beamline SELinux policy, Stage 1 (docs/security.md §7, §16; docs/decisions.md D35, D58).
-; Written from scratch in CIL. Classes, initial SIDs and MCS categories come from the
-; kernel (kernel.cil, generated at build time), which also holds the platform domains' broad
-; rules. The domains' own rules are in platform.cil, admin.cil and user.cil.
-;
-; Stage 1 declares the kernel's full class map (kernel.cil) and denies unknown classes.
+ 
+                                                                                            
+                                                                                     
+                                                                                            
+                                                                            
+ 
+                                                                                       
 
 (handleunknown deny)
 (mls true)
@@ -17,39 +17,39 @@
 (policycap nnp_nosuid_transition)
 (policycap genfs_seclabel_symlinks)
 
-; --- Integrity levels (docs/security.md §3) -----------------------------------------
-;
-; P3 platform, P2 delegated administration (run0 sessions), P0 arbitrary user code. P1
-; (restricted applications) arrives with the applications that need it.
+                                                                                       
+ 
+                                                                                      
+                                                                       
 
 (typeattribute beamline_domain)
-(typeattribute beamline_platform_domain)       ; P3
-(typeattribute beamline_platform_broad_domain) ; P3 not yet confined: kernel.cil's broad rules (D91)
-(typeattribute beamline_confined_service)      ; P3 with its own narrow rules (services/*.cil, D91)
-(typeattribute beamline_admin_domain)          ; P2
-(typeattribute beamline_user_domain)           ; P0
-(typeattribute beamline_session_domain)        ; P2 and P0: interactive sessions
+(typeattribute beamline_platform_domain)           
+(typeattribute beamline_platform_broad_domain)                                                      
+(typeattribute beamline_confined_service)                                                          
+(typeattribute beamline_admin_domain)              
+(typeattribute beamline_user_domain)               
+(typeattribute beamline_session_domain)                                         
 (typeattribute beamline_file_type)
-(typeattribute beamline_platform_exec_type)    ; executables endorsed as P3 entrypoints
+(typeattribute beamline_platform_exec_type)                                            
 (typeattribute beamline_any_type)
 (typeattributeset beamline_any_type (all))
 
-; --- Users and roles ------------------------------------------------------------------
+                                                                                        
 
-(role object_r)                                ; files and other objects
+(role object_r)                                                         
 (roletype object_r beamline_any_type)
 (role system_r)
 (role user_r)
 (roleallow system_r user_r)
-; run0 sessions (docs/security.md §9.4, docs/decisions.md D55): root's PAM sessions map to
-; admin_u (seusers), and run0's session enters admin_r:admin_t (default_contexts).
+                                                                                           
+                                                                                  
 (role admin_r)
 (roleallow system_r admin_r)
 
-; Integrity levels (docs/security-mls.md §3, D99): Pn is sensitivity sn, larger is higher.
-; Platform subjects and SYSTEM are s3 with every category, run0 sessions and /etc's allowlist s2
-; with every category, sessions and what they own s0 with the shared session category c0, and
-; shared low containers (/tmp, /dev) s0. s1 (P1) is reserved and unused.
+                                                                                           
+                                                                                                
+                                                                                             
+                                                                        
 (level lvl_low (s0))
 (level lvl_session (s0 (c0)))
 (level lvl_admin (s2 (range c0 c1023)))
@@ -65,11 +65,11 @@
 (userlevel system_u (s0))
 (userrange system_u ((s0) (s3 (range c0 c1023))))
 
-; Every user's range spans all levels: a context is valid at any level, and the levels a subject
-; actually has come from seusers, default_contexts and transitions, which the constraints keep from
-; rising (mls.cil). The kernel needs the span: a socket a server accepts takes the listener's user,
-; role and type at the connecting client's level, so a platform client connecting to a session's
-; socket makes a user_u context at s3 (security_sid_mls_copy).
+                                                                                                
+                                                                                                   
+                                                                                                   
+                                                                                                
+                                                              
 (user user_u)
 (userrole user_u user_r)
 (userlevel user_u (s0 (c0)))
@@ -80,23 +80,23 @@
 (userlevel admin_u (s2 (range c0 c1023)))
 (userrange admin_u ((s0) (s3 (range c0 c1023))))
 
-; --- Domains --------------------------------------------------------------------------
+                                                                                        
 
 (type kernel_t)
-(type init_t)                                  ; PID 1 alone, with its executor (D90)
-(type platform_service_t)                      ; services PID 1 starts without a domain of their own
-(type hostnamed_t)                             ; systemd-hostnamed
-(type timedated_t)                             ; systemd-timedated
-(type localed_t)                               ; systemd-localed
-(type sysupdate_t)                             ; systemd-sysupdate(d), the updater
-(type homed_t)                                 ; systemd-homed and systemd-homework
-(type sysext_t)                                ; systemd-sysext and systemd-confext
+(type init_t)                                                                        
+(type platform_service_t)                                                                           
+(type hostnamed_t)                                                
+(type timedated_t)                                                
+(type localed_t)                                                
+(type sysupdate_t)                                                                
+(type homed_t)                                                                     
+(type sysext_t)                                                                    
 (type admin_t)
 (type user_t)
 (typeattributeset beamline_platform_broad_domain (kernel_t init_t platform_service_t hostnamed_t
     timedated_t localed_t sysupdate_t homed_t sysext_t generator_t))
-; Every P3 domain, broad or confined: the assertions below and the sessions' interface rules name
-; this attribute, so confining a service never weakens them.
+                                                                                                 
+                                                            
 (typeattributeset beamline_platform_domain (beamline_platform_broad_domain beamline_confined_service))
 (typeattributeset beamline_admin_domain (admin_t))
 (typeattributeset beamline_user_domain (user_t))
@@ -106,19 +106,19 @@
 (roletype user_r user_t)
 (roletype admin_r admin_t)
 
-; --- Files ----------------------------------------------------------------------------
+                                                                                        
 
-; SYSTEM (immutable, labelled when the image is built)
+                                                      
 (type root_t)
 (type default_t)
 (type usr_t)
 (type bin_t)
 (type etc_t)
-(type user_unit_file_t)                        ; user units: /usr/lib/systemd/user, /etc/systemd/user
-(type user_manager_unit_t)                     ; /usr/lib/systemd/system/user@.service (D105)
+(type user_unit_file_t)                                                                              
+(type user_manager_unit_t)                                                                   
 (type shadow_t)
 (type selinux_config_t)
-; Platform entrypoints (platform.cil)
+                                     
 (type init_exec_t)
 (type hostnamed_exec_t)
 (type timedated_exec_t)
@@ -129,12 +129,12 @@
 (typeattributeset beamline_platform_exec_type (init_exec_t hostnamed_exec_t timedated_exec_t
     localed_exec_t sysupdate_exec_t homed_exec_t sysext_exec_t generator_exec_t
     beamline_confined_exec_type))
-(typeattribute beamline_confined_exec_type)    ; confined services' entrypoints (services/*.cil)
+(typeattribute beamline_confined_exec_type)                                                     
 
-; The ESP and XBOOTLDR (vfat, written by bootctl and sysupdate)
+                                                               
 (type boot_t)
 
-; DATA (mutable, labelled at runtime)
+                                     
 (type data_t)
 (type var_t)
 (type var_log_t)
@@ -143,31 +143,31 @@
 (type user_home_dir_t)
 (type user_home_t)
 (type tmp_t)
-(type xdm_var_lib_t)                           ; /var/lib/gdm, the greeter's state
-; Files systemd writes into /etc's mutable layer that are not settings: the password-database
-; lock and the update stamp. The next boot's rebuild drops them (docs/decisions.md D56).
+(type xdm_var_lib_t)                                                              
+                                                                                             
+                                                                                        
 (type etc_runtime_t)
 
-; Runtime and kernel filesystems
+                                
 (type run_t)
-(type user_runtime_t)                          ; /run/user/<uid>
-(type xdm_runtime_t)                           ; /run/gdm, the greeter's home
+(type user_runtime_t)                                           
+(type xdm_runtime_t)                                                         
 (type tmpfs_t)
 (type device_t)
 (type null_device_t)
 (type devpts_t)
 (type unlabeled_t)
 (type fs_t)
-(type system_fs_t)                             ; EROFS: SYSTEM and the extensions
-(type data_fs_t)                               ; ext4 DATA and the btrfs homes
-(type overlay_fs_t)                            ; merged /usr and /etc
+(type system_fs_t)                                                               
+(type data_fs_t)                                                              
+(type overlay_fs_t)                                                  
 (type proc_t)
-(type proc_sys_user_t)                        ; /proc/sys/user: per-user-namespace limits (D83)
-(type proc_sys_net_t)                         ; /proc/sys/net: network settings (D91)
+(type proc_sys_user_t)                                                                         
+(type proc_sys_net_t)                                                                
 (type sysfs_t)
 (type security_t)
 (type securityfs_t)
-(type ipe_securityfs_t)                        ; /sys/kernel/security/ipe: IPE's policies (D102)
+(type ipe_securityfs_t)                                                                         
 (type cgroup_t)
 (type efivarfs_t)
 (type bpf_t)
@@ -191,26 +191,26 @@
     var_log_t var_lib_t home_root_t user_home_dir_t user_home_t tmp_t xdm_var_lib_t etc_runtime_t
     run_t user_runtime_t xdm_runtime_t beamline_etc_setting_type))
 
-; Scoped mutable /etc (docs/spec.md §14, docs/decisions.md D56). systemd-confext's mutable
-; layer makes /etc writable on DATA; the initrd reduces it to the allowlist before every merge,
-; and the labels decide what may change at runtime. The allowlisted system settings have their
-; own types; the systemd services that write them label new files from these contexts. Every
-; other /etc file, like all of /usr, is immutable: no domain may create, write, rename or
-; remove it, except the extension merger, which builds the overlays' structure.
+                                                                                           
+                                                                                               
+                                                                                              
+                                                                                            
+                                                                                         
+                                                                               
 (typeattribute beamline_etc_setting_type)
-(type hostname_etc_t)                          ; /etc/hostname, /etc/machine-info
-(type timezone_etc_t)                          ; /etc/localtime, /etc/adjtime
-(type locale_etc_t)                            ; /etc/locale.conf, /etc/vconsole.conf
-(type machine_id_etc_t)                        ; /etc/machine-id
+(type hostname_etc_t)                                                            
+(type timezone_etc_t)                                                        
+(type locale_etc_t)                                                                  
+(type machine_id_etc_t)                                         
 (typeattributeset beamline_etc_setting_type (hostname_etc_t timezone_etc_t locale_etc_t
     machine_id_etc_t))
 
-; Unit definitions PID 1 keeps at runtime, and generators' output (0.0.4.2 step 5, D97). Only PID 1
-; writes the first, only generators and PID 1 the second, and PID 1 loads unit files only from
-; these and from SYSTEM's types (files/patches/systemd-unit-load-selinux.patch).
-(type init_unit_runtime_t)                     ; /run/systemd/{system,system.control,transient}
-(type generator_unit_t)                        ; /run/systemd/generator{,.early,.late}
-(type generator_t)                             ; systemd's generators, run by PID 1 before units load
+                                                                                                   
+                                                                                              
+                                                                                
+(type init_unit_runtime_t)                                                                     
+(type generator_unit_t)                                                               
+(type generator_t)                                                                                   
 (type generator_exec_t)
 (typeattribute beamline_unit_runtime_type)
 (typeattributeset beamline_unit_runtime_type (init_unit_runtime_t generator_unit_t))
@@ -221,9 +221,9 @@
 (typeattribute beamline_mutable_type)
 (typeattributeset beamline_mutable_type (and beamline_any_type (not beamline_immutable_file_type)))
 
-; Content a lower integrity level can write: DATA, homes, temporary and runtime files, the ESP,
-; and anything unlabelled. Platform and admin domains never execute it (docs/security.md §6.3,
-; §7.4, §9.4); kernel.cil grants platform domains everything else on it.
+                                                                                               
+                                                                                               
+                                                                          
 (typeattribute beamline_untrusted_type)
 (typeattributeset beamline_untrusted_type (data_t var_t var_log_t var_lib_t home_root_t
     user_home_dir_t user_home_t tmp_t xdm_var_lib_t etc_runtime_t beamline_etc_setting_type run_t
@@ -232,9 +232,9 @@
 (typeattributeset beamline_trusted_mutable_type (and (and (and beamline_mutable_type
     (not beamline_untrusted_type)) (not beamline_unit_runtime_type)) (not (or ipe_securityfs_t beamlinectl_state_t))))
 
-; Immutable types other than /etc's: SYSTEM code and its data. They exist on the EROFS images,
-; in the merged overlays and in the merger's tmpfs workspace, never on DATA. (etc_t is the type
-; of /etc's mutable layer root on DATA, so it is not in this set.)
+                                                                                              
+                                                                                               
+                                                                  
 (typeattribute beamline_system_only_type)
 (typeattributeset beamline_system_only_type (and beamline_immutable_file_type (not etc_t)))
 (typeattribute beamline_storable_type)
@@ -244,15 +244,15 @@
 (typeattributeset beamline_system_fs_label (system_fs_t overlay_fs_t tmpfs_t))
 (allow beamline_system_only_type beamline_system_fs_label (filesystem (associate)))
 
-; --- Rules every domain shares ----------------------------------------------------------
+                                                                                          
 
 (allow beamline_platform_domain security_t (security (compute_av compute_create
     compute_member check_context compute_relabel compute_user read_policy validate_trans)))
 (allow beamline_session_domain security_t (security (compute_av compute_create
     compute_member check_context compute_relabel validate_trans)))
 
-; Named transitions: files with a fixed name get their type whoever creates them, SELinux-aware
-; or not (file-contexts.cil gives the same types for relabelling).
+                                                                                               
+                                                                  
 (typetransition beamline_domain etc_t file "hostname" hostname_etc_t)
 (typetransition beamline_domain etc_t file "machine-info" hostname_etc_t)
 (typetransition beamline_domain etc_t lnk_file "localtime" timezone_etc_t)
@@ -262,40 +262,40 @@
 (typetransition beamline_domain etc_t file "machine-id" machine_id_etc_t)
 (typetransition beamline_domain etc_t file ".pwd.lock" etc_runtime_t)
 (typetransition beamline_domain etc_t file ".updated" etc_runtime_t)
-; GDM creates the greeter's directories itself (docs/decisions.md D58).
+                                                                       
 (typetransition beamline_platform_domain var_lib_t dir "gdm" xdm_var_lib_t)
 (typetransition beamline_platform_domain run_t dir "gdm" xdm_runtime_t)
 
-; Services and administrators probe whether a file is writable with access(2) before deciding
-; how to treat it (fwupd its configuration, for one). On SYSTEM's immutable types the answer is
-; always no; the probe is not worth an audit record. Writes themselves are still audited.
+                                                                                             
+                                                                                               
+                                                                                         
 (dontaudit beamline_platform_domain beamline_immutable_file_type (file (audit_access)))
 (dontaudit beamline_platform_domain beamline_immutable_file_type (dir (audit_access)))
 (dontaudit beamline_admin_domain beamline_immutable_file_type (file (audit_access)))
 (dontaudit beamline_admin_domain beamline_immutable_file_type (dir (audit_access)))
-; User sessions too: Files checks whether every file it lists is executable, which on platform
-; code such as systemd-sysext is denied (D83). Executing it is still denied and audited.
+                                                                                              
+                                                                                        
 (dontaudit beamline_user_domain beamline_immutable_file_type (file (audit_access)))
 (dontaudit beamline_user_domain beamline_immutable_file_type (dir (audit_access)))
 
-; --- Assertions (checked by secilc when the policy is compiled) -------------------------
+                                                                                          
 
-; Nothing may switch enforcement or load a policy at runtime. A recovery domain is the
-; only future exception (docs/security.md §7.3).
+                                                                                      
+                                                 
 (neverallow beamline_domain beamline_any_type (security (setenforce load_policy)))
 
-; Nothing may change SYSTEM's immutable files, in /etc's mutable layer or anywhere else
-; (docs/spec.md §14, docs/decisions.md D56). The extension merger builds the merged
-; hierarchies' roots, work directories and metadata with these types (docs/decisions.md D58).
+                                                                                       
+                                                                                    
+                                                                                             
 (typeattribute beamline_etc_writer_excluded)
 (typeattributeset beamline_etc_writer_excluded (and beamline_domain (not sysext_t)))
 (neverallow beamline_etc_writer_excluded beamline_immutable_file_type (file (create write append unlink rename link setattr relabelfrom relabelto)))
 (neverallow beamline_etc_writer_excluded beamline_immutable_file_type (lnk_file (create write append unlink rename link setattr relabelfrom relabelto)))
 (neverallow beamline_etc_writer_excluded beamline_immutable_file_type (dir (create rmdir rename reparent relabelfrom relabelto)))
-; overlayfs sets the upper parent directory's timestamps with the mounter's credentials when it
-; copies a file up: the merger's, or kernel_t's for the overlay the initrd mounted before the
-; policy loaded (docs/decisions.md D58). No other domain changes the attributes of an immutable
-; directory.
+                                                                                               
+                                                                                             
+                                                                                               
+            
 (typeattribute beamline_overlay_mounter)
 (typeattributeset beamline_overlay_mounter (sysext_t kernel_t))
 (typeattribute beamline_dir_attr_excluded)
@@ -303,23 +303,23 @@
 (neverallow beamline_dir_attr_excluded beamline_immutable_file_type (dir (setattr)))
 (allow kernel_t etc_t (dir (setattr)))
 
-; SYSTEM code never lands on DATA, under any label a process could choose.
+                                                                          
 (neverallow beamline_system_only_type data_fs_t (filesystem (associate)))
 
-; Platform and admin domains never execute content a lower integrity level can write
-; (docs/security.md §6.3, §7.4, §9.4).
+                                                                                    
+                                         
 (neverallow beamline_platform_domain beamline_untrusted_type (file (execute execute_no_trans entrypoint execmod)))
 (neverallow beamline_admin_domain beamline_untrusted_type (file (execute execute_no_trans entrypoint execmod)))
 
-; No lower level enters a higher one (docs/security.md §7.3).
+                                                              
 (neverallow beamline_session_domain beamline_platform_domain (process (transition dyntransition)))
 (neverallow beamline_user_domain beamline_admin_domain (process (transition dyntransition)))
 (neverallow beamline_session_domain beamline_platform_domain (process (ptrace)))
 
-; Sessions never load kernel modules (docs/security.md §9.4, §11).
+                                                                    
 (neverallow beamline_session_domain beamline_any_type (system (module_load)))
-; Unit definitions (D97): only PID 1 writes its runtime units, only PID 1 and generators write
-; generator output, and PID 1 loads units only from SYSTEM and these two types.
+                                                                                              
+                                                                               
 (typeattribute beamline_unit_writer_excluded)
 (typeattributeset beamline_unit_writer_excluded (and beamline_domain (not init_t)))
 (typeattribute beamline_generator_writer_excluded)
@@ -334,8 +334,8 @@
 (typeattributeset beamline_unit_load_excluded (and beamline_any_type (not (or beamline_immutable_file_type beamline_unit_runtime_type))))
 (neverallow init_t beamline_unit_load_excluded (service (load)))
 
-; IPE's boot policy is the only policy (D102): no domain writes IPE's securityfs files, so no
-; policy can be added, activated or deleted, and enforcement cannot be switched off.
+                                                                                             
+                                                                                    
 (allow beamline_platform_domain ipe_securityfs_t (dir (getattr search read open)))
 (allow beamline_platform_domain ipe_securityfs_t (file (getattr open read ioctl)))
 (neverallow beamline_domain ipe_securityfs_t (file (write append create unlink rename setattr relabelfrom relabelto)))

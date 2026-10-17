@@ -228,7 +228,7 @@ impl State {
     }
 }
 
-/// Same device check and newline list as the pinned systemd-sysext status implementation.
+                                                                                          
 fn merged(hierarchy: &Path, directory: &str) -> io::Result<BTreeSet<String>> {
     let device = match fs::read_to_string(hierarchy.join(directory).join("dev")) {
         Ok(value) => value,

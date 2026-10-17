@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Collect a 0.0.4.1 daily-driver session's telemetry from its disk, read-only (decisions D75).
+HELP = """Collect a 0.0.4.1 daily-driver session's telemetry from its disk, read-only (decisions D75).
 
   daily-telemetry.py DISK OUTDIR
 
@@ -120,7 +120,7 @@ def collect(mountpoint, outdir):
 
 def main():
     if len(sys.argv) != 3:
-        sys.exit(__doc__)
+        sys.exit(HELP)
     disk, outdir = sys.argv[1], sys.argv[2]
     fmt = json.loads(output(["qemu-img", "info", "--output=json", "-U", disk]))["format"]
     os.makedirs(outdir, exist_ok=True)

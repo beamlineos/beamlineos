@@ -1,4 +1,4 @@
 #!/usr/bin/sh
 # SPDX-License-Identifier: MIT
-# Select the C17 language mode explicitly rather than GCC's evolving default.
+
 exec /usr/bin/gcc -std=c17 "$@"

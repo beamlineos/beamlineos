@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Publish saved, green artifacts; never build an image or move a channel pointer.
+
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
 cd "$REPO"

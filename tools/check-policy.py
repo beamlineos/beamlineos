@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Static policy checks for Beamline trees and unit files (docs/spec.md §2.1, §6, §18.1).
+HELP = """Static policy checks for Beamline trees and unit files (docs/spec.md §2.1, §6, §18.1).
 
   --units DIR...      Reject shell constructs in Exec*= lines of unit files.
   --tree SYSROOT      The base root: reject user interpreters other than sh/dash, scripts needing
@@ -24,9 +24,9 @@ import sys
 
 EXEC_KEY = re.compile(r"^\s*(Exec(Start|StartPre|StartPost|Stop|StopPost|Reload|Condition))\s*=\s*(.*)$")
 
-# Constructs that mean "this unit is a shell script" (docs/spec.md §6).
+                                                                        
 SHELL_CONSTRUCTS = [
-    # Exec lines may carry the prefixes - @ : + ! before the binary path.
+                                                                         
     (re.compile(r"(^|[\s;@:+!-])(/usr)?/bin/(ba|da)?sh\s+-\w*c"), "shell -c"),
     (re.compile(r"(^|[\s;@:+!-])(ba|da)?sh\s+-\w*c\b"), "shell -c"),
     (re.compile(r"\|\|"), "||"),
@@ -38,16 +38,16 @@ SHELL_CONSTRUCTS = [
 
 UNIT_SUFFIXES = (".service", ".socket", ".timer", ".path", ".mount", ".target")
 
-# docs/spec.md §7.1, docs/decisions.md D29: no web engine or web JavaScript engine.
+                                                                                    
 WEB_ENGINE = re.compile(r"^(libwebkit\S*gtk\S*\.so.*|libjavascriptcoregtk\S*\.so.*|"
                         r"(WebKit|WebKit2|JavaScriptCore)(WebExtension)?-[\d.]+\.typelib|jsc)$")
-# docs/spec.md §7.2: shipped coreutils are uutils. GNU binaries carry this in --version;
-# uutils' multicall binary also mentions it (in help texts), alongside its own name.
+                                                                                         
+                                                                                    
 GNU_COREUTILS_MARK = b"GNU coreutils"
 UUTILS_MARK = b"uutils"
 
-# Match interpreter entry points, including versioned names and libexec copies.
-# Shared libraries (polkit's duktape, for example) are not command interpreters (§5.1).
+                                                                               
+                                                                                        
 BASE_INTERPRETER = re.compile(
     r"^(?:python(?:\d+(?:\.\d+)*)?(?:[a-z])?|pypy(?:\d+(?:\.\d+)*)?|"
     r"perl(?:\d+(?:\.\d+)*)?|lua(?:jit)?(?:-?\d+(?:\.\d+)*)?|"
@@ -58,21 +58,21 @@ BASE_INTERPRETER = re.compile(
 )
 
 FORBIDDEN_BINARIES = [
-    # Shell policy (docs/spec.md §6) and root identity (§18.1, §19: run0 is the only
-    # escalation); bash is base-only
+                                                                                       
+                                    
     "bash", "su", "sudo", "pkexec", "doas",
-    # The initrd is project-owned (§13)
+                                        
     "dracut",
-    # Package managers and out-of-tree module builds (§2.1)
+                                                            
     "rpm", "dnf", "yum", "microdnf", "zypper", "apt", "apt-get", "dpkg",
     "pacman", "emerge", "apk", "dkms",
-    # Image accounts come from sysusers and homed; rootless ID mapping will use a service.
+                                                                                          
     "newgrp", "passwd", "chsh", "chfn", "gpasswd", "chage", "newuidmap", "newgidmap",
     "useradd", "usermod", "userdel", "groupadd", "groupmod", "groupdel", "chpasswd",
     "pwconv", "pwunconv", "grpconv", "grpunconv", "vipw", "vigr",
 ]
 
-# §22: the sole temporary exception, restored immediately before filesystem creation.
+                                                                                      
 PRIVILEGE_EXCEPTION = "usr/bin/fusermount3"
 
 
@@ -81,8 +81,8 @@ def read_capabilities(path):
         return os.getxattr(path, "security.capability", follow_symlinks=False)
     if sys.platform != "darwin":
         raise OSError(errno.ENOSYS, "no native extended attribute reader")
-    # macOS Python lacks os.getxattr. Darwin's native API takes position and flags
-    # as two extra arguments; XATTR_NOFOLLOW is 0x0001 (sys/xattr.h).
+                                                                                  
+                                                                     
     reader = ctypes.CDLL(None, use_errno=True).getxattr
     reader.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p,
                       ctypes.c_size_t, ctypes.c_uint32, ctypes.c_int]
@@ -148,7 +148,7 @@ def iter_unit_files(roots):
 
 
 def logical_lines(path):
-    """Yield (lineno, text) with backslash continuations joined."""
+                                                                   
     with open(path, encoding="utf-8", errors="replace") as f:
         buf, start = "", None
         for lineno, raw in enumerate(f, 1):
@@ -167,8 +167,8 @@ def logical_lines(path):
 def check_units(roots, allowlist):
     problems = []
     for path in iter_unit_files(roots):
-        # .wants/ links and aliases point at files scanned anyway, and an absolute
-        # link inside a sysroot would resolve against the host.
+                                                                                  
+                                                               
         if os.path.islink(path):
             continue
         if os.path.basename(path) in allowlist:
@@ -200,7 +200,7 @@ def check_artifact(tree):
             if rel in ("usr/bin", "usr/sbin") and not os.path.islink(path) and os.path.isfile(path):
                 with open(path, "rb") as f:
                     data = f.read()
-                # Only programs: scripts such as xz's xzdiff mention GNU coreutils in prose.
+                                                                                            
                 if data[:4] != b"\x7fELF":
                     continue
                 if GNU_COREUTILS_MARK in data and not (name == "coreutils" and UUTILS_MARK in data):
@@ -209,7 +209,7 @@ def check_artifact(tree):
 
 
 def script_interpreter(line):
-    """Read a shebang, including env sh and env -S; never evaluate shell input."""
+                                                                                  
     if not line.startswith(b"#!"):
         return None
     try:
@@ -269,7 +269,7 @@ def check_tree(sysroot):
 
 
 def image_path(roots, path):
-    """Resolve a merged image path, including absolute symlinks, without using host paths."""
+                                                                                             
     pending = path.split("/")
     resolved = []
     links = 0
@@ -300,9 +300,9 @@ def image_path(roots, path):
                  if os.path.lexists(os.path.join(root, *resolved))), None)
 
 
-# MLS levels (docs/security-mls.md §3, D99): every context names one of four level ranges. Only
-# shared, non-executable types may be low (no category), so that whatever a session executes
-# carries its category (invariant I3); range transitions only go down from the platform (Lemma 3).
+                                                                                                
+                                                                                            
+                                                                                                  
 MLS_RANGES = {"lr_low", "lr_session", "lr_admin", "lr_platform"}
 MLS_LOW_TYPES = {"unlabeled_t", "tmp_t", "tmpfs_t", "device_t", "null_device_t", "fuse_device_t",
                  "devpts_t", "mqueue_t", "fs_t", "port_t", "netif_t", "node_t"}
@@ -311,9 +311,9 @@ MLS_CONTEXT = re.compile(r"\((system_u|user_u|admin_u) (object_r|system_r) ([a-z
 
 
 def check_selinux_policy(directory):
-    """No permissive domain in the policy (D91): a confined service is developed with
-    `typepermissive`, which logs its denials instead of enforcing them, and must never reach a
-    cycle like that. Every context's level is one of the named ranges (D99)."""
+                                                                                     
+                                                                                              
+                                                                               
     problems = []
     for root, _, files in os.walk(directory):
         for name in sorted(files):
@@ -391,7 +391,7 @@ def check_posix(extension, base, listing, scope):
 
 
 def check_extensions(directory):
-    """Keep the daemon's immutable catalogue coupled to the shipped update resources."""
+                                                                                        
     names = {"desktop-gnome", "posix", "posix-devel", "printing-scanning"}
     metadata = os.path.join(directory, "beamline", "extensions.d")
     problems = []
@@ -436,7 +436,7 @@ def check_extensions(directory):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--units", nargs="+", default=[], metavar="DIR", help="unit directories to scan")
     parser.add_argument("--tree", metavar="SYSROOT", help="composed root filesystem to check")
     parser.add_argument("--artifact", nargs="+", default=[], metavar="TREE",

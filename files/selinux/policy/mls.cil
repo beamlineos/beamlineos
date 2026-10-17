@@ -1,21 +1,21 @@
 ; SPDX-License-Identifier: MIT
-;
-; The ring-variant Biba (0.0.4.2 step 6C, docs/security-mls.md §5, D100). Levels are integrity:
-; P0-P3 are s0-s3 (D99). Type Enforcement decides who may do what; these constraints add that no
-; subject modifies anything above its level, no subject executes code below its level, and no
-; process raises its level. Reads, and requests through the platform's interfaces (sockets,
-; pipes, D-Bus, PID 1, descriptors), are not constrained (docs/security-mls.md §4).
+ 
+                                                                                                
+                                                                                                
+                                                                                             
+                                                                                           
+                                                                                    
 
-; Trusted objects (docs/security-mls.md §7): kernel interfaces whose own checks guard them, and
-; which sessions must write: selinuxfs' query files (TO1), the user manager's delegated cgroup
-; subtree (TO2), per-namespace user limits (TO3).
+                                                                                                
+                                                                                              
+                                                 
 (typeattribute beamline_mls_trusted_object)
 (typeattributeset beamline_mls_trusted_object (security_t cgroup_t proc_sys_user_t))
-; (sd-pam), the PAM session holder, stays in init_t; its session ends it with a signal (SO1).
+                                                                                             
 (typeattribute beamline_mls_signalled_by_session)
 (typeattributeset beamline_mls_signalled_by_session (init_t))
 
-; --- W: no write-up -------------------------------------------------------------------------
+                                                                                              
 
 (mlsconstrain (file (write append create unlink link rename setattr relabelfrom relabelto))
     (or (dom l1 l2) (eq t2 beamline_mls_trusted_object)))
@@ -28,14 +28,14 @@
 (mlsconstrain (dir (write append unlink link rename setattr relabelfrom relabelto add_name
     remove_name reparent rmdir))
     (or (dom l1 l2) (eq t2 beamline_mls_trusted_object)))
-; A session recreating mount points in its own namespaces (N): systemd labels a mount point it
-; makes from the file contexts, so the user manager makes a run_t directory at s3 for a unit's
-; credentials. Only creating a directory of a namespace mount-point type is exempt: the parent's
-; write check above still applies, so nothing is added to a directory above the session.
+                                                                                              
+                                                                                              
+                                                                                                
+                                                                                        
 (mlsconstrain (dir (create))
     (or (dom l1 l2) (or (eq t2 beamline_mls_trusted_object)
         (and (eq t1 beamline_user_domain) (eq t2 beamline_user_namespace_type)))))
-; A socket's or FIFO's write is a request (E); creating, removing or relabelling one is not
+                                                                                           
 (mlsconstrain (sock_file (create unlink link rename setattr relabelfrom relabelto))
     (or (dom l1 l2) (eq t2 beamline_mls_trusted_object)))
 (mlsconstrain (fifo_file (create unlink link rename setattr relabelfrom relabelto))
@@ -45,15 +45,15 @@
 (mlsconstrain (msgq (write destroy setattr)) (dom l1 l2))
 (mlsconstrain (msg (send)) (dom l1 l2))
 (mlsconstrain (key (write setattr link create)) (dom l1 l2))
-; Signals and process control towards another process; sigchld (E) and signull (R) are free
+                                                                                           
 (mlsconstrain (process (sigkill sigstop ptrace setsched setrlimit share setpgid)) (dom l1 l2))
 (mlsconstrain (process (signal))
     (or (dom l1 l2) (eq t2 beamline_mls_signalled_by_session)))
 
-; --- X: no execute-down --------------------------------------------------------------------
+                                                                                             
 
 (mlsconstrain (file (execute execute_no_trans entrypoint execmod)) (dom l2 l1))
 
-; --- T: no elevation -------------------------------------------------------------------------
+                                                                                               
 
 (mlsconstrain (process (transition dyntransition setcurrent)) (dom l1 l2))

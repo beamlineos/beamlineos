@@ -33,21 +33,21 @@ build-depends:
     location: /work/src
 
 variables:
-  # Fixed seed: partition and filesystem UUIDs are derived from it, keeping the medium
-  # reproducible. SYSTEM-A's UUIDs come from its root hash instead (drop-ins below).
+  
+  
   medium-seed: 3c5e8a71-9d24-4b6f-8e13-5a7c0d9f2b64
 
 environment:
   SOURCE_DATE_EPOCH: '%{source-date-epoch}'
-  # mkfs.fat ignores SOURCE_DATE_EPOCH; --invariant gives constant time fields (D57, D108).
+  
   SYSTEMD_REPART_MKFS_OPTIONS_VFAT: --invariant
   TMPDIR: /work/tmp
 
 config:
   commands:
   - |
-    # The boot partitions' contents. The installer UKI is the only boot entry, and systemd-boot
-    # starts it; the snapshot's own UKIs wait in /beamline/uki for the installer.
+    
+    
     medium=/work/medium
     sb="%{datadir}/%{os-id}/secure-boot"
     arch="%{efi-arch}"
@@ -62,15 +62,15 @@ config:
       > "${medium}/esp/loader/loader.conf"
     for uki in /work/src/install/EFI/Linux/*.efi; do
       install -m644 "${uki}" "${medium}/xbootldr/EFI/Linux/"
-      # systemd-stub hands it to the initrd as /.extra/sysext/installer.sysext.raw (D113).
+      
       install -D -m644 /installer-extension/installer.sysext.raw \
         "${medium}/xbootldr/EFI/Linux/$(basename "${uki}").extra.d/installer.sysext.raw"
     done
     install -m644 /work/src/xbootldr/EFI/Linux/*.efi "${medium}/xbootldr/%{os-id}/uki/"
 
   - |
-    # SYSTEM's split images keep the UUIDs repart derived from their root hash, which the UKIs'
-    # roothash= finds (docs/decisions.md D47), and the label of an installed slot (D48).
+    
+    
     cp -r "%{datadir}/%{os-id}/repart/install" /work/definitions
     python3 - /system/system.json /work/definitions "%{os-id}_%{snapshot-id}" <<'EOF'
     import json, os, sys

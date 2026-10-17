@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/test-posix): merge the posix extension and use it. Injected through a
-# systemd.extra-unit credential; never part of an image.
+
+
+
 
 [Unit]
 Description=Check the posix system extension

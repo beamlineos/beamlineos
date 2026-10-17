@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Regression checks for pinned system IDs (tools/pin-sysusers.py, docs/decisions.md D106)."""
+                                                                                              
 import importlib.util
 from pathlib import Path
 import tempfile

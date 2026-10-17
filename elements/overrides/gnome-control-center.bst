@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
-# Copied from: gnome-build-meta 23c598b45f510cc0bb2161b5cc06742c45bbb00b
-#   elements/core/gnome-control-center.bst
-# Changes: junction prefixes, local GCC instead of recc, sources inherited by integration
-# (policy/tracking.toml [recipe.gnome-control-center]), built without parental controls
-# (-Dmalcontent=false, no malcontent dependency; D76, D89), and a patch hiding the Secure Shell row
-# when the system has no SSH server (K11, D89).
+
+
+
+
+
+
 
 kind: meson
 
@@ -15,9 +15,9 @@ sources:
 - kind: git_module
   url: gnome:libgnome-volume-control.git
   path: subprojects/gvc
-# FIXME: This needs to be kept in sync with the wrap file ideally,
-# but this will do for now
-# https://gitlab.gnome.org/GNOME/gnome-control-center/-/blob/main/subprojects/libgxdp.wrap
+
+
+
 - kind: git_repo
   url: gnome:libgxdp.git
   directory: subprojects/libgxdp

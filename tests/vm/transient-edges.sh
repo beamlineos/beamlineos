@@ -1,6 +1,6 @@
 #!/usr/bin/sh
 # SPDX-License-Identifier: MIT
-# Runs only in user_t as UID 0. Exercise the D-Bus equivalent of ExecStart=+.
+
 set -eu
 unit=beamline-transient-privileged.service
 busctl -- call org.freedesktop.systemd1 /org/freedesktop/systemd1 \

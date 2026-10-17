@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-# Removed from the base; of the extensions, only posix-devel may ship them (0.0.4.2 step 2A,
-# docs/decisions.md D88). Every extension's tree contains the base's files, so the others prune
-# these too; posix-devel's toolchain and headers need them.
-# Patterns: see tools/prune-tree.py.
 
-# GCC runtimes no base program uses: sanitizers, transactional memory, Fortran. (libgomp, OpenMP,
-# stays: gettext's msginit and msgmerge in posix use it.)
+
+
+
+
+
+
 /usr/lib/*-linux-gnu/libasan.so*
 /usr/lib/*-linux-gnu/libhwasan.so*
 /usr/lib/*-linux-gnu/liblsan.so*
@@ -14,13 +14,13 @@
 /usr/lib/*-linux-gnu/libitm.so*
 /usr/lib/*-linux-gnu/libgfortran.so*
 
-# device-mapper's development files (base/device-mapper.bst)
+
 /usr/include/libdevmapper.h
 /usr/lib/*-linux-gnu/pkgconfig/devmapper.pc
 
-# libpwquality's Python module: the base has no Python
+
 /usr/lib/python3.*/site-packages/pwquality*
 /usr/lib/python3.*/site-packages/pwquality*/**
 
-# D-Bus' test tool
+
 /usr/bin/dbus-test-tool

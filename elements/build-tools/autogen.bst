@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Generates sharutils HEAD's option parser from its actual definitions (D63).
+
 kind: autotools
 build-depends:
 - junctions/freedesktop-sdk.bst:public-stacks/buildsystem-autotools.bst
@@ -7,9 +7,9 @@ build-depends:
 depends:
 - build-tools/guile.bst
 variables:
-  # This build-only generator predates C23. Keep the SDK's hardening and upstream
-  # -Werror except for const-search results in its legacy mutable-string helpers.
-  # The patch fixes AutoOpts declarations and removes an unused counter.
+  
+  
+  
   conf-local: >-
     --prefix=%{prefix} --libdir=%{libdir} --without-libxml2
     --disable-dependency-tracking

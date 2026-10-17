@@ -1,19 +1,19 @@
 # SPDX-License-Identifier: MIT
-#
-# Injected as a credential for VM tests on the installed reference disk (docs/decisions.md D113);
-# never part of an image. The reference's accounts were created at its first boot with
-# /usr/bin/sh, and homed creates accounts only at a first boot. ci/test-shell and ci/test-desktop
-# need an account that logs in with Beamline's default login shell, the stub: give it to %i.
-# --offline changes homed's copy of the record only (the home's embedded copy follows at
-# activation), so root needs no secret. That an account created without a shell gets the stub is
-# ci/test-install's first boot. Dropping the field instead (`--shell=`) fails: homectl then sends
-# `perMachine: null`, which its own validation refuses.
+
+
+
+
+
+
+
+
+
 
 [Unit]
 Description=Give %i the default login shell
 Requires=systemd-homed.service
 After=systemd-homed.service systemd-homed-firstboot.service
-# Before anything activates the home: homed refuses an update while an activation runs.
+
 Before=systemd-user-sessions.service beamline-shell-extension-fixture.service
 
 [Service]

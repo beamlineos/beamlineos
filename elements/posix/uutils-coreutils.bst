@@ -40,7 +40,7 @@ sources:
 
 public:
   bst:
-    # This user command is removed from the finished base; its library artifact
-    # stages first via base/base.bst, then the preferred uutils implementation.
+    
+    
     overlap-whitelist:
     - /usr/bin/more

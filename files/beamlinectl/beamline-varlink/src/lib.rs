@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-//! The synchronous varlink client shared by the CLI and the future GUI. No D-Bus dependency.
+                                                                                             
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::fmt;
@@ -75,7 +75,7 @@ impl Reply {
     }
 }
 
-/// Bound memory before appending input, including an unterminated frame.
+                                                                         
 pub fn read_frame<R: BufRead>(reader: &mut R) -> io::Result<Option<Vec<u8>>> {
     let mut frame = Vec::new();
     loop {

@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT
-#
-# Freedesktop SDK is the substrate (docs/spec.md §2.2): toolchain, libraries and
-# component recipes. It does not define distribution policy.
-#
-# Tracked at `master` (§31): integration cycles select the newest master commit whose
-# upstream CI pipeline passed, so FDSDK's published artifacts exist for it.
-#
-# Keep options at FDSDK defaults (apart from arch) so cache keys match the artifacts
-# FDSDK publishes to cache.freedesktop-sdk.io; anything else forces local rebuilds.
+
+
+
+
+
+
+
+
+
 
 kind: junction
 
@@ -21,8 +21,8 @@ config:
     target_arch: '%{arch}'
     bootstrap_build_arch: '%{arch}'
 
-  # Components tracked at their own upstream HEAD (docs/spec.md §2.2, decisions D15), and
-  # components rebuilt SELinux-aware (docs/security.md §19.2, decisions D30).
+  
+  
   overrides:
     components/_private/systemd-base.bst: overrides/systemd-base.bst
     components/systemd.bst: overrides/systemd.bst
@@ -32,11 +32,11 @@ config:
     components/fuse3.bst: overrides/fuse3.bst
     components/libcupsfilters.bst: overrides/libcupsfilters.bst
 
-    # Carried from gnome-build-meta's FDSDK junction (decisions D28): GNOME's SDK libraries,
-    # portals and flatpak at GNOME's selection, so gbm's recipes and FDSDK's agree. Not
-    # carried: gbm's systemd family (Beamline's own, above) and its module certificate
-    # (Beamline's kernel). tools/integrate.py fails the cycle when gbm's list changes.
-    # BEGIN gnome-build-meta overrides
+    
+    
+    
+    
+    
     components/at-spi2-core.bst: junctions/gnome-build-meta.bst:sdk/at-spi2-core.bst
     components/cairo.bst: junctions/gnome-build-meta.bst:sdk/cairo.bst
     components/fcitx5-gtk.bst: junctions/gnome-build-meta.bst:sdk/fcitx5-gtk.bst
@@ -66,4 +66,4 @@ config:
     components/flatpak.bst: junctions/gnome-build-meta.bst:core-deps/flatpak.bst
     components/libical.bst: junctions/gnome-build-meta.bst:core-deps/libical3.bst
     components/krb5.bst: junctions/gnome-build-meta.bst:sdk/krb5.bst
-    # END gnome-build-meta overrides
+    

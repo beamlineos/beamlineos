@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# VM-only harness: shell orchestration is never shipped in an image.
+
 set -eu
 failure() {
     journalctl -b --no-pager -n 100 -u beamline-extensions-refresh.service -u beamline-printing-start.service || :
@@ -37,7 +37,7 @@ reboot_to() {
     exit 0
 }
 
-# Observe the actual kernel labels while a real client holds an activated connection.
+
 if [ "$stage" = 0 ]; then
 varlinkctl introspect /run/varlink/registry/org.beamline.Extensions
 state_is desktop-gnome yes yes
@@ -74,8 +74,8 @@ done
 echo BEAMLINE_CTL_READY_0
 await_marker /var/lib/beamline/state/posix.enabled
 await_marker /tmp/beamline-ctl-confirm-0
-# The real password prompt holds both processes live, so observing their labels does not
-# depend on catching a short List call between two /proc scans on a busy host.
+
+
 : > /run/beamline-test-ctl/calls-done
 wait "$observer"
 [ -e /run/beamline-test-ctl/daemon ]
@@ -104,7 +104,7 @@ elif [ "$stage" = 2 ]; then
     [ ! -e /usr/bin/gnome-shell ]
     if systemctl is-active --quiet display-manager.service; then exit 1; fi
     echo BEAMLINE_CTL_DESKTOP_OFF_OK
-    # P0 uses the marker's owning UID so DAC cannot be the refusal. P2 root may bypass DAC.
+    
     if systemd-run --quiet --wait --pipe --collect --property=User=beamline-ctl \
         --property=SELinuxContext=user_u:user_r:user_t:s0:c0 \
         /usr/bin/sh -c 'printf bad >> /var/lib/beamline/state/posix.enabled'; then exit 1; fi
@@ -127,13 +127,13 @@ elif [ "$stage" = 2 ]; then
     fail_with WouldLeaveNoInteractiveEnvironment beamlinectl deactivate posix
     beamlinectl enable desktop-gnome
     state_is desktop-gnome yes no
-    # Both guards must run BEFORE changing a saved choice. Desktop is saved, but not active.
+    
     fail_with WouldLeaveNoInteractiveEnvironment beamlinectl disable --now posix
     state_is posix yes yes
     fail_with WouldLeaveNoInteractiveEnvironment beamlinectl deactivate posix
     echo BEAMLINE_CTL_LIVE_GUARD_OK
 
-    # A refresh must not apply a choice saved for next boot, or bring up the desktop live.
+    
     beamlinectl enable posix-devel
     state_is posix-devel yes no
     beamlinectl activate printing-scanning
@@ -153,8 +153,8 @@ elif [ "$stage" = 2 ]; then
     echo BEAMLINE_CTL_PRINTING_STOP_OK
     beamlinectl disable posix-devel
 
-    # Failure after durable save: a malformed runtime marker exercises real filesystem failure
-    # without leaving a failed service or introducing a security-policy exception.
+    
+    
     systemd-tmpfiles --create --inline 'f+ /run/beamline/active/posix-devel 0644 beamline-ctl beamline-ctl - invalid'
     fail_with OperationFailed beamlinectl --json enable posix-devel --now
     grep -F '"stage":"mark-active"' /run/beamline-test-ctl/error
@@ -169,7 +169,7 @@ elif [ "$stage" = 2 ]; then
     state_is posix-devel no no
     echo BEAMLINE_CTL_FAILURE_POLICY_OK
 
-    # Saved desktop enablement is insufficient if either current image is absent.
+    
     # shellcheck source=/dev/null
     . /usr/lib/os-release
     image=/var/lib/beamline/confexts/desktop-gnome_$IMAGE_VERSION.raw
@@ -185,7 +185,7 @@ elif [ "$stage" = 2 ]; then
     mv "$image.test-hidden" "$image"
     echo BEAMLINE_CTL_MISSING_IMAGES_OK
 
-    # Two concurrent removals must serialize and leave exactly one interactive saved choice.
+    
     beamlinectl disable desktop-gnome > /run/beamline-test-ctl/race-desktop 2>&1 & first=$!
     beamlinectl disable posix > /run/beamline-test-ctl/race-posix 2>&1 & second=$!
     a=0; wait "$first" || a=$?
@@ -202,8 +202,8 @@ elif [ "$stage" = 3 ]; then
     state_is posix yes yes
     beamlinectl deactivate posix
     state_is posix yes no
-    # Reproduce stale links from a failed cleanup after the instance has become inactive.
-    # A retry must remove them even though StopUnit itself has no ExecStop left to run.
+    
+    
     # shellcheck source=/dev/null
     . /usr/lib/os-release
     systemd-tmpfiles --create --inline "L /run/extensions/posix.raw - - - - /var/lib/beamline/extensions/posix_$IMAGE_VERSION.raw" "L /run/confexts/posix.raw - - - - /var/lib/beamline/confexts/posix_$IMAGE_VERSION.raw"
@@ -212,7 +212,7 @@ elif [ "$stage" = 3 ]; then
     [ ! -e /run/confexts/posix.raw ]
     state_is posix yes no
     echo BEAMLINE_CTL_UNLINK_RETRY_OK
-    # The requeued target also wants this running test; waiting for that target would self-deadlock.
+    
     systemctl start --no-block default.target
     systemctl start beamline-extension@posix.service
     beamlinectl activate posix-devel

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Independent HTTP consumer; actual desync creates the chunks/index and GPG
-// signs the fixtures. The production bundle runs in workerd, not a fetch mock.
+
+
 import { Miniflare, Log, LogLevel } from 'miniflare';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -186,9 +186,9 @@ try {
   response = await get(good.url, { headers: { Range: 'bytes=0-127' } });
   check(Buffer.from(await response.arrayBuffer()).equals(bytes.subarray(0, 128)), 'read after cancellation');
 
-  // More than 10,000 fast chunk reads reproduce leaked fetch-deadline timers.
-  // Repeat a real desync chunk in a valid caibx; consume without buffering the
-  // reconstructed image. The expected hash is computed independently here.
+  
+  
+  
   let smallest = { length: Infinity }, previousEnd = 0;
   for (let at = 64; at < rawIndex.length - 40; at += 40) {
     const end = Number(rawIndex.readBigUInt64LE(at));
@@ -280,8 +280,8 @@ try {
   check((await response.text()).includes(`>${later.snapshot}/</a>`) && response.headers.get('Cache-Control') === 'public, max-age=60', 'directory refresh without deployment');
   check((await get('/style.css')).status === 404, 'no stylesheet');
 
-  // Optionally test retained production bytes without downloading or uploading
-  // them again. Reuse their local publication, indexes, chunks and saved image.
+  
+  
   if (process.env.BEAMLINE_IMAGES_SNAPSHOT_ROOT) {
     const snapshot = '20261015.1430';
     const prefix = `snapshots/${snapshot}/aarch64/`;

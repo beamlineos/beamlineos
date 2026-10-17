@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-#
-# Linux kernel source (docs/spec.md §11.2): torvalds/linux.git `master`, resolved to an exact
-# commit by each integration cycle (include/kernel/linux-commit.yml). The commit comes from
-# git.kernel.org; its tree is downloaded as GitHub's archive of that commit, because a git
-# fetch of linux.git is slow and needs a multi-GB mirror that hosted runners do not keep
-# (docs/decisions.md D32). The tarball's sha256 is the ref in project.refs. Shared by every
-# profile kernel.
+
+
+
+
+
+
+
 
 (@):
 - include/kernel/linux-commit.yml

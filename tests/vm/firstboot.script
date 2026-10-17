@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/test-install, 0.0.4.3 step 5, docs/decisions.md D112), on the serial console of an
-# installed system: on its first boot, create the first account as a person would; the system
-# fetches its extensions and reboots. On the next boot, wait until the check unit reported the
-# extensions, then log in with the new account. Its shell is homed's default,
-# beamline-shell, which only explains how to get a shell (D62). Never part of an image.
+
+
+
+
+
+
 
 expect Please enter user name to create
 sleep 1
@@ -16,7 +16,7 @@ expect \(repeat\):
 sleep 1
 send owner\n
 expect BEAMLINE_FIRSTBOOT_CHECKED
-# A fresh login prompt, in case the getty printed its own before the report.
+
 sleep 2
 send \n
 expect [a-z0-9-]+ login:

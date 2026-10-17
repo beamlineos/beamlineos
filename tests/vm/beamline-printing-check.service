@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# VM test only: printing-scanning works with the base alone (D65).
+
 
 [Unit]
 Description=Check the printing-scanning extension

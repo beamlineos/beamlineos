@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/test-settings, docs/spec.md §14, docs/decisions.md D56), the test's first boot: change
-# allowlisted settings through their systemd services, which write /etc's mutable layer on
-# DATA, and put a file outside the allowlist into /etc (permissive Stage 0 lets it land in the
-# layer; an enforcing boot refuses it). Then reboot. Never part of an image.
-# The test's two boots are told apart by a marker on DATA, not by ConditionFirstBoot: the tests
-# boot the installed reference disk, whose first boot is long past (D113).
+
+
+
+
+
+
+
 
 [Unit]
 Description=Change allowlisted /etc settings, add a file outside the allowlist, reboot

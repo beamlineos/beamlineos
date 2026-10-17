@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
-#
-# The SYSTEM image, into the free root slot. The file name carries the partition UUID derived
-# from the root hash (@u), which the new UKI's roothash= finds it by.
+
+
+
 
 [Transfer]
 ProtectVersion=%A

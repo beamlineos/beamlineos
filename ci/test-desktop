@@ -1,12 +1,12 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Desktop test on the checked-out Virt image (docs/spec.md §29, §30): boot with a 2D
-# virtio-gpu, sign dev in at the GDM greeter with keystrokes (homed needs the password; the
-# greeter lists Alice first, then Developer), and check GNOME Shell, PipeWire,
-# WirePlumber, the portal, a Flatpak sandbox and unlocking; then capture the screen and fail if
-# it is blank. The image itself is never modified.
-#   ./ci/test-desktop [path/to/installed.qcow2]
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

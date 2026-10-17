@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/test-posix, docs/security.md §15 "tampered sysext activates: denied",
-# docs/decisions.md D50): three copies of the posix image, tampered by the test harness, are
-# offered as posix.raw in turn; none may merge. Then the signed image merges through
-# beamlinectl activate posix. Injected through a systemd.extra-unit credential; never part of an
-# image, so it may use dash.
+
+
+
+
+
+
 
 [Unit]
 Description=Refuse tampered and unsigned extension images, merge the signed one

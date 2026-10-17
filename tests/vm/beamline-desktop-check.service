@@ -1,53 +1,53 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/test-desktop, docs/spec.md §29, §30): in the GNOME session dev signed into
-# through GDM, GNOME Shell owns its bus name, PipeWire and WirePlumber run, the portal answers
-# (it is D-Bus activated), an unprivileged Flatpak sandbox (bubblewrap) starts as Flatpak
-# starts it, applications are associated with MIME types, Files is offered none of Beamline's own
-# block devices, Flatpak's system helper works for the session, and GDM unlocks it. Injected
-# through a systemd.extra-unit credential; never part of an image.
+
+
+
+
+
+
+
 
 [Unit]
 Description=Check the GNOME session
-# Skipped, not failed, until the session exists; the timer tries again.
+
 ConditionPathExists=/run/user/60001/bus
 
 [Service]
 Type=oneshot
 ImportCredential=beamline.test.shell-extension.check
-# Stay active, or the timer starts the check again.
+
 RemainAfterExit=yes
 User=dev
-# An exports tree for Flatpak's desktop-database trigger, below.
+
 RuntimeDirectory=beamline-desktop-check/exports/share/applications
 Environment=XDG_RUNTIME_DIR=/run/user/60001
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/60001/bus
 TimeoutStartSec=600
 StandardOutput=journal+console
 StandardError=journal+console
-# A missing bus name skips this attempt; the timer retries without a failed unit.
+
 ExecCondition=/usr/bin/busctl --user status org.gnome.Shell
 ExecStart=/usr/bin/systemctl --user is-active pipewire.service wireplumber.service
 ExecStart=/usr/bin/busctl --user call org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop org.freedesktop.DBus.Peer Ping
 ExecStart=/usr/bin/flatpak --version
-# As Flatpak launches every app: a new user namespace in which nesting another is disabled
-# (bwrap writes /proc/sys/user/max_user_namespaces; D83).
+
+
 ExecStart=/usr/bin/bwrap --unshare-all --unshare-user --disable-userns --assert-userns-disabled --ro-bind /usr /usr --symlink usr/lib /lib --symlink usr/bin /bin --proc /proc --dev /dev /usr/bin/sh -c exit
-# udisks2 offers none of Beamline's own block devices to Files (D83): the boot disk's partitions,
-# extension images, dm-verity targets and the homes' LUKS devices all carry UDISKS_IGNORE=1.
-# Unbound loop devices and the whole disk carry no filesystem, so Files lists nothing for them.
+
+
+
 ExecStart=/usr/bin/sh -c 'for d in /sys/class/block/*; do n=$${d##*/}; case $$n in vd[a-z]) continue ;; loop[0-9]*) [ -e "$$d/loop/backing_file" ] || [ -e "$$d/partition" ] || continue ;; esac; v=$$(udevadm info --query=property --property=UDISKS_IGNORE --value "/dev/$$n"); [ "$$v" = 1 ] || { echo "BEAMLINE_UDISKS_VISIBLE $$n"; exit 1; }; done'
-# Applications handle MIME types and URL schemes (0.0.4.1 K19, D84). GIO reads the associations only
-# from each directory's mimeinfo.cache: the image's own, and the one Flatpak's desktop-database
-# trigger writes into its exports after every install (here, into a fake exports tree).
+
+
+
 ExecStart=/usr/bin/sh -c 'read -r head < /usr/share/applications/mimeinfo.cache; [ "$$head" = "[MIME Cache]" ]'
 ExecStart=/usr/bin/sh -c 'r=/run/beamline-desktop-check; a=$$r/exports/share/applications; printf "[Desktop Entry]\nType=Application\nName=Handler\nExec=/usr/bin/true\nMimeType=x-scheme-handler/https;\n" > "$$a/org.beamline.Handler.desktop"; sh /usr/share/flatpak/triggers/desktop-database.trigger "$$r"; while read -r l; do [ "$$l" = "x-scheme-handler/https=org.beamline.Handler.desktop;" ] && exit 0; done < "$$a/mimeinfo.cache"; echo BEAMLINE_MIME_UNHANDLED; exit 1'
 ExecStart=/usr/bin/sh %d/beamline.test.shell-extension.check
-# Flatpak's system helper serves the session (D96). This unit runs in platform_service_t, and a
-# transient unit keeps its creator's context (D70), so the session's side runs from a unit of its
-# own in user_t. Started as root ("+"), as the harness starts units: dev, outside a session, would
-# need polkit's authentication.
+
+
+
+
 ExecStart=+/usr/bin/systemctl start beamline-desktop-flatpak-check.service
-# Unlocking, as the lock screen does (D105); in user_t for the same reason.
+
 ExecStart=+/usr/bin/systemctl start beamline-desktop-unlock-check.service
 ExecStart=/usr/bin/systemd-escape BEAMLINE_DESKTOP_OK
