@@ -140,6 +140,78 @@ class HostedBuildTest(unittest.TestCase):
                     build.main()
                 self.assertIs(caught.exception, original)
 
+    def test_build_profile_is_scoped_and_unloaded_after_failure(self):
+        original = RuntimeError("worker failed")
+        with tempfile.TemporaryDirectory() as temp:
+            evidence = Path(temp)
+            with patch.object(Path, "exists", return_value=True), \
+                    patch.object(Path, "read_text", side_effect=["Y\n", "1\n"]), \
+                    patch.object(build, "run") as command:
+                with self.assertRaises(RuntimeError) as caught:
+                    with build.container_security("worker", evidence) as options:
+                        self.assertEqual(options, ["--security-opt", "apparmor=beamline-hosted-build"])
+                        raise original
+                self.assertIs(caught.exception, original)
+            self.assertEqual([call.args[0][3] for call in command.call_args_list], ["-r", "-R"])
+            self.assertTrue(build.read(evidence / "host-security.json")["apparmor"])
+        with patch.object(build, "run") as command:
+            with build.container_security("publish", Path("unused")) as options:
+                self.assertEqual(options, [])
+            command.assert_not_called()
+
+    def test_profile_cleanup_failure_preserves_worker_status(self):
+        original = subprocess.CalledProcessError(37, ["builder"])
+        with tempfile.TemporaryDirectory() as temp:
+            with patch.object(Path, "exists", return_value=True), \
+                    patch.object(Path, "read_text", side_effect=["Y\n", "1\n"]), \
+                    patch.object(build, "run", side_effect=[None, PermissionError("unload failed")]):
+                with self.assertRaises(subprocess.CalledProcessError) as caught:
+                    with build.container_security("worker", Path(temp)):
+                        raise original
+                self.assertIs(caught.exception, original)
+
+    def test_uncreatable_evidence_directory_preserves_original_error(self):
+        original = RuntimeError("original container error")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            blocked = root / "evidence"
+            blocked.write_text("not a directory")
+            with patch.object(sys, "argv", ["build-hosted", "prepare"]), \
+                    patch.object(build, "host", side_effect=original), \
+                    patch.object(build, "paths", return_value=(root, blocked, root)):
+                with self.assertRaises(RuntimeError) as caught:
+                    build.main()
+                self.assertIs(caught.exception, original)
+
+    def test_cli_preserves_child_exit_status_with_unwritable_diagnostics(self):
+        script = '''
+import pathlib, subprocess, sys, tempfile
+from unittest.mock import patch
+sys.path.insert(0, sys.argv[1])
+import hosted_build as build
+code = int(sys.argv[2])
+with tempfile.TemporaryDirectory() as temp:
+    root = pathlib.Path(temp)
+    blocked = root / "evidence"
+    blocked.write_text("not a directory")
+    with patch.object(sys, "argv", ["build-hosted", "prepare"]), \\
+            patch.object(build, "host", side_effect=subprocess.CalledProcessError(code, ["builder"])), \\
+            patch.object(build, "paths", return_value=(root, blocked, root)):
+        build.cli()
+'''
+        for code, expected in ((37, 37), (-9, 137)):
+            result = subprocess.run([sys.executable, "-c", script, str(build.ROOT / "tools"), str(code)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, expected, result.stderr)
+            self.assertIn("Could not record failure", result.stderr)
+            self.assertIn("builder", result.stderr)
+
+    def test_graph_evidence_failure_does_not_mask_key_difference(self):
+        node = {"key": "a", "build": [], "run": []}
+        with patch.object(build, "write_json", side_effect=PermissionError("unwritable report")):
+            with self.assertRaisesRegex(RuntimeError, "source graph differs"):
+                build.check_keys({"a.bst": node}, {"a.bst": dict(node, key="b")}, Path("blocked"))
+
     def test_artifact_recovery_rejects_key_and_tree_drift(self):
         report = [{"element": "target.bst", "key": "a", "files": {"hash": "b", "size": 1}}]
         build.compare_artifacts(report, report)
