@@ -3,6 +3,11 @@ name: hosted-experiment
 
 on:
   workflow_dispatch:
+    inputs:
+      probe_only:
+        description: Probe runners without uploading cache artifacts
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,10 +37,11 @@ jobs:
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
-    - run: ./ci/hosted-experiment host seed
+    - run: ./ci/hosted-experiment host "$EXPERIMENT_PHASE"
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        EXPERIMENT_PHASE: ${{ inputs.probe_only && 'probe' || 'seed' }}
+        AWS_ACCESS_KEY_ID: ${{ !inputs.probe_only && secrets.R2_ACCESS_KEY_ID || '' }}
+        AWS_SECRET_ACCESS_KEY: ${{ !inputs.probe_only && secrets.R2_SECRET_ACCESS_KEY || '' }}
     - uses: actions/upload-artifact@v4
       if: always()
       with:
@@ -46,6 +52,7 @@ jobs:
 
   writer:
     needs: seed
+    if: ${{ !inputs.probe_only }}
     strategy:
       fail-fast: false
       matrix:
