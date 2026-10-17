@@ -199,6 +199,10 @@ def host(phase):
     identity()
     if platform.system() != "Linux" or platform.machine() != "aarch64":
         raise RuntimeError("Real build proof requires native hosted ARM Linux")
+    commit = run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    if commit != os.environ["GITHUB_SHA"]:
+        raise RuntimeError("Checkout differs from the Actions source commit")
+    run(["git", "diff", "--exit-code", "HEAD", "--"])
     base = ROOT / "out/hosted-build"
     base.mkdir(parents=True, exist_ok=False)
     evidence = base / "evidence"
@@ -218,13 +222,14 @@ def host(phase):
         with (evidence / "buildstream.log").open("w") as log:
             try:
                 run(["docker", "run", "--rm", "--privileged", "--network", "host",
-                     "--mount", f"type=bind,src={ROOT},dst=/work,readonly",
+                     "--mount", f"type=bind,src={ROOT},dst=/work",
                      "--mount", f"type=bind,src={container},dst=/build-state",
                      "--workdir", "/work", "beamline-hosted-build", "python3",
                      "/work/tools/hosted_build.py", "container-" + phase],
                     stdout=log, stderr=subprocess.STDOUT)
             finally:
                 print((evidence / "buildstream.log").read_text(), flush=True)
+    run(["git", "diff", "--exit-code", "HEAD", "--"])
     result = json.loads((container / "result.json").read_text())
     result.update(source=os.environ["GITHUB_SHA"], run=os.environ["GITHUB_RUN_ID"],
                   attempt=os.environ["GITHUB_RUN_ATTEMPT"])
