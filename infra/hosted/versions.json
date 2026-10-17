@@ -1,0 +1,10 @@
+{
+  "fedora": "registry.fedoraproject.org/fedora@sha256:e9a013b99bbbe0b21c42e029ec7811ef5c8ea5fbdaf78575f7cd482cf4d21b90",
+  "buildstream": "2.8.1-1.fc44",
+  "buildbox": "1.4.26-2.fc44",
+  "nativelink": "1.7.7",
+  "nativelink_sha256": {
+    "aarch64": "ec6a4b4360c3477851bd811d600861849c1fac3177ede076270526fed1ac98af",
+    "x86_64": "6e8f964c5d39434410ea6f5cc6251c0834bf6afd075e184538425016567848e9"
+  }
+}
