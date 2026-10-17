@@ -137,6 +137,7 @@ def apply_context(value):
 
 def config(base, remote):
     data = {"cachedir": str(base / "cache"), "sourcedir": str(base / "sources"), "logdir": str(base / "logs"),
+            "build": {"max-jobs": 8},
             "cache": {"quota": "60G", "cache-buildtrees": "never", "pull-buildtrees": False},
             "scheduler": {"network-retries": 1, "fetchers": 8, "pushers": 2, "builders": 1},
             "artifacts": {"override-project-caches": True, "servers": []},
@@ -154,11 +155,12 @@ def bst(config_path, *args, **kwargs):
                 "--directory", ROOT, "--option", "arch", "aarch64", *args], **kwargs)
 
 
-def graph(config_path):
+def graph(config_path, max_jobs=None):
     from ruamel.yaml import YAML
     from buildstream.element import _compose_artifact_name, _get_normal_name
     format_ = "RECORD %{name}|%{state}|%{full-key}\nBUILD\n%{build-deps}\nRUN\n%{runtime-deps}\nVARS\n%{vars}\nEND"
-    output = bst(config_path, "show", "--deps", "all", "--format", format_, *TARGETS,
+    options = ["--max-jobs", str(max_jobs)] if max_jobs is not None else []
+    output = bst(config_path, *options, "show", "--deps", "all", "--format", format_, *TARGETS,
                  stdout=subprocess.PIPE, text=True).stdout
     result, yaml = {}, YAML(typ="safe")
     for block in output.split("RECORD ")[1:]:
@@ -390,18 +392,23 @@ def diagnose():
             raise RuntimeError("Failed-run selection was altered")
         shutil.copyfile(source, ROOT / name)
     local = config(Path("/build-state"), False)
-    actual = graph(local)
+    actual = graph(local, max_jobs=4)
     difference = graph_difference(actual, reference["graph"])
     for name, data in (("graph-actual", actual), ("graph-expected", reference["graph"]), ("graph-difference", difference)):
         write_json(paths()[1] / (name + ".json"), data)
     first = difference["first_divergent"]
     if first:
         run_logged(["bst", "--no-colors", "--strict", "--config", local, "--option", "arch", "aarch64",
-                    "show", "--deps", "none", "--format", "%{name}\n%{vars}\n%{environment}\n%{config}\n%{sources}", *first],
+                    "--max-jobs", "4", "show", "--deps", "none", "--format", "%{name}\n%{vars}\n%{env}\n%{config}\n%{source-info}", *first],
                    paths()[1] / "first-divergent.log", cwd=ROOT)
+    compatible = graph(local, max_jobs=8)
+    write_json(paths()[1] / "graph-eight-jobs.json", compatible)
+    compatibility = graph_difference(compatible, reference["graph"])
+    write_json(paths()[1] / "graph-eight-jobs-difference.json", compatibility)
     print(json.dumps(difference, indent=2), flush=True)
     write_json(paths()[1] / "result.json", {"phase": "diagnose", "reference_run": reference["run"],
-                                          "comparison_complete": True, "matches": difference["matches"]})
+                                          "comparison_complete": True, "matches": difference["matches"],
+                                          "matches_with_eight_jobs": compatibility["matches"]})
     clean_checkout()
 
 
