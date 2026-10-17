@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Regression checks for source-set migration and frozen first-time intake (D63)."""
+                                                                                    
 import importlib.util
 import copy
 import pathlib

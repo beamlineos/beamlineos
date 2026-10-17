@@ -1,7 +1,7 @@
 ; SPDX-License-Identifier: MIT
-;
-; systemd-resolved (0.0.4.2 step 4C, docs/decisions.md D94). It answers every name lookup: the stub
-; on 127.0.0.53, its varlink socket (nss-resolve) and D-Bus, and publishes /run/systemd/resolve.
+ 
+                                                                                                   
+                                                                                                
 
 (type resolved_t)
 (type resolved_exec_t)
@@ -12,7 +12,7 @@
 (typetransition init_t resolved_exec_t process resolved_t)
 (allow resolved_t resolved_exec_t (file (entrypoint)))
 
-; The stub listener (127.0.0.53, port 53), LLMNR and mDNS, and upstream servers over UDP and TCP
+                                                                                                
 (allow resolved_t self (capability (net_bind_service net_raw)))
 (allow resolved_t self (udp_socket (create bind connect getattr getopt setopt read write)))
 (allow resolved_t self (tcp_socket (create bind connect listen accept getattr getopt setopt read write shutdown)))
@@ -21,15 +21,15 @@
 (allow resolved_t node_t (tcp_socket (node_bind)))
 (allow resolved_t port_t (udp_socket (name_bind)))
 (allow resolved_t port_t (tcp_socket (name_bind name_connect)))
-; Whether IPv6 is disabled on a link
+                                    
 (allow resolved_t proc_sys_net_t (dir (getattr search)))
 (allow resolved_t proc_sys_net_t (file (getattr open read)))
-; Its runtime state (/run/systemd/resolve: resolv.conf, the stub's, its varlink sockets), watched;
-; /etc/hosts and the root, watched for changes
+                                                                                                  
+                                              
 (allow resolved_t run_t (dir (getattr search read open write add_name remove_name watch)))
 (allow resolved_t run_t (file (getattr open read write create rename unlink setattr)))
 (allow resolved_t run_t (sock_file (getattr create setattr unlink watch)))
 (allow resolved_t root_t (dir (watch)))
 (allow resolved_t init_t (dir (getattr search)))
-; Links and their DNS settings, from networkd's varlink socket
+                                                              
 (allow resolved_t networkd_t (unix_stream_socket (connectto)))

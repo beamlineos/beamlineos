@@ -1,0 +1,17 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+
+# shellcheck source=ci/lib.sh
+. "$(dirname "$0")/lib.sh"
+tool_id="$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$REPO/ci/check-requirements.txt")"
+if [ "${BEAMLINE_PYTHON_TOOLS:-}" = "$tool_id" ]; then exec "$@"; fi
+tool_env="$(python3 -c 'import os, sys; print(os.path.expanduser("~/.cache/beamline/python-tools/" + sys.argv[1]))' "$tool_id")"
+if [ ! -f "$tool_env/ready" ]; then
+    python3 -m venv "$tool_env"
+    "$tool_env/bin/python3" -m pip --disable-pip-version-check install -r "$REPO/ci/check-requirements.txt" >&2
+    touch "$tool_env/ready"
+fi
+PATH="$tool_env/bin:$PATH"
+BEAMLINE_PYTHON_TOOLS="$tool_id"
+export PATH BEAMLINE_PYTHON_TOOLS
+exec "$@"

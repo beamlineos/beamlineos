@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Build the standalone serving artifact; no uploads, image builds or deployment.
+
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
 cd "$REPO"

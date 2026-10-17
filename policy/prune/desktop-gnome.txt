@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-# Removed from desktop-gnome (0.0.4.2 step 2A, docs/decisions.md D88): content that arrived through
-# FDSDK's and gnome-build-meta's per-package runtime dependencies without the desktop needing it.
-# The decisions are in docs/testing/0.0.4.2-content-inventory.md ("Decisions"). Libraries GNOME
-# links stay; tools/check-libraries.py proves no remaining program lost one.
-# Patterns: see tools/prune-tree.py.
 
-# --- Python: no GNOME service runs it (the owner) -------------------------------------------
+
+
+
+
+
+
 /usr/bin/python
 /usr/bin/python3
 /usr/bin/python3.*
@@ -14,7 +14,7 @@
 /usr/lib/python3.*/**
 /usr/lib/*-linux-gnu/libpython3*.so*
 /usr/share/licenses/freedesktop-sdk/python3*/**
-# Command-line tools written in Python
+
 /usr/bin/bscalc
 /usr/bin/chardetect
 /usr/bin/event_rpcgen.py
@@ -30,8 +30,8 @@
 /usr/lib/*-linux-gnu/GL/default/bin/mesa-*-control.py
 /usr/lib/*-linux-gnu/gstreamer-1.0/gst-plugins-doc-cache-generator
 
-# --- Samba: the client library stays (GVfs' SMB backends); server, administration, tests and
-# command-line clients go (the owner) --------------------------------------------------------
+
+
 /usr/bin/cifsdd
 /usr/bin/dbwrap_tool
 /usr/bin/dumpmscat
@@ -80,8 +80,8 @@
 /usr/lib/*-linux-gnu/security/pam_winbind.so
 /usr/share/bash-completion/completions-core/smb*.bash
 
-# --- NetworkManager and ModemManager: Virt uses networkd; libnm and libmm-glib stay for Shell
-# and Settings (the owner) ------------------------------------------------------------------
+
+
 /usr/bin/NetworkManager
 /usr/bin/ModemManager
 /usr/bin/mmcli
@@ -118,7 +118,7 @@
 /usr/share/bash-completion/completions/mbimcli
 /usr/share/bash-completion/completions/qmicli
 
-# --- BlueZ: no Bluetooth in Virt; the libraries stay (the Hardware profile restores it) -------
+
 /usr/libexec/bluetooth/**
 /usr/bin/bluemoon
 /usr/bin/bluetooth-sendto
@@ -145,7 +145,7 @@
 /etc/bluetooth/**
 /usr/share/zsh/site-functions/_bluetoothctl
 
-# --- fwupd and passim: no firmware in Virt; libfwupd stays for GNOME Software's plugin --------
+
 /usr/bin/fwupdmgr
 /usr/bin/fwupdtool
 /usr/bin/passim
@@ -179,7 +179,7 @@
 /usr/bin/efisecdb
 /usr/bin/efivar
 
-# --- ostree: Flatpak links libostree; its tools and boot integration go ----------------------
+
 /usr/bin/ostree
 /usr/bin/rofiles-fuse
 /usr/lib/ostree/**
@@ -193,7 +193,7 @@
 /usr/lib/tmpfiles.d/ostree-tmpfiles.conf
 /usr/share/bash-completion/completions/ostree
 
-# --- Parental controls (D76): Settings is built without them (2B, D89), so nothing links the library
+
 /usr/lib/*-linux-gnu/libmalcontent*.so*
 /usr/share/licenses/gnome/malcontent/**
 /usr/bin/malcontent-*
@@ -219,8 +219,8 @@
 /usr/share/polkit-1/actions/org.freedesktop.MalcontentControl.policy
 /usr/share/polkit-1/rules.d/com.endlessm.ParentalControls.rules
 
-# --- Mesa beyond Virt: Virt keeps virgl and llvmpipe (libgallium), lavapipe and the device
-# selection layer --------------------------------------------------------------------------
+
+
 /usr/lib/*-linux-gnu/GL/default/lib/libRusticlOpenCL.so*
 /usr/lib/*-linux-gnu/GL/default/lib/libclang-cpp.so*
 /usr/lib/*-linux-gnu/GL/default/lib/libLLVMSPIRVLib.so*
@@ -249,7 +249,7 @@
 /usr/lib/*-linux-gnu/GL/vdpau/**
 /usr/bin/cllayerinfo
 
-# --- Build and developer tools (section 3) ---------------------------------------------------
+
 /usr/bin/derb
 /usr/bin/desktop-file-edit
 /usr/bin/desktop-file-install
@@ -306,7 +306,7 @@
 /usr/share/gir-1.0/**
 /usr/lib/*-linux-gnu/libgphoto2*/**/*.la
 
-# --- Tests, help without a viewer (D38), GTK's developer tools (section 6) --------------------
+
 /usr/bin/fy-*
 /usr/bin/gnome-shell-test-tool
 /usr/bin/gst-tester-1.0
@@ -327,8 +327,8 @@
 /usr/bin/gtk4-query-settings
 /usr/bin/gtksourceview5-widget
 
-# --- Server, administration and mail tools (section 4) ----------------------------------------
-# MIT Kerberos: KDC, administration, samples and client tools; the libraries stay
+
+
 /usr/bin/gss-client
 /usr/bin/gss-server
 /usr/bin/k5srvutil
@@ -354,18 +354,18 @@
 /usr/bin/sserver
 /usr/bin/uuclient
 /usr/bin/uuserver
-# OpenLDAP's tools; the library stays
+
 /usr/bin/ldap*
-# GnuPG's server and mail tools, and its script interpreter
+
 /usr/bin/gpg-mail-tube
 /usr/bin/gpg-wks-server
 /usr/bin/gpgparsemail
 /usr/bin/gpgscm
 
-# --- Command-line tools without a desktop caller (section 7) ---------------------------------
-# GNU sed (K7), archivers, document and image converters, media and device tools. Kept: OpenSSH's
-# ssh, ssh-agent, ssh-add and ssh-keygen (GNOME's SSH agent), wpctl, and the tools services and
-# integration commands run.
+
+
+
+
 /usr/bin/sed
 /usr/bin/bsdcat
 /usr/bin/bsdcpio
@@ -381,7 +381,7 @@
 /usr/bin/ssh-keyscan
 /usr/bin/e2scrub
 /usr/bin/e2scrub_all
-# Ghostscript's and GhostPCL/XPS' executables (76 MiB); nothing in the desktop runs them
+
 /usr/bin/gs
 /usr/bin/gsbj
 /usr/bin/gsdj
@@ -400,7 +400,7 @@
 /usr/bin/pphs
 /usr/bin/printafm
 /usr/bin/ps2*
-# poppler, libtiff, libjpeg, libwebp, giflib, openjpeg, libpng, lcms, libgsf, libgxps, librsvg
+
 /usr/bin/pdfattach
 /usr/bin/pdfdetach
 /usr/bin/pdffonts
@@ -453,7 +453,7 @@
 /usr/bin/exiv2
 /usr/bin/exempi
 /usr/bin/yuvconvert
-# Media: GStreamer, PipeWire and PulseAudio clients, codecs' tools, LADSPA, libcdio, libbluray
+
 /usr/bin/gst-*
 /usr/bin/pw-*
 /usr/bin/pipewire-aes67
@@ -504,7 +504,7 @@
 /usr/bin/fftw-wisdom
 /usr/bin/fftw-wisdom-to-conf
 /usr/bin/fftwf-wisdom
-# Devices: libcamera, v4l-utils, libinput's and libwacom's tools, libimobiledevice, MTP, colord
+
 /usr/bin/cam
 /usr/bin/libcamera-bug-report
 /usr/bin/libcamerify
@@ -542,7 +542,7 @@
 /usr/bin/cd-it8
 /usr/bin/colormgr
 /usr/bin/boltctl
-# Fonts, text and other libraries' tools
+
 /usr/bin/bdftruncate
 /usr/bin/cvt
 /usr/bin/fribidi
@@ -554,7 +554,7 @@
 /usr/bin/trietool
 /usr/bin/trietool-*
 /usr/bin/ucs2any
-# Desktop services' own command-line clients
+
 /usr/bin/canberra-gtk-play
 /usr/bin/fido2-*
 /usr/bin/gsound-play
@@ -584,24 +584,24 @@
 /usr/bin/gpgme-json
 /usr/bin/gpgme-tool
 
-# --- Boot partitions: the desktop's fsck.* made systemd-fsck check /boot whenever GNOME
-# Software's update check automounted it (K14); the formatting tools stay (the owner) --------
+
+
 /usr/bin/fsck.*
 /usr/bin/dosfsck
 
-# --- GVfs' admin backend (K21): it runs pkexec, which never ships (D55) ----------------------
+
 /usr/libexec/gvfsd-admin
 /usr/share/gvfs/mounts/admin.mount
 /usr/share/polkit-1/actions/org.gtk.vfs.file-operations.policy
 /usr/share/polkit-1/rules.d/org.gtk.vfs.file-operations.rules
 
-# --- Settings' remote-login helper action: Settings offers no SSH switch without sshd (K11) -----
+
 /usr/share/polkit-1/actions/org.gnome.controlcenter.remote-login-helper.policy
 
-# --- A dangling enablement link: the extensions exclude avahi-dnsconfd (D65) -------------------
+
 /etc/systemd/system/multi-user.target.wants/avahi-dnsconfd.service
 
-# --- Flatpak's system environment generator (D105): it put the installation's exports, which
-# sessions install into, in every system service's XDG_DATA_DIRS, and GDM looked there. Sessions
-# keep them through Flatpak's user environment generator -------------------------------------
+
+
+
 /usr/lib/systemd/system-environment-generators/60-flatpak-system-only

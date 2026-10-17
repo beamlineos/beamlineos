@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Static checks and isolated regression-test discovery."""
+                                                           
 
 import os
 from pathlib import Path
@@ -19,7 +19,7 @@ def run(*args):
 
 def main():
     os.chdir(ROOT)
-    # Each test gets a fresh interpreter; a test cannot poison another's imports or mocks.
+                                                                                          
     os.environ["PYTHONPATH"] = str(ROOT / "tools") + os.pathsep + os.environ.get("PYTHONPATH", "")
     run(sys.executable, "tools/check-policy.py", "--units", "files", "--allowlist", "policy/unit-shell-allowlist.txt",
         "--selinux-policy", "files/selinux/policy", "--extensions-policy", "files/base")
@@ -27,6 +27,15 @@ def main():
         compile(path.read_text(), str(path), "exec")
     for path in sorted(Path("tests/tools").glob("test-*.py")):
         run(sys.executable, path)
+    if Path("policy/public-source.toml").exists() and not Path("policy/public-export-exclude.txt").exists():
+        from source_text import normalize
+        paths = subprocess.check_output(["git", "ls-files", "-z"]).split(b"\0")
+        for name in paths:
+            if not name:
+                continue
+            path = Path(os.fsdecode(name))
+            if not path.is_symlink() and normalize(str(path), path.read_bytes()) != path.read_bytes():
+                raise ValueError(f"public source is not normalized: {path}")
     run(sys.executable, "tools/integrate.py", "check-lockfiles")
     paths = {Path("project.conf"), Path("project.refs"), Path("junction.refs")}
     for directory, pattern in (("include", "*.yml"), ("elements", "*.bst"),

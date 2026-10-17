@@ -1,12 +1,12 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Reboot test on the checked-out Virt image (docs/spec.md §14, docs/decisions.md D56): the
-# first boot commits its machine ID into /etc's mutable layer on DATA and reboots; the second
-# boot, whose initrd merges that layer, must come up with the same ID, so the previous boot is
-# in this machine's journal. Extensions are not merged, as
-# in ci/boot. The image itself is never modified.
-#   ./ci/test-reboot [path/to/installed.qcow2]
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

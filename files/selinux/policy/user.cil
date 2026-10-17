@@ -1,12 +1,12 @@
 ; SPDX-License-Identifier: MIT
-;
-; user_t, P0: human sessions, their user managers and the greeter (docs/security.md §3, §8.4,
-; §10.1, §16; docs/decisions.md D58). Arbitrary code runs here, so the domain is free with its own
-; data, processes and namespaces, and confined against everything else:
-;   - it reads and executes the system, but never writes SYSTEM, /etc or platform state;
-;   - it reaches platform services only through their sockets, D-Bus and PID 1's status;
-;   - it never enters a platform or admin domain (policy.cil);
-;   - it keeps a JIT (execmem): P0 code may generate code (security §8.4).
+ 
+                                                                                               
+                                                                                                    
+                                                                       
+                                                                                        
+                                                                                        
+                                                              
+                                                                           
 
 (typeattribute beamline_user_owned_type)
 (typeattributeset beamline_user_owned_type (user_home_t user_home_dir_t user_runtime_t tmp_t
@@ -19,14 +19,14 @@
     etc_runtime_t data_t var_t var_lib_t var_log_t home_root_t run_t proc_t proc_sys_user_t
     proc_sys_net_t sysfs_t cgroup_t security_t device_t nsfs_t
     pidfs_t tmpfs_t beamline_unit_runtime_type))
-; Mount points systemd and bubblewrap recreate inside a session's own namespaces.
+                                                                                 
 (typeattribute beamline_user_namespace_type)
 (typeattributeset beamline_user_namespace_type (device_t run_t tmp_t tmpfs_t user_runtime_t))
 
-; --- Its own processes ------------------------------------------------------------------
+                                                                                          
 
-; pam_selinux gives sessions user_t: login's shell and GDM's session (bin_t), and the user
-; manager, which is systemd itself.
+                                                                                          
+                                   
 (allow user_t bin_t (file (entrypoint)))
 (allow user_t init_exec_t (file (entrypoint)))
 (allow user_t self (process (and (all) (not (dyntransition setcurrent execheap)))))
@@ -42,22 +42,22 @@
 (allow user_t self (dbus (all)))
 (allow user_t self (anon_inode (all)))
 (allow user_t self (io_uring (all)))
-; System V IPC among the session's processes (Xwayland's MIT-SHM, GStreamer).
+                                                                             
 (allow user_t self (shm (all)))
 (allow user_t self (sem (all)))
 (allow user_t self (msgq (all)))
 (allow user_t self (msg (all)))
-; systemd's user manager probes BPF; P0 gets no BPF programs (security §11, §15).
+                                                                                   
 (dontaudit user_t self (bpf (all)))
-; sd-bus tries SO_SNDBUFFORCE when normal buffers stop at the kernel limit.
-; P0 clients with UID 0 have Unix caps but still lack MAC net_admin. The probe is
-; optional and its error is ignored (bus-socket.c); retain denial, suppress noise (D70).
+                                                                           
+                                                                                 
+                                                                                        
 (dontaudit user_t self (capability (net_admin)))
 
-; --- Its own files ----------------------------------------------------------------------
+                                                                                          
 
-; A home's root is user_home_dir_t (relabelled when the user manager starts, D58); what the session
-; creates below it is user_home_t.
+                                                                                                   
+                                  
 (typetransition user_t user_home_dir_t dir user_home_t)
 (typetransition user_t user_home_dir_t file user_home_t)
 (typetransition user_t user_home_dir_t lnk_file user_home_t)
@@ -71,7 +71,7 @@
 (allow user_t beamline_user_owned_type (fifo_file (all)))
 (allow user_t beamline_user_owned_type (chr_file (create getattr setattr unlink rename relabelfrom relabelto)))
 
-; --- The system: read, execute -----------------------------------------------------------
+                                                                                           
 
 (allow user_t beamline_user_readable_type (dir (getattr search read open ioctl lock watch watch_reads)))
 (allow user_t beamline_user_readable_type (file (getattr read open ioctl lock map watch watch_reads)))
@@ -79,13 +79,13 @@
 (allow user_t beamline_user_readable_type (sock_file (getattr)))
 (allow user_t beamline_user_readable_type (fifo_file (getattr)))
 (allow user_t beamline_user_exec_type (file (execute execute_no_trans)))
-; selinuxfs: libselinux asks the kernel by writing the query files.
+                                                                   
 (allow user_t security_t (file (write)))
-; The delegated cgroup subtree of the user manager (DAC decides which).
+                                                                       
 (allow user_t cgroup_t (dir (create write add_name remove_name rmdir setattr)))
 (allow user_t cgroup_t (file (create write append setattr)))
 
-; --- Namespaces: the user manager's sandboxing and bubblewrap ---------------------------
+                                                                                          
 
 (allow user_t beamline_any_type (dir (mounton getattr)))
 (allow user_t beamline_any_type (file (mounton getattr)))
@@ -94,14 +94,14 @@
 (allow user_t beamline_user_namespace_type (file (create write setattr unlink relabelfrom relabelto)))
 (allow user_t beamline_user_namespace_type (lnk_file (create read unlink relabelfrom relabelto)))
 (allow user_t beamline_user_namespace_type (chr_file (create getattr setattr unlink relabelfrom relabelto)))
-; bubblewrap's --disable-userns, which Flatpak passes for every app, writes 1 to
-; /proc/sys/user/max_user_namespaces inside the sandbox's new user namespace, so the app cannot
-; nest another. These limits belong to a user namespace, and the kernel accepts a write only from
-; a process privileged in the namespace that owns them; in the initial namespace that is root, which
-; DAC and missing capabilities keep from a session (D83). Every other /proc file stays read-only.
+                                                                                
+                                                                                               
+                                                                                                 
+                                                                                                    
+                                                                                                 
 (allow user_t proc_sys_user_t (file (write)))
 
-; --- Terminals and devices (logind's ACLs and DAC decide which) -------------------------
+                                                                                          
 
 (allow user_t device_t (chr_file (getattr open read write append ioctl lock map watch)))
 (allow user_t devpts_t (chr_file (getattr open read write append ioctl lock)))
@@ -109,61 +109,61 @@
 (allow user_t null_device_t (chr_file (getattr open read write append ioctl lock map)))
 (allow user_t device_t (blk_file (getattr)))
 
-; --- The platform's interfaces ----------------------------------------------------------
+                                                                                          
 
 (allow user_t beamline_platform_domain (unix_stream_socket (connectto getattr getopt read write ioctl)))
 (allow user_t beamline_platform_domain (unix_dgram_socket (sendto)))
 (allow user_t beamline_platform_domain (dbus (send_msg)))
 (allow user_t beamline_platform_domain (fd (use)))
 (allow user_t beamline_platform_domain (fifo_file (getattr read write ioctl)))
-; Sockets and fifos in /run: services' endpoints, and logind's inhibitor references.
+                                                                                    
 (allow user_t run_t (sock_file (getattr read write)))
 (allow user_t run_t (fifo_file (getattr read write ioctl)))
 (allow user_t init_t (system (status)))
-; The user manager checks its clients, the session, like PID 1 does (systemd's service and system
-; classes): the session manages user units (shipped as user_unit_file_t, or its own, generated
-; and transient ones) and the manager itself (gnome-session uploads its environment).
+                                                                                                 
+                                                                                              
+                                                                                     
 (typeattribute beamline_user_unit_type)
 (typeattributeset beamline_user_unit_type (user_t user_unit_file_t user_home_t user_runtime_t))
 (allow user_t beamline_user_unit_type (service (start stop status reload kill load enable disable)))
-; The user manager loads user units from SYSTEM too (/usr/lib/systemd/user, /etc/systemd/user; D97)
+                                                                                                   
 (allow user_t beamline_immutable_file_type (service (load)))
-; When the user manager cannot remove a cgroup of its own, it asks PID 1 to (RemoveSubgroupFromUnit),
-; which checks stop on its unit, user@.service. systemd then allows only the unit's own user; it is no
-; more than logind's TerminateUser offers (D105). No other SYSTEM unit is stopped from a session.
+                                                                                                     
+                                                                                                      
+                                                                                                 
 (allow user_t user_manager_unit_t (service (stop)))
 (allow user_t self (system (halt reboot status start stop enable disable reload undefined)))
-; run0 asks PID 1 for a transient unit; polkit then decides (only wheel, after its password) and
-; pam_selinux gives the session admin_t (docs/security.md §9.4).
+                                                                                                
+                                                                 
 (allow user_t init_t (system (start)))
-; Names on the system bus, as far as the bus's own policy lets the user own them. A name takes the
-; context of the bus itself (dbus_contexts), dbus-broker's: dbusd_t (D93).
+                                                                                                  
+                                                                          
 (allow user_t dbusd_t (dbus (acquire_svc)))
-; Network clients: applications reach any port (Stage 2 may label ports).
+                                                                         
 (allow user_t port_t (tcp_socket (name_connect)))
-; ... and bind TCP and UDP sockets, as on any desktop (security §4.2, D84): WebRTC, QUIC, LAN games,
-; local development servers. Ports below 1024 stay closed, because user_t never holds
-; net_bind_service (the assertion below). With no firewall yet, a listening socket is reachable
-; from the network.
+                                                                                                     
+                                                                                     
+                                                                                               
+                   
 (allow user_t node_t (tcp_socket (node_bind)))
 (allow user_t node_t (udp_socket (node_bind)))
 (allow user_t port_t (tcp_socket (name_bind)))
 (allow user_t port_t (udp_socket (name_bind)))
 (neverallow user_t self (capability (net_bind_service)))
-; Files and Software list / and /boot, whose ESP and XBOOTLDR automount points are autofs. Reading
-; or searching them would make systemd mount the boot partitions for a session; the refusal is not
-; worth an audit record (0.0.4.1 K17, D84).
+                                                                                                  
+                                                                                                  
+                                           
 (dontaudit user_t autofs_t (dir (getattr read search)))
-; homed's identity record in a home's root (~/.identity, ~/.identity-blob) is homed's, at P3: the
-; session changes it only through homed. Files asks access(2) whether it may write each entry; the
-; answer is no, and the probe is not worth an audit record (real writes still are).
+                                                                                                 
+                                                                                                  
+                                                                                   
 (dontaudit user_t user_home_dir_t (file (audit_access)))
 (dontaudit user_t user_home_dir_t (dir (audit_access)))
-; The user manager's PAM session holder, (sd-pam), is a fork of PID 1 that stays in init_t and
-; runs as the user; the user manager signals it when the session ends.
+                                                                                              
+                                                                      
 (allow user_t init_t (process (signal sigchld signull)))
 (allow user_t beamline_any_type (service (status)))
-; /proc of other processes: ps, and the session's own clients.
+                                                              
 (allow user_t beamline_domain (dir (getattr search read open)))
 (allow user_t beamline_domain (file (getattr read open ioctl)))
 (allow user_t beamline_domain (lnk_file (getattr read)))

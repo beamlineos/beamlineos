@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# The latest published POSIX corpus is 2017-a; coverage follows Issue 8 separately (D63).
+
 kind: manual
 description: Published POSIX manual pages, with their required license notices
 build-depends:
@@ -20,7 +20,7 @@ sources:
 
 public:
   bst:
-    # Index the complete composed manual tree, including other providers' pages.
-    # Mandoc's unindexed filesystem fallback does not search the POSIX p sections.
+    
+    
     integration-commands:
     - makewhatis %{datadir}/man

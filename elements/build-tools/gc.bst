@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Deliberately pinned build-only bootstrap for AutoGen (D63), never in an image.
+
 kind: autotools
 build-depends:
 - junctions/freedesktop-sdk.bst:public-stacks/buildsystem-autotools.bst

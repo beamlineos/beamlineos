@@ -1,2 +1,7 @@
 # SPDX-License-Identifier: MIT
 ruamel.yaml==0.19.1
+tree-sitter==0.25.2
+tree-sitter-language-pack==0.13.0
+tree-sitter-c-sharp==0.23.1
+tree-sitter-embedded-template==0.25.0
+tree-sitter-yaml==0.7.2

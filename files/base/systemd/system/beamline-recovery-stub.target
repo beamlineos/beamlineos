@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-#
-# The RecoveryOS stub (docs/spec.md §20, docs/decisions.md D48): the recovery UKI boots the
-# Beamline kernel and initrd with rd.systemd.unit= naming this target, which reports itself
-# and powers off. Nothing else starts: no root is mounted.
+
+
+
+
 
 [Unit]
 Description=Beamline RecoveryOS (stub)

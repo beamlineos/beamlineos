@@ -25,6 +25,6 @@ config:
       --units /sysroot/usr/lib/systemd/system /sysroot/etc/systemd/system \
       --allowlist "%{libexecdir}/%{os-id}-tests/unit-shell-allowlist.txt"
   - |
-    # Every program in the base finds the libraries it needs (D88).
+    
     python3 "%{libexecdir}/%{os-id}-tests/check-libraries.py" --root /sysroot \
       --allow "%{libexecdir}/%{os-id}-tests/libraries-allowed.txt"

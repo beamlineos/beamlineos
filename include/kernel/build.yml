@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-#
-# Shared build rules for project-owned kernels (docs/spec.md §11-12). A profile kernel
-# sets %{kernel-profile} and %{kernel-base}; the configuration is
-#   <kernel-base> + common.config + arch-<kernel-arch>.config + <profile>.config
-# kernel-base "allnoconfig" (Virt, §11.4) starts from nothing, so only what the fragments
-# request is enabled; "defconfig" (Hardware) starts from the architecture defaults.
-# The resolved .config is shipped in the artifact, never committed.
+
+
+
+
+
+
+
 
 build-depends:
 - junctions/freedesktop-sdk.bst:public-stacks/buildsystem-make.bst
@@ -29,8 +29,8 @@ environment:
   KBUILD_BUILD_TIMESTAMP: '@%{source-date-epoch}'
   KBUILD_BUILD_USER: '%{os-id}'
   KBUILD_BUILD_HOST: buildstream
-  # Set and empty: no "+" suffix for untagged commits; the release is
-  # <version><profile CONFIG_LOCALVERSION>.
+  
+  
   LOCALVERSION: ''
   MAXJOBS: '%{max-jobs}'
 
@@ -51,7 +51,7 @@ config:
   configure-commands:
   - |
     if [ "%{kernel-base}" = allnoconfig ]; then
-      # allnoconfig with the fragments as KCONFIG_ALLCONFIG: unrequested symbols stay off.
+      
       scripts/kconfig/merge_config.sh -n %{kernel-config-fragments}
     else
       make %{kernel-base}
@@ -60,8 +60,8 @@ config:
     fi
 
   - |
-    # Every symbol a fragment requests must survive configuration; a silent drop means a
-    # missing dependency or a renamed symbol.
+    
+    
     grep -hE '^(CONFIG_[A-Za-z0-9_]+=|# CONFIG_[A-Za-z0-9_]+ is not set)' \
       %{kernel-config-fragments} | sort -u > requested.config
     if grep -vxF -f .config requested.config > dropped.config; then

@@ -1,23 +1,23 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Installation test (0.0.4.3, docs/decisions.md D106, D110–D113), and the installed disk every other
-# VM test boots (there is no disk image; ci/test-vms runs this first).
-# 1. Test firmware is provisioned as a PC is sold: Microsoft's keys, ours only as PK and KEK.
-# 2. The medium boots: Debian's shim refuses systemd-boot and starts MokManager, which enrolls
-#    beamline.der (tests/vm/mok-enroll.script); systemd-boot then starts the installer, whose
-#    prompts the test answers (tests/vm/install.script) until it reboots, enforcing.
-# 3. In parallel, each from the installed disk with copies of its UEFI variables and TPM:
-#    - its first boot under Secure Boot: homed's prompt for the first account
-#      (tests/vm/firstboot.script), the extensions fetched from this snapshot's update channel,
-#      served over HTTP on this host, the reboot, then the account's console login. The test checks
-#      the layout, the boot entries, DATA, the ESP's shim chain, Secure Boot, lockdown, and that
-#      SYSTEM carries no installation component;
-#    - the firmware refusing the installed UKIs once one byte of them is changed;
-#    - the reference disk, out/<arch>/virt/installed/reference.qcow2: first booted with the test
-#      accounts' credentials and powered off after its second boot.
-# The medium is never modified (§28).
-#   ./ci/test-install [path/to/install.raw]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -27,7 +27,7 @@
 medium="${1:-$OUT/install/install.raw}"
 [ -f "$medium" ] || die "$medium not found; run ./ci/image first"
 [ -f "$OUT/firmware/provision.raw" ] || die "$OUT/firmware/provision.raw not found; run ./ci/image first"
-# The production UKI the medium installs; the snapshot's update channel carries the same file.
+
 for uki in "$OUT"/update/beamline_*.efi; do :; done
 [ -f "$uki" ] || die "no production UKI in $OUT/update; run ./ci/image first"
 
@@ -52,7 +52,7 @@ install_medium "$medium" "$installed" secure-boot "$OUT/serial-install.log"
 
 serve_channel "$OUT/update"
 
-# Each parallel run gets its own copy of the variables and the TPM; the reference keeps the originals.
+
 for run in firstboot tampered; do
     cp "$installed/efivars.fd" "$DIR_WORK/$run.efivars.fd"
     cp -R "$installed/tpm" "$DIR_WORK/$run.tpm"

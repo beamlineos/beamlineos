@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Publish immutable, verified saved snapshots to the shared R2 chunk store.
+HELP = """Publish immutable, verified saved snapshots to the shared R2 chunk store.
 
 ci/publish SNAPSHOT --prepare-only      validate and index without cloud credentials
 ci/publish SNAPSHOT [--repeat]          upload, verify through public HTTP, commit manifest
@@ -43,7 +43,7 @@ def public_get(base, key):
 
 
 class R2:
-    """Small-object conditional writes; desync handles chunk transfer concurrency."""
+                                                                                     
 
     def __init__(self, work):
         account, self.bucket = os.environ.get("R2_ACCOUNT_ID", ""), os.environ.get("R2_BUCKET", "")
@@ -170,7 +170,7 @@ def prepare(snapshot_root, snapshot, cache, binary, config):
             print(f"Indexing {name}", flush=True)
             target = package / index
             target.parent.mkdir(exist_ok=True)
-            # Recreate deterministically; make reuses valid chunks in the local store.
+                                                                                      
             run_desync(binary, config, "make", "-m", "16:64:256", "-n", "16", "-s", store, target, path)
             indexes[index] = checks.sha256(target)
         artifacts[name] = {"sha256": digest, "size": path.stat().st_size,
@@ -240,7 +240,7 @@ def verify_public(package, manifest, base, binary, config, progress, concurrency
 
 
 def publish(package, manifest, remote, replicate, verify):
-    """Preflight conflicts, transfer, verify, then create the signed commit marker last."""
+                                                                                           
     prefix = f"snapshots/{manifest['snapshot']}/aarch64/"
     data = package_files(package, manifest)
     signature = (package / "publication.json.gpg").read_bytes()
@@ -255,7 +255,7 @@ def publish(package, manifest, remote, replicate, verify):
     after = remote.chunks()
     uploaded = sum(remote.put(prefix + name, wanted) for name, wanted in data.items())
     verification = verify()
-    # Readers treat publication.json as the commit marker. Its signature already exists.
+                                                                                        
     uploaded += remote.put(prefix + "publication.json.gpg", signature)
     uploaded += remote.put(prefix + "publication.json", marker)
     return dict(verification, chunks_added=len(after.keys() - before.keys()),
@@ -264,7 +264,7 @@ def publish(package, manifest, remote, replicate, verify):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("snapshot", nargs="?")
     parser.add_argument("--snapshot-root", type=Path, default=os.environ.get("BEAMLINE_SNAPSHOT_ROOT"))
     parser.add_argument("--cache-root", type=Path)
@@ -339,8 +339,8 @@ def main():
                     remote = R2(work)
                     indexes = sorted({str(package / a["index"]) for a in manifest["artifacts"].values()})
                     def replicate(existing):
-                        # The complete S3 inventory is already available. Avoid a separate
-                        # HEAD for every existing chunk, especially on repeat publication.
+                                                                                          
+                                                                                          
                         ignore = work / "existing-chunks.txt"
                         ids = {key.rsplit("/", 1)[1].removesuffix(".cacnk") for key in existing
                                if re.fullmatch(r"store/([0-9a-f]{4})/\1[0-9a-f]{60}\.cacnk", key)}
@@ -356,9 +356,9 @@ def main():
                     report["publication"] = publish(package, manifest, remote, replicate, verify)
                     if args.repeat:
                         def verify_repeat():
-                            # This invocation has just reconstructed every immutable blob.
-                            # Repeat cloud operations and recheck public metadata; separate
-                            # invocations still reconstruct the complete artifact set.
+                                                                                          
+                                                                                           
+                                                                                      
                             progress(phase="verify-repeat-metadata")
                             count = verify_public_metadata(package, manifest, args.public_url)
                             prefix = f"snapshots/{args.snapshot}/aarch64/"

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Rebuild unstyled directory indexes from committed, signed publications only."""
+                                                                                  
 import json
 from html import escape
 from pathlib import Path
@@ -21,7 +21,7 @@ def directory_page(directory, entries):
         links.append(f'<li><a href="{quote(parent, safe="/._-")}">../</a></li>')
     names = sorted(entries, key=lambda name: (not name.endswith("/"), name))
     if directory == "/snapshots/":
-        names.reverse()  # Most recent snapshot first.
+        names.reverse()                               
     for name in names:
         links.append(f'<li><a href="{quote(directory + name, safe="/._-")}">{escape(name)}</a></li>')
     return (f'<!doctype html>\n<!-- SPDX-License-Identifier: MIT -->\n<html lang="en">\n'
@@ -63,9 +63,9 @@ def refresh(remote):
                 verify_manifest_signature(release)
                 manifests.append(validate_manifest(json.loads(marker), match[1]))
         pages = render(manifests)
-        # Publish children before the top-level listing points at them. Current
-        # P1 publications are immutable and aarch64-only, so independent uploads
-        # produce the same children for a given snapshot. Guard every write too.
+                                                                               
+                                                                                
+                                                                                
         conflict = False
         for key in sorted(pages, key=lambda key: (-key.count("/"), key)):
             if key == PAGE:
@@ -81,9 +81,9 @@ def refresh(remote):
             continue
         if previous == pages[PAGE]:
             return {"snapshots": len(manifests), "page_written": written}
-        # Compare against the version read before listing publications. A writer
-        # that raced us forces a complete re-list, preventing a stale page from
-        # hiding a concurrent upload. Interrupted refreshes can simply be retried.
+                                                                                
+                                                                               
+                                                                                  
         if remote.replace_page(PAGE, pages[PAGE], etag):
             return {"snapshots": len(manifests), "page_written": True}
     raise ValueError("download page changed concurrently; retry --refresh-page")

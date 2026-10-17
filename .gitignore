@@ -1,15 +1,15 @@
-# Build outputs checked out by ci/image, serial logs, QEMU scratch files
+
 /out/
 *.raw
 *.qcow2
 
-# BuildStream workspaces and local state
+
 /.bst/
 
 __pycache__/
 
 .DS_Store
 
-# Worker build tools and local Cloudflare state
+
 node_modules/
 /.wrangler/

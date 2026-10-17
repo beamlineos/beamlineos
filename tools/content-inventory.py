@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""List what every image of a snapshot contains, read-only (0.0.4.2 step 2A, docs/decisions.md D76).
+HELP = """List what every image of a snapshot contains, read-only (0.0.4.2 step 2A, docs/decisions.md D76).
 
   content-inventory.py UPDATE-DIR OUTDIR
 
@@ -110,7 +110,7 @@ def load(path):
     return entries
 
 
-# Heuristic categories: (title, predicate over (path, kind, size, detail)).
+                                                                           
 DEV_BIN = re.compile(r"/usr/bin/(g-ir-[^/]+|gdbus-codegen|glib-(compile-resources|genmarshal|mkenums|gettextize)"
                      r"|gtester(-report)?|[^/]*-config|pkg-config|pkgconf|libtool(ize)?|vala[^/]*|vapigen[^/]*"
                      r"|mako-render|markdown_py|gettextize|autopoint|msg[a-z]+|xgettext|intltool[^/]*|itstool"
@@ -176,7 +176,7 @@ def categorize(name, entries, out):
 
 def main():
     if len(sys.argv) != 3:
-        sys.exit(__doc__)
+        sys.exit(HELP)
     update, outdir = sys.argv[1], sys.argv[2]
     os.makedirs(outdir, exist_ok=True)
     found = images(update)
@@ -189,7 +189,7 @@ def main():
         try:
             run(["sudo", "mount", "-o", "ro", partition or device, mountpoint])
             mounted = True
-            # sudo: some files are readable by root only (shadow, polkit rules).
+                                                                                
             run(["sudo", sys.executable, os.path.abspath(__file__), "--list", mountpoint,
                  os.path.join(outdir, f"{name}.tsv")])
         finally:

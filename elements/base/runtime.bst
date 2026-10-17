@@ -10,6 +10,6 @@ description: |
 depends:
 - junctions/freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
 - junctions/freedesktop-sdk.bst:vm/base-filesystem.bst
-# /etc/ld.so.conf includes ld.so.conf.d/*.conf, so extensions add library paths as
-# snippets (desktop-gnome's Mesa) instead of replacing the base's file (decisions D38).
+
+
 - junctions/freedesktop-sdk.bst:integration/ldconfig.bst

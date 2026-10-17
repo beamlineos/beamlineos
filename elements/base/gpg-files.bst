@@ -19,6 +19,6 @@ config:
 
 public:
   bst:
-    # Trees that also carry all of GnuPG (desktop-gnome) have the same file from it.
+    
     overlap-whitelist:
     - '%{bindir}/gpg'

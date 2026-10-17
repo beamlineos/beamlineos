@@ -46,38 +46,38 @@ build-depends:
 variables:
   uki-keys: '%{datadir}/%{os-id}/keys/uki'
   verity-keys: '%{datadir}/%{os-id}/keys/verity'
-  # Where the initrd finds SYSTEM's root hash signature (D101)
+  
   roothash-sig: /usr/lib/%{os-id}/system.roothash.p7s
   uki-dir: '%{install-root}/xbootldr/EFI/Linux'
-  # SYSTEM, read-only EROFS under dm-verity (docs/spec.md §13, §14): the commands prepend
-  # roothash=, from which the initrd derives the data and hash partitions' UUIDs and sets up
-  # /dev/mapper/root (docs/decisions.md D47). The first boot asks only for the first account
-  # (beamline-first-user.service, D112): root stays locked (§18.1), and settings come from the
-  # image or from credentials (systemd-firstboot asks nothing, by its drop-in).
-  # Extension images' signatures are checked by the kernel only; systemd's userspace
-  # fallback is off (docs/decisions.md D53).
+  
+  
+  
+  
+  
+  
+  
   kernel-cmdline: >-
     rootfstype=erofs ro
     console=%{serial-console}
     systemd.show_status=yes
     systemd.allow_userspace_verity=0
     systemd.verity_root_options=root-hash-signature=%{roothash-sig}
-  # The development UKI differs only by its command line: SELinux permissive (§13,
-  # docs/security.md §19.4).
+  
+  
   kernel-cmdline-dev: enforcing=0
-  # The RecoveryOS stub boots the same kernel and initrd into beamline-recovery-stub.target,
-  # which reports itself and powers off (docs/decisions.md D48). It mounts nothing: without
-  # roothash=, the gpt-auto generator would otherwise try to activate a SYSTEM slot.
-  # The installer on the medium (0.0.4.3 step 2, docs/decisions.md D106): the production command
-  # line, booted as a live system. Its extra initrd copies the installer extension from beside the
-  # UKI into /run/extensions (D113). PID 1 starts basic.target; the root's systemd-sysext merges the
-  # extension, and the extension's drop-in for the restart after the merge (D41) starts the
-  # installer's target, which comes with it, instead of the default target. DATA is a tmpfs, so the
-  # medium is never written; systemd-repart never runs, so the medium is never repartitioned.
-  # /etc is SYSTEM's own, read-only: no confext merges, and its mutable layer would sit on the
-  # tmpfs, whose files created before the policy loads are labelled tmpfs_t (journald, udev and the
-  # bus then cannot read /etc). Nothing grows /data, and the journal stays in /run. It never enters
-  # the update channel.
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   kernel-cmdline-install: >-
     rd.systemd.mount-extra=tmpfs:/sysroot/data:tmpfs:mode=0755
     rd.systemd.mask=systemd-repart.service
@@ -118,8 +118,8 @@ config:
     kver="$(ls /kernel/usr/lib/modules)"
     roothash="$(python3 -c 'import json, sys
     print(next(p["roothash"] for p in json.load(open(sys.argv[1])) if p.get("roothash") not in (None, "", "-")))' /system/system.json)"
-    # SYSTEM's root hash, signed (PKCS#7 without attributes, so the signature is reproducible),
-    # packed as a second initrd that the kernel unpacks over the first (D101).
+    
+    
     install -d "/work/roothash-sig$(dirname "%{roothash-sig}")"
     printf '%s' "${roothash}" > /work/roothash.txt
     openssl smime -sign -nocerts -noattr -binary -in /work/roothash.txt \
@@ -133,7 +133,7 @@ config:
       set -- . usr usr/lib "usr/lib/%{os-id}" "usr/lib/%{os-id}/$(basename "${sig}")"
       touch -h -d "@%{source-date-epoch}" "$@"
       printf '%s\n' "$@" | cpio --quiet --reproducible -o -H newc ) > /work/roothash-sig.cpio
-    # The installer UKI's extra initrd (D113).
+    
     ( cd /installer-initrd%{datadir}/%{os-id}/installer-initrd
       find . | sort > /work/installer-initrd.list
       xargs touch -h -d "@%{source-date-epoch}" < /work/installer-initrd.list
@@ -167,8 +167,8 @@ config:
     chmod 0644 "%{uki-dir}"/*.efi "%{install-root}"/install/EFI/Linux/*.efi
 
   - |
-    # systemd-sbsign cannot verify; sbsigntools can. Every image must carry a signature
-    # that the development certificate validates.
+    
+    
     for efi in "%{uki-dir}"/*.efi "%{install-root}"/install/EFI/Linux/*.efi; do
       sbverify --cert "%{uki-keys}/db.crt" "${efi}"
     done

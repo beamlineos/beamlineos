@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Install a checksum-pinned desync binary in the publication cache only."""
+                                                                            
 
 import hashlib
 import os

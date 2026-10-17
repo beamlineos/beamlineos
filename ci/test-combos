@@ -1,16 +1,16 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# The desktop combined with extensions (§39.1, docs/decisions.md D75). Each combination boots the
-# checked-out image with desktop-gnome merged and a 2D GPU, so GDM runs, then merges more
-# extensions under it:
-#   posix       bash, uutils, manuals (the posix check)
-#   printing    printing-scanning: a virtual IPP printer, a job through CUPS, SANE's test backend
-#   devel       posix-devel: the development workflow, as dev in user_t
-#   all         the three together
-# The desktop must survive every refresh, no unit may fail, and no boot may record an
-# unexpected AVC denial (policy/selinux-expected.toml). The image itself is never modified.
-#   ./ci/test-combos [path/to/installed.qcow2 [combination...]]
+
+
+
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -30,7 +30,7 @@ for combo in $combos; do
     esac
     serial="$OUT/serial-combo-$combo.log"
     log "combination: desktop + $extensions"
-    # Every combination runs, so one failure does not hide another.
+    
     python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
         --gpu 2d --memory 6G --timeout 900 \
         --credential "beamline.test.combo=$extensions" \
@@ -47,7 +47,7 @@ for combo in $combos; do
 done
 
 log "classifying AVC denials"
-# One file per run: ci/test-vms runs two sets of combinations at once.
+
 denials="$OUT/combo-denials-$(printf %s "$combos" | tr ' ' -).json"
 # shellcheck disable=SC2086 # one argument per log
 in_builder python3 tools/integrate.py classify $logs > "$denials" ||

@@ -1,13 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Collect a 0.0.4.1 daily-driver session's telemetry (docs/decisions.md D75), read-only.
-#   ./ci/daily-telemetry PATH/TO/MACHINE-DISK [report-name]
-#
-# Shut the machine down first. The disk is cloned (copy-on-write on APFS) to
-# out/<arch>/daily/session-disk, where the builder can read it, and replaced on every run.
-# tools/daily-telemetry.py attaches the clone read-only and writes
-# out/<arch>/daily/reports/<report-name>/ (default: the UTC time).
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Saved snapshot integrity checks shared by smoke tests and publishing."""
+                                                                           
 
 import hashlib
 import json

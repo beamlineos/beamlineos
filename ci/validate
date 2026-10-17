@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Run only the exact trusted production commit, with isolated persistent outputs.
+
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
 PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"

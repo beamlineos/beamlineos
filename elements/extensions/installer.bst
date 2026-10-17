@@ -34,5 +34,5 @@ build-depends:
 
 variables:
   extension-name: installer
-  # The installation components the base prunes are this extension's content.
+  
   extension-installer-files: ''

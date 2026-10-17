@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Extension control on an overlay of the installed reference; no image is modified.
+
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
 image="${1:-$OUT/installed/reference.qcow2}"

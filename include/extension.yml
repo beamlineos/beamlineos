@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: MIT
-#
-# Building a system extension image and its configuration extension image (docs/spec.md §8,
-# docs/decisions.md D36). An extension element sets %{extension-name} and stages:
-#   /tree               the base and the extension, composed and integrated together
-#   /base               the finished root (image/root-virt.bst)
-#   /reference/content  the extension's content stack (its closure)
-#   /reference/tools    the integration toolbox, which is never extension content
-# It produces <name>.sysext.raw (/usr, /opt) and, when there is /etc content,
-# <name>.confext.raw: disk images holding EROFS labelled from the base policy's file contexts,
-# a dm-verity hash tree, and a signature over its root hash made with the development verity
-# key (docs/decisions.md D50). The level is the snapshot identifier (docs/spec.md §8), so an
-# image merges only into the SYSTEM built with it. The element build-depends on systemd,
-# image/repart-extension.bst and security/keys-verity.bst.
-# %{extension-presets} true applies system and user presets to the staged merged tree first,
-# so unit enablement ships in the confext. Intermediate trees and images live in
-# %{image-scratch}, outside the FUSE-staged sandbox root (docs/decisions.md D57).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (@):
 - include/image/permissions.yml
@@ -25,10 +25,10 @@ variables:
   extension-level: '%{snapshot-id}'
   verity-keys: '%{datadir}/%{os-id}/keys/verity'
   image-tools: '%{libexecdir}/%{os-id}-image-tools'
-  # Removed or replaced in the root by policy (image/root-virt.bst), so never shipped beside
-  # it: su, pkexec (decisions D55), systemd's vendor update keyring (decisions D52),
-  # systemd's empower rule and the sysusers file that declares its group (decisions D76), and
-  # systemd's virtualization services, which a later virtualization sysext ships (D87).
+  
+  
+  
+  
   extension-exclude: >-
     --exclude /usr/bin/su --exclude /etc/pam.d/su --exclude /etc/pam.d/su-l
     --exclude %{bindir}/pkexec
@@ -51,16 +51,16 @@ variables:
     --exclude %{datadir}/polkit-1/rules.d/empower.rules
     --exclude %{indep-libdir}/sysusers.d/basic.conf
     --exclude-from %{image-tools}/base-virtualization.txt
-  # Caches built from the merged tree, shadowing the base's while merged. None: the base's
-  # dynamic linker cache covers every official extension. Overlayfs shows only one confext's
-  # copy of a path, so a per-extension cache hid the desktop's Mesa libraries whenever another
-  # extension was merged (docs/decisions.md D82).
+  
+  
+  
+  
   extension-regenerated: >-
     --exclude /etc/ld.so.cache
   extension-presets: 'false'
-  # Prune lists applied to the tree before presets (tools/prune-tree.py, D88). Every extension
-  # prunes what the base removes everywhere and what it removes for posix-devel alone; an
-  # extension adds its own list.
+  
+  
+  
   extension-prune: >-
     %{image-tools}/prune/base.txt
     %{image-tools}/prune/base-devel.txt
@@ -68,8 +68,8 @@ variables:
   extension-extra-excludes: ''
   extension-posix-scope: ''
   extension-moved-tools: '--exclude-from %{image-tools}/base-user-tools.txt'
-  # Installation components the base prunes (policy/base-installer.txt, D113): the installer
-  # extension ships them, no other.
+  
+  
   extension-installer-files: '--exclude-from %{image-tools}/base-installer.txt'
   (?):
   - arch == "aarch64":
@@ -87,7 +87,7 @@ config:
 
   - |
     if [ "%{extension-presets}" = true ]; then
-      # On the staged tree itself: the sandbox is thrown away, only the images are kept.
+      
       systemctl --root=/tree preset-all
       systemctl --root=/tree --global preset-all
     fi
@@ -117,23 +117,23 @@ config:
     done
     python3 "%{image-tools}/check-policy.py" --artifact ${trees} \
       --base-virtualization "%{image-tools}/base-virtualization.txt"
-    # Every program the extension ships finds its libraries in SYSTEM and the merged images (D88).
+    
     roots="--root /base"
     for kind in sysext confext; do
       if [ -d "%{image-scratch}/${kind}" ]; then roots="${roots} --root %{image-scratch}/${kind}"; fi
     done
     python3 "%{image-tools}/check-libraries.py" ${roots} \
       --check "%{image-scratch}/sysext" --allow "%{image-tools}/prune/libraries-allowed.txt"
-    # The paths and their content, for the check that no two extensions differ on a path, which
-    # runs where they all meet (image/update-virt.bst, D88).
+    
+    
     python3 "%{image-tools}/extension-paths.py" write --out "%{install-root}/%{extension-name}.paths" ${trees}
 
   - |
     mkdir -p "%{image-scratch}/tmp"
     for kind in sysext confext; do
       [ -d "%{image-scratch}/${kind}" ] || continue
-      # Seeded from the image's own UUID, so the partition UUIDs repart does not derive from
-      # the root hash are reproducible.
+      
+      
       TMPDIR="%{image-scratch}/tmp" \
       SYSTEMD_REPART_MKFS_OPTIONS_EROFS=--file-contexts=/base/etc/selinux/beamline/contexts/files/file_contexts \
       systemd-repart \

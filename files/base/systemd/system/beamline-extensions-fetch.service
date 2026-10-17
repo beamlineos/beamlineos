@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: MIT
-#
-# An installed system's extensions (0.0.4.3 step 5, docs/decisions.md D112). The installer copies
-# SYSTEM and the UKIs from the medium, which carries no extensions (D106). While this snapshot's
-# desktop extension is missing from DATA, fetch this snapshot's extension images from the update
-# channel: systemd-sysupdate's transfers, for version %A only, so nothing newer is installed.
-# - Before the first account is asked for: homed sizes a new home from DATA's free space, and
-#   grows it to that size at every login, so the extensions must already be there.
-# - Then beamline-extensions-reboot.service reboots, once the account exists. The next boot
-#   merges the extensions before any service starts, as every boot does (D50). Merged into the
-#   running system, they met services that had already read their configuration (the bus,
-#   polkit), and the desktop's services failed.
-# - Logins wait for the reboot, so it interrupts no session.
-# - Offline, sysupdate fails, nothing reboots, the account is still created, and the next boot
-#   tries again.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 [Unit]
 Description=Fetch the extensions of this snapshot

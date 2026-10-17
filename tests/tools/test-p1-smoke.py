@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Saved-artifact integrity and credential isolation for the manual P1 smoke job."""
+                                                                                    
 
 import hashlib
 import importlib.util
@@ -123,7 +123,7 @@ class SnapshotChecks(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("gpgv"), "gpgv not installed")
     def test_invalid_signature_is_refused_by_gpgv(self):
-        # Bypass the fixture's signature mock to exercise the real verifier.
+                                                                            
         with self.assertRaisesRegex(ValueError, "signature verification failed"):
             self.signature_verifier(self.channel, ROOT / "files/keys/dev/update/import-pubring.pgp")
 

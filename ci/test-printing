@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Merge printing-scanning without desktop or posix; use CUPS and SANE (§7.4, D65).
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

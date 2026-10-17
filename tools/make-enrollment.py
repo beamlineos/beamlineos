@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Secure Boot enrollment files for systemd-boot (docs/decisions.md D111, D113).
+HELP = """Secure Boot enrollment files for systemd-boot (docs/decisions.md D111, D113).
 
   make-enrollment.py --key KEY --cert CERT --time EPOCH
                      [--kek CERT[=OWNER]]... [--db CERT[=OWNER]]... OUTDIR
@@ -32,11 +32,11 @@ X509_GUID = uuid.UUID("a5c059a1-94e4-4aa7-87b5-ab155c2bf072").bytes_le
 PKCS7_GUID = uuid.UUID("4aafd29d-68df-49ee-8aa9-347d375665a7").bytes_le
 GLOBAL_GUID = uuid.UUID("8be4df61-93ca-11d2-aa0d-00e098032b8c").bytes_le
 DB_GUID = uuid.UUID("d719b2cb-3d3a-4596-a3bc-dad00e67656f").bytes_le
-# The owner recorded with a certificate in its signature list: Beamline's, fixed, unless the
-# certificate names another (Microsoft's: 77fa9abd-0359-4d32-bd60-28f4e78f784b).
+                                                                                            
+                                                                                
 OWNER_GUID = uuid.UUID("ab38e45f-7aef-4c17-ae45-9c5b15183a84").bytes_le
-# Non-volatile, boot service and runtime access, time-based authenticated writes: what
-# systemd-boot sets PK, KEK and db with.
+                                                                                      
+                                        
 ATTRIBUTES = 0x27
 SIGNED_DATA_OID = bytes.fromhex("2a864886f70d010702")
 SHA256_OID = bytes.fromhex("608648016503040201")
@@ -44,7 +44,7 @@ VARIABLES = (("PK", GLOBAL_GUID), ("KEK", GLOBAL_GUID), ("db", DB_GUID))
 
 
 def der_element(blob, offset=0):
-    """Tag, content start and content end of the DER element at offset."""
+                                                                          
     tag, first = blob[offset], blob[offset + 1]
     offset += 2
     if first & 0x80:
@@ -67,7 +67,7 @@ def der_encode(tag, content):
 
 
 def bare_signed_data(content_info):
-    """The SignedData inside a CMS ContentInfo."""
+                                                  
     tag, start, end = der_element(content_info)
     if tag != 0x30 or end != len(content_info):
         raise ValueError("expected one DER sequence")
@@ -78,7 +78,7 @@ def bare_signed_data(content_info):
     if tag != 0xA0 or inner_end != end:
         raise ValueError("invalid signedData wrapper")
     bare = content_info[inner_start:inner_end]
-    # EDK2's legacy check: a long-form SEQUENCE whose first digest algorithm is SHA-256.
+                                                                                        
     if bare[0] != 0x30 or bare[1] != 0x82 or bare[13:22] != SHA256_OID:
         raise ValueError("SignedData is not SHA-256 in the layout EDK2 expects")
     return bare
@@ -86,7 +86,7 @@ def bare_signed_data(content_info):
 
 def efi_time(epoch):
     t = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc)
-    # EFI_TIME; the reserved fields (pad, nanosecond, time zone, daylight) stay zero.
+                                                                                     
     return struct.pack("<HBBBBBBIhBB", t.year, t.month, t.day, t.hour, t.minute, t.second, 0, 0, 0, 0, 0)
 
 
@@ -96,14 +96,14 @@ def signature_list(certificate, owner=OWNER_GUID):
 
 
 def certificate_der(path):
-    """A certificate file, PEM or DER, as DER."""
+                                                 
     with open(path, "rb") as f:
         pem = f.read(64).lstrip().startswith(b"-----BEGIN")
     return openssl("x509", "-inform", "PEM" if pem else "DER", "-in", path, "-outform", "DER")
 
 
 def signature_lists(specs):
-    """One signature list per CERT[=OWNER] specification, concatenated."""
+                                                                          
     payload = b""
     for spec in specs:
         path, _, owner = spec.partition("=")
@@ -126,7 +126,7 @@ def auth_file(name, guid, timestamp, payload, key, cert, work):
     content_info = openssl("cms", "-sign", "-binary", "-noattr", "-md", "sha256", "-signer", cert,
                            "-inkey", key, "-in", data, "-outform", "DER")
     bare = bare_signed_data(content_info)
-    # Verify what will be written: the bare SignedData, wrapped again, against the certificate.
+                                                                                               
     signature = os.path.join(work, f"{name}.p7")
     with open(signature, "wb") as f:
         f.write(der_encode(0x30, der_encode(0x06, SIGNED_DATA_OID) + der_encode(0xA0, bare)))
@@ -137,7 +137,7 @@ def auth_file(name, guid, timestamp, payload, key, cert, work):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--key", required=True, help="the signing key (PEM, RSA)")
     parser.add_argument("--cert", required=True, help="its certificate (PEM)")
     parser.add_argument("--time", required=True, type=int, help="the variables' timestamp (seconds since the epoch)")

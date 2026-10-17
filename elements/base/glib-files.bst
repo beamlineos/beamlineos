@@ -34,8 +34,8 @@ public:
       if [ -d "%{libdir}/gio/modules" ]; then
         gio-querymodules "%{libdir}/gio/modules"
       fi
-    # The desktop also carries the original artifact. These files are identical;
-    # the Python developer tools are supplied only by that original artifact.
+    
+    
     overlap-whitelist:
     - '%{bindir}/gapplication'
     - '%{bindir}/gdbus'

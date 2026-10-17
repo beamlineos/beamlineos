@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Integration cycles (docs/spec.md §17, §31).
+HELP = """Integration cycles (docs/spec.md §17, §31).
 
   resolve [--force | --frozen]               pin every tracked component to an exact commit
   record --result green|failed|aborted [--no-commit]
@@ -63,14 +63,14 @@ OUT = os.path.join(REPO, "out")
 INTEGRATIONS = os.path.join(OUT, "integrations")
 SNAPSHOTS = os.path.join(OUT, "snapshots")
 CHANNELS = os.path.join(OUT, "channels")
-# Snapshots whose update artifacts are kept: `latest` and its predecessor.
+                                                                          
 KEEP_UPDATE_ARTIFACTS = 2
 CURRENT = os.path.join(INTEGRATIONS, "current")
 LATEST = os.path.join(SNAPSHOTS, "latest.json")
 MIRRORS = os.path.expanduser("~/.cache/beamline/mirrors")
 PROJECT = "beamline"
 
-# Files resolve may change; restored on failure. All but snapshot.yml are committed on green.
+                                                                                             
 STATEFUL = ["project.refs", "junction.refs", "include/kernel/linux-commit.yml", "include/posix-devel/emacs-commit.yml", "include/snapshot.yml"]
 SELECTION_FILES = [f for f in STATEFUL if f != "include/snapshot.yml"]
 
@@ -92,13 +92,13 @@ def utcnow():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-# Refs files ---------------------------------------------------------------------------
+                                                                                        
 
 def yaml():
     y = YAML()
     y.preserve_quotes = True
-    y.indent(mapping=2, sequence=2, offset=0)   # the layout BuildStream writes
-    y.width = 4096                                # never fold long refs
+    y.indent(mapping=2, sequence=2, offset=0)                                  
+    y.width = 4096                                                      
     return y
 
 
@@ -116,7 +116,7 @@ def write_ref(refs_file, element, ref):
         data = y.load(f) or {}
     elements = data.setdefault("projects", {}).setdefault(PROJECT, {})
     entries = elements.get(element) or [{}]
-    entries[0] = {"ref": ref}          # the tracked git source is always the first source
+    entries[0] = {"ref": ref}                                                             
     elements[element] = entries
     with open(path, "w", encoding="utf-8") as f:
         y.dump(data, f)
@@ -129,7 +129,7 @@ def source_entries(refs_file, element):
 
 
 def write_source_entries(refs_file, entries, remove=()):
-    """Keep every source, including Cargo's lockfile-derived crate checksums."""
+                                                                                
     path = os.path.join(REPO, refs_file)
     y = yaml()
     with open(path, encoding="utf-8") as f:
@@ -157,7 +157,7 @@ def migrate_sources(policy):
 
 
 def introduce_component(name, comp, arch):
-    """Resolve a new component once; retries reuse its exact complete source set (D63)."""
+                                                                                          
     fingerprint = hashlib.sha256(json.dumps(comp, sort_keys=True).encode()).hexdigest()
     path = os.path.join(OUT, "source-intake", name, fingerprint + ".json")
     intake = load_json(path) if os.path.isfile(path) else None
@@ -177,7 +177,7 @@ def introduce_component(name, comp, arch):
 
 
 def fixed_sources(policy, previous, frozen):
-    """Published archives without a usable VCS HEAD, and deliberate build-only inputs."""
+                                                                                         
     sources = {}
     for name, source in policy.get("archive", {}).items():
         digest = source["sha256"]
@@ -209,11 +209,11 @@ def fixed_sources(policy, previous, frozen):
 
 
 def lockfile_sources(policy, check=False):
-    """Project-owned Rust dependencies: the lockfile is authoritative, never tracked upstream.
+                                                                                              
 
-    The local source comes first, so write_source_entries (not write_ref) preserves its empty
-    slot and the cargo plugin's complete crate list. Only resolution writes these selections.
-    """
+                                                                                             
+                                                                                             
+       
     resolved = {}
     for name, entry in policy.get("lockfile", {}).items():
         path = os.path.join(REPO, entry["lockfile"])
@@ -223,7 +223,7 @@ def lockfile_sources(policy, check=False):
         for package in lock.get("package", []):
             source = package.get("source")
             if source is None:
-                continue                    # the workspace's own packages
+                continue                                                  
             if source != "registry+https://github.com/rust-lang/crates.io-index":
                 sys.exit(f"integrate: {name}: unsupported Cargo source {source}")
             checksum = package.get("checksum", "")
@@ -249,8 +249,8 @@ def lockfile_sources(policy, check=False):
 
 
 def inherit_recipe(recipe, original, name):
-    """Only ref metadata differs; appended downstream sources must be local patches. An upstream
-    local source is copied at the same path (override_drift compares the copy)."""
+                                                                                                
+                                                                                  
     upstream = original["sources"]
     ours = recipe["sources"]
     if len(ours) < len(upstream):
@@ -270,7 +270,7 @@ def inherit_recipe(recipe, original, name):
 
 
 def inherited_recipes(policy, sources, previous, frozen, arch):
-    """A downstream recipe follows its selected junction, never a separate component HEAD."""
+                                                                                             
     recipes = {}
     for name, entry in policy.get("recipe", {}).items():
         selected = sources[entry["component"]]
@@ -313,11 +313,11 @@ def nearest_tag(ref):
     return f"{m.group('tag')}-{m.group('distance')}-g{m.group('sha')[:12]}" if m else None
 
 
-# Upstream queries ---------------------------------------------------------------------
+                                                                                        
 
 def ls_remote(url, branch, attempts=4):
-    """The branch's head. Some upstreams (Savannah) refuse or drop a query now and then, so a
-    failed or empty answer is retried a few times before the cycle gives up."""
+                                                                                             
+                                                                               
     for attempt in range(1, attempts + 1):
         try:
             out = run(["git", "ls-remote", url, f"refs/heads/{branch}"])
@@ -343,7 +343,7 @@ def gitlab_ci_green(project, branch, api="https://gitlab.com"):
 
 
 def mirror(name, url, branch):
-    """Treeless bare mirror, enough for `git describe` and commit counting."""
+                                                                              
     path = os.path.join(MIRRORS, f"{name}.git")
     if not os.path.isdir(path):
         os.makedirs(MIRRORS, exist_ok=True)
@@ -357,8 +357,8 @@ def mirror(name, url, branch):
 
 
 def github_nearest_tag(repo, sha):
-    """Best-effort git-describe for an archive-selected commit, without a clone: the release
-    named by the commit's top-level Makefile, and the commit's distance from it."""
+                                                                                            
+                                                                                   
     try:
         with urllib.request.urlopen(f"https://raw.githubusercontent.com/{repo}/{sha}/Makefile",
                                     timeout=60) as resp:
@@ -383,7 +383,7 @@ def lag(path, selected, head):
     return int(run(["git", "-C", path, "rev-list", "--count", f"{selected}..{head}"]))
 
 
-# Resolve ------------------------------------------------------------------------------
+                                                                                        
 
 def bst_track(arch, elements):
     if elements:
@@ -392,7 +392,7 @@ def bst_track(arch, elements):
 
 
 def write_variable(rel, variable, value):
-    """Set `variable` in a variables-only include written by integration cycles."""
+                                                                                   
     path = os.path.join(REPO, rel)
     with open(path, encoding="utf-8") as f:
         text = f.read()
@@ -412,9 +412,9 @@ def read_variable(rel, variable):
 
 
 def resolve_archive(name, comp, arch):
-    """github-archive: the branch HEAD from `url` (the authority for the commit), built from
-    GitHub's archive of that commit. A git fetch of a repository as large as linux.git is slow
-    and needs a mirror hosted runners do not keep (docs/decisions.md D32)."""
+                                                                                            
+                                                                                              
+                                                                             
     url, branch, repo = comp["url"], comp["branch"], comp["github"]
     head = ls_remote(url, branch)
     github_head = ls_remote(f"https://github.com/{repo}.git", branch)
@@ -477,7 +477,7 @@ def resolve_component(name, comp, arch):
             ref = refs_seen.pop()
             if commit_of(ref) == head:
                 break
-            head = ls_remote(url, branch)      # upstream moved meanwhile: track again once
+            head = ls_remote(url, branch)                                                  
             entry["head_at_resolution"] = head
         else:
             sys.exit(f"integrate: {name}: tracked {ref}, but {branch} is at {head}. Does the "
@@ -492,8 +492,8 @@ OVERRIDES = os.path.join(REPO, "elements", "overrides")
 
 
 def recipe_changed(mirror, old, new, path):
-    """Overrides keep their source refs in project.refs (inherited or tracked), so a moved ref
-    alone is not drift."""
+                                                                                              
+                          
     def without_refs(commit):
         try:
             recipe = yaml().load(run(["git", "-C", mirror, "show", f"{commit}:{path}"])) or {}
@@ -507,28 +507,43 @@ def recipe_changed(mirror, old, new, path):
 
 
 def copied_local_sources(text, mirror, sha):
-    """An override's local sources that copy a path of the upstream project (D105: files/gdm)."""
+                                                                                                 
     paths = [s["path"] for s in (yaml().load(text) or {}).get("sources", [])
              if isinstance(s, dict) and s.get("kind") == "local"]
     return [p for p in paths if run(["git", "-C", mirror, "ls-tree", sha, "--", p])]
 
 
 def local_copy_differs(mirror, commit, path):
-    listing = run(["git", "-C", mirror, "ls-tree", "-r", commit, "--", path])
-    theirs = {line.split("\t", 1)[1]: line.split()[2] for line in listing.splitlines()}
+    from pathlib import Path
+    from source_text import normalize
+    listing = subprocess.check_output(["git", "-C", mirror, "ls-tree", "-rz", commit, "--", path])
+    theirs = {}
+    for record in listing.split(b"\0"):
+        if not record:
+            continue
+        header, name = record.split(b"\t", 1)
+        mode, _, oid = header.decode().split()
+        name = os.fsdecode(name)
+        data = subprocess.check_output(["git", "-C", mirror, "cat-file", "blob", oid])
+        theirs[name] = (mode, data if mode == "120000" else normalize(name, data))
     ours = {}
     for root, _, files in os.walk(os.path.join(REPO, path)):
         for file in files:
             full = os.path.join(root, file)
-            ours[os.path.relpath(full, REPO)] = run(["git", "hash-object", full])
+            name = os.path.relpath(full, REPO)
+            if os.path.islink(full):
+                ours[name] = ("120000", os.fsencode(os.readlink(full)))
+            else:
+                mode = "100755" if os.stat(full).st_mode & 0o111 else "100644"
+                ours[name] = (mode, normalize(name, Path(full).read_bytes()))
     return ours != theirs
 
 
 def override_drift(upstreams):
-    """Overrides are copies of FDSDK or gnome-build-meta recipes (decisions D15, D29). Report
-    each one whose original changed between the recorded commit and the selected one, and each
-    copied local source that differs from the selected one (§31.4). `upstreams` maps a project
-    name to its resolved source entry."""
+                                                                                             
+                                                                                              
+                                                                                               
+                                         
     if not os.path.isdir(OVERRIDES):
         return []
     warnings = []
@@ -557,8 +572,8 @@ def override_drift(upstreams):
 
 FDSDK_JUNCTION = os.path.join(REPO, "elements", "junctions", "freedesktop-sdk.bst")
 GBM_PREFIX = "junctions/gnome-build-meta.bst:"
-# gnome-build-meta's FDSDK overrides that Beamline does not carry (decisions D28): its
-# systemd family (Beamline's own) and its kernel module certificate.
+                                                                                      
+                                                                    
 GBM_NOT_CARRIED = {
     "components/_private/systemd-base.bst", "components/systemd.bst",
     "components/systemd-ukify.bst", "components/systemd-libs.bst",
@@ -567,8 +582,8 @@ GBM_NOT_CARRIED = {
 
 
 def gbm_override_drift(gbm):
-    """Beamline's FDSDK junction carries gnome-build-meta's FDSDK overrides (decisions
-    D28). Report every difference from gbm's list at the selected commit (§31.4)."""
+                                                                                      
+                                                                                     
     theirs_text = run(["git", "-C", gbm["mirror"], "show", f"{gbm['commit']}:elements/freedesktop-sdk.bst"])
     theirs = {k: v for k, v in yaml().load(theirs_text)["config"]["overrides"].items()
               if k not in GBM_NOT_CARRIED}
@@ -585,8 +600,8 @@ def gbm_override_drift(gbm):
 
 
 def repository_state():
-    """Repository commit plus a fingerprint of uncommitted changes (refs files excluded),
-    so that "nothing changed" also works on a work-in-progress tree."""
+                                                                                         
+                                                                       
     commit = run(["git", "-C", REPO, "rev-parse", "HEAD"])
     status = subprocess.run(["git", "-C", REPO, "status", "--porcelain", "--untracked-files=all"],
                             check=True, text=True, capture_output=True).stdout
@@ -598,7 +613,14 @@ def repository_state():
         if os.path.isfile(path):
             with open(path, "rb") as f:
                 fingerprint.update(f.read())
-    return {"commit": commit, "dirty": bool(changed), "changed_files": changed,
+    normalization = None
+    normalization_path = os.path.join(REPO, "policy/public-source.toml")
+    if os.path.isfile(normalization_path):
+        with open(normalization_path, "rb") as f:
+            normalization = tomllib.load(f)["normalization"]
+    return {"commit": commit, "tree": run(["git", "-C", REPO, "rev-parse", "HEAD^{tree}"]),
+            "source_normalization": normalization,
+            "dirty": bool(changed), "changed_files": changed,
             "uncommitted_sha256": fingerprint.hexdigest() if changed else None}
 
 
@@ -664,7 +686,7 @@ def cmd_resolve(args):
     with open(POLICY, "rb") as f:
         policy = tomllib.load(f)
 
-    # Ids have minute resolution (§17.2); a second cycle within the same minute waits.
+                                                                                       
     while True:
         now = utcnow()
         snapshot = now.strftime("%Y%m%d.%H%M")
@@ -764,8 +786,8 @@ def cmd_resolve(args):
 
 
 def frozen_sources(policy, previous, arch=None):
-    """The source set of `latest`, unchanged: no upstream lookups, no tracking. `frozen_from`
-    names the HEAD cycle that resolved it, through any frozen snapshots in between."""
+                                                                                             
+                                                                                      
     if not previous:
         sys.exit("integrate: --frozen needs a snapshot `latest` to freeze at")
     origin = previous.get("frozen_from", previous["snapshot"])
@@ -796,7 +818,7 @@ def frozen_sources(policy, previous, arch=None):
     return sources
 
 
-# Record -------------------------------------------------------------------------------
+                                                                                        
 
 def sha256(path):
     h = hashlib.sha256()
@@ -825,7 +847,7 @@ TEST_EVIDENCE = TEST_LOGS + ("desktop.ppm",)
 
 
 def expected_denials():
-    """The denials the negative tests provoke (policy/selinux-expected.toml, security §15)."""
+                                                                                               
     import tomllib
     with open(SELINUX_EXPECTED, "rb") as f:
         entries = tomllib.load(f).get("denial", [])
@@ -846,16 +868,16 @@ def is_expected(denial, entries):
                and e.get("comm", denial["comm"]) == denial["comm"] for e in entries)
 
 
-# The update test also boots the previous snapshot, whose denials are its own: in that log only the
-# candidate's boots count. Each boot starts with the kernel banner, and the test's unit names the
-# booted version.
+                                                                                                   
+                                                                                                 
+                 
 UPDATE_LOG = "serial-update.log"
 KERNEL_BANNER = re.compile(r"\]\s+Linux version ")
 BOOTED_VERSION = re.compile(r"\bbooted (\S+) \(old ")
 
 
 def serial_lines(serial, snapshot):
-    """The lines of a test's serial log that belong to the snapshot under test."""
+                                                                                  
     with open(serial, encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
     if not (snapshot and os.path.basename(serial).endswith(UPDATE_LOG)):
@@ -876,8 +898,8 @@ def serial_lines(serial, snapshot):
 
 
 def selinux_summary(serials, snapshot=None):
-    """SELinux state and the distinct AVC denials of the VM tests, split into those the negative
-    tests are expected to provoke and unexpected ones (security §15, §16)."""
+                                                                                                
+                                                                               
     mode = None
     if os.path.exists(SELINUX_CONFIG):
         for line in open(SELINUX_CONFIG, encoding="utf-8"):
@@ -890,8 +912,8 @@ def selinux_summary(serials, snapshot=None):
             continue
         for line in serial_lines(serial, snapshot):
             loaded = loaded or "BEAMLINE_SELINUX_OK" in line
-            # The console can print two records on one line: classify each on its own, with the
-            # comm of its own record.
+                                                                                               
+                                     
             for record in re.split(r"(?=avc:\s+denied)", line):
                 m = AVC.search(record)
                 if not m:
@@ -913,7 +935,7 @@ def selinux_summary(serials, snapshot=None):
 
 
 def ppm_to_png(src, dest):
-    """The desktop screenshot as a PNG (QMP writes a binary PPM)."""
+                                                                    
     with open(src, "rb") as f:
         _magic, size, _maxval, pixels = f.read().split(b"\n", 3)
     width, height = map(int, size.split())
@@ -927,7 +949,7 @@ def ppm_to_png(src, dest):
 
 
 def keep_evidence(image_dir, dest, prefix=""):
-    """Copy the VM tests' logs and screenshot (as PNG) into a snapshot or integration record."""
+                                                                                                
     for name in TEST_EVIDENCE:
         src = os.path.join(image_dir, name)
         if not os.path.exists(src):
@@ -939,9 +961,9 @@ def keep_evidence(image_dir, dest, prefix=""):
 
 
 def publish_update(image_dir, dest, snapshot):
-    """Publish the snapshot's update artifacts (a signed channel directory, D52) and move the
-    `latest` channel to them; promotion only ever relinks. Older snapshots keep their manifest,
-    image and logs, but only the newest few keep their update artifacts."""
+                                                                                             
+                                                                                               
+                                                                           
     update = os.path.join(image_dir, "update")
     if not os.path.isfile(os.path.join(update, "SHA256SUMS.gpg")):
         log("no update artifacts to publish")
@@ -980,7 +1002,7 @@ def cmd_record(args):
 
     manifest["selinux"] = selinux_summary([os.path.join(image_dir, name) for name in TEST_LOGS],
                                           snapshot)
-    # From Stage 1 enforcing, an unexpected denial makes a cycle red (security §15, §16).
+                                                                                           
     gated = False
     unexpected = manifest["selinux"]["unexpected"]
     if args.result == "green" and unexpected:
@@ -1008,8 +1030,8 @@ def cmd_record(args):
 
     manifest["result"] = "green"
     manifest["changed_since_green"] = changed_since(manifest, previous)
-    # A snapshot is its installer medium and its update channel; installed disks are made from
-    # them (D113).
+                                                                                              
+                  
     manifest["artifacts"] = {}
     medium = os.path.join(image_dir, "install", "install.raw")
     mname = f"virt-{args.arch}.install.raw"
@@ -1039,8 +1061,8 @@ def cmd_record(args):
 
 
 def record_in_git(snapshot, no_commit):
-    """Commit the selection files and tag snapshot-<id> (§17.4), only on an otherwise clean
-    tree."""
+                                                                                            
+            
     tag = f"snapshot-{snapshot}"
     if no_commit:
         log("not recording in git (--no-commit)")
@@ -1068,7 +1090,7 @@ def default_arch():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--arch", default=default_arch())
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("check-lockfiles", help="check project-owned Cargo lockfile refs without network or writes")

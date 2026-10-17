@@ -1,11 +1,11 @@
 ; SPDX-License-Identifier: MIT
-;
-; How objects get labels (docs/security.md §19.1): initial SID contexts, filesystems that
-; store labels in xattrs, filesystems labelled by their creator, and pseudo filesystems.
+ 
+                                                                                          
+                                                                                        
 
 (context system_low (system_u object_r unlabeled_t lr_low))
 
-; Initial SIDs the kernel uses (kernel.cil declares them all)
+                                                             
 (sidcontext kernel (system_u system_r kernel_t lr_platform))
 (sidcontext security (system_u object_r security_t lr_platform))
 (sidcontext unlabeled system_low)
@@ -18,15 +18,15 @@
 (sidcontext node (system_u object_r node_t lr_low))
 (sidcontext devnull (system_u object_r null_device_t lr_low))
 
-; Labels stored in extended attributes: SYSTEM and extensions (erofs, labelled by
-; mkfs.erofs), DATA (ext4) and the homed homes (btrfs), labelled at runtime, and merged
-; extensions (overlay). The filesystems' own labels keep SYSTEM code off DATA (policy.cil).
+                                                                                 
+                                                                                       
+                                                                                           
 (fsuse xattr erofs (system_u object_r system_fs_t lr_platform))
 (fsuse xattr ext4 (system_u object_r data_fs_t lr_platform))
 (fsuse xattr btrfs (system_u object_r data_fs_t lr_platform))
 (fsuse xattr overlay (system_u object_r overlay_fs_t lr_platform))
 
-; Labels derived from the creating process and the parent directory
+                                                                   
 (fsuse trans tmpfs (system_u object_r tmpfs_t lr_low))
 (fsuse trans devtmpfs (system_u object_r device_t lr_low))
 (fsuse trans devpts (system_u object_r devpts_t lr_low))
@@ -34,7 +34,7 @@
 (fsuse task pipefs (system_u object_r fs_t lr_low))
 (fsuse task sockfs (system_u object_r fs_t lr_low))
 
-; Pseudo filesystems and the ESP
+                                
 (genfscon proc "/" (system_u object_r proc_t lr_platform))
 (genfscon proc "/sys/user" (system_u object_r proc_sys_user_t lr_platform))
 (genfscon proc "/sys/net" (system_u object_r proc_sys_net_t lr_platform))

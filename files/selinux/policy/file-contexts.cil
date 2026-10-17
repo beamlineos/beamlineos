@@ -1,21 +1,21 @@
 ; SPDX-License-Identifier: MIT
-;
-; File contexts (docs/security.md §19.1). They label SYSTEM and the extension images when
-; mkfs.erofs creates them, and DATA when systemd creates or relabels files at runtime.
-; Later, more specific entries win, as in any file_contexts.
+ 
+                                                                                          
+                                                                                      
+                                                            
 
 (context sys (system_u object_r default_t lr_platform))
 
 (filecon "/" dir (system_u object_r root_t lr_platform))
 (filecon "/.*" any sys)
 
-; SYSTEM: /usr and /etc
+                       
 (filecon "/usr(/.*)?" any (system_u object_r usr_t lr_platform))
 (filecon "/usr/s?bin(/.*)?" any (system_u object_r bin_t lr_platform))
 (filecon "/usr/libexec(/.*)?" any (system_u object_r bin_t lr_platform))
 (filecon "/usr/lib/systemd/systemd" file (system_u object_r init_exec_t lr_platform))
 (filecon "/usr/lib/systemd/systemd-(executor|shutdown)" file (system_u object_r init_exec_t lr_platform))
-; Platform services with their own domain (platform.cil, docs/decisions.md D58)
+                                                                               
 (filecon "/usr/lib/systemd/systemd-hostnamed" file (system_u object_r hostnamed_exec_t lr_platform))
 (filecon "/usr/lib/systemd/systemd-timedated" file (system_u object_r timedated_exec_t lr_platform))
 (filecon "/usr/lib/systemd/systemd-localed" file (system_u object_r localed_exec_t lr_platform))
@@ -23,16 +23,16 @@
 (filecon "/usr/lib/systemd/systemd-home(d|work)" file (system_u object_r homed_exec_t lr_platform))
 (filecon "/usr/bin/systemd-(sysext|confext)" any (system_u object_r sysext_exec_t lr_platform))
 (filecon "/etc(/.*)?" any (system_u object_r etc_t lr_platform))
-; /etc's directory entries are P2: run0 sessions replace the allowlisted settings there (D99)
+                                                                                             
 (filecon "/etc" dir (system_u object_r etc_t lr_admin))
 (filecon "/var/lib/extensions.mutable/etc" dir (system_u object_r etc_t lr_admin))
-; User units, which user managers (user_t) manage; PID 1's units keep usr_t and etc_t
+                                                                                     
 (filecon "/usr/lib/systemd/user(/.*)?" any (system_u object_r user_unit_file_t lr_platform))
 (filecon "/usr/lib/systemd/system/user@\.service" file (system_u object_r user_manager_unit_t lr_platform))
 (filecon "/etc/systemd/user(/.*)?" any (system_u object_r user_unit_file_t lr_platform))
 (filecon "/etc/g?shadow" file (system_u object_r shadow_t lr_platform))
 (filecon "/etc/selinux(/.*)?" any (system_u object_r selinux_config_t lr_platform))
-; The allowlisted system settings of /etc's mutable layer (docs/decisions.md D56)
+                                                                                 
 (filecon "/etc/hostname" any (system_u object_r hostname_etc_t lr_admin))
 (filecon "/etc/machine-info" any (system_u object_r hostname_etc_t lr_admin))
 (filecon "/etc/localtime" any (system_u object_r timezone_etc_t lr_admin))
@@ -40,12 +40,12 @@
 (filecon "/etc/locale.conf" any (system_u object_r locale_etc_t lr_admin))
 (filecon "/etc/vconsole.conf" any (system_u object_r locale_etc_t lr_admin))
 (filecon "/etc/machine-id" any (system_u object_r machine_id_etc_t lr_admin))
-; What systemd writes there that is not a setting (docs/decisions.md D58)
+                                                                         
 (filecon "/etc/.pwd.lock" file (system_u object_r etc_runtime_t lr_platform))
 (filecon "/etc/.updated" file (system_u object_r etc_runtime_t lr_platform))
 (filecon "/efi(/.*)?" any (system_u object_r boot_t lr_platform))
 
-; DATA, at /data and through its bind mounts /var and /home
+                                                           
 (filecon "/data(/.*)?" any (system_u object_r data_t lr_platform))
 (filecon "/data/var(/.*)?" any (system_u object_r var_t lr_platform))
 (filecon "/data/var/log(/.*)?" any (system_u object_r var_log_t lr_platform))
@@ -57,8 +57,8 @@
 (filecon "/var/lib(/.*)?" any (system_u object_r var_lib_t lr_platform))
 (filecon "/var/lib/gdm(/.*)?" any (system_u object_r xdm_var_lib_t lr_session))
 (filecon "/var/tmp(/.*)?" any (system_u object_r tmp_t lr_low))
-; /etc's mutable layer on DATA: the allowlisted files, relabelled by path after the initrd
-; rebuilt the layer (docs/decisions.md D56)
+                                                                                          
+                                           
 (filecon "/var/lib/extensions.mutable/etc/hostname" any (system_u object_r hostname_etc_t lr_admin))
 (filecon "/var/lib/extensions.mutable/etc/machine-info" any (system_u object_r hostname_etc_t lr_admin))
 (filecon "/var/lib/extensions.mutable/etc/localtime" any (system_u object_r timezone_etc_t lr_admin))
@@ -69,17 +69,17 @@
 (filecon "/home" dir (system_u object_r home_root_t lr_platform))
 (filecon "/home/[^/]+" dir (system_u object_r user_home_dir_t lr_session))
 (filecon "/home/[^/]+/.+" any (system_u object_r user_home_t lr_session))
-; homed's encrypted home images: platform data, never user-readable content
+                                                                           
 (filecon "/home/[^/]+.home" file (system_u object_r data_t lr_platform))
 
-; Runtime state and devices (tmpfs, devtmpfs, cgroupfs)
+                                                       
 (filecon "/tmp(/.*)?" any (system_u object_r tmp_t lr_low))
 (filecon "/run(/.*)?" any (system_u object_r run_t lr_platform))
-; run0's password agent marks the terminal it asks on (D99)
+                                                           
 (filecon "/run/systemd/ask-password-block(/.*)?" any (system_u object_r run_t lr_admin))
 (filecon "/run/user/[0-9]+(/.*)?" any (system_u object_r user_runtime_t lr_session))
 (filecon "/run/gdm(/.*)?" any (system_u object_r xdm_runtime_t lr_session))
-; Runtime unit definitions and generators' output (D97)
+                                                       
 (filecon "/run/systemd/system(/.*)?" any (system_u object_r init_unit_runtime_t lr_platform))
 (filecon "/run/systemd/system\.control(/.*)?" any (system_u object_r init_unit_runtime_t lr_platform))
 (filecon "/run/systemd/transient(/.*)?" any (system_u object_r init_unit_runtime_t lr_platform))

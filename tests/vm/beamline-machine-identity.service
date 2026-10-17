@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/boot; 0.0.4.1 K20, docs/decisions.md D84): DMI identification exists in sysfs
-# (DMIID), where hostnamed, udev's hwdb and system monitors read the machine's vendor and model.
-# (ci/boot checks K3, the clock set from the RTC, in the kernel's own message.) Injected through a
-# systemd.extra-unit credential; never part of an image, so it may use dash.
+
+
+
+
+
 
 [Unit]
 Description=Report the DMI identification on the console

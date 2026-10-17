@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
-// Ported from desync index.go, format.go, readseeker.go and chunk.go:
-// ad89f62cc216376f1747dae60f74a890f0a53940 (v1.1.4).
+
+
 // Copyright (c) 2017, folbricht. See LICENSE.desync for the complete notice.
-// HTTP and store I/O stay outside this platform-independent reader.
+
 use sha2::{Digest, Sha512_256};
 use std::io::Read;
 use std::slice;
@@ -111,8 +111,8 @@ pub unsafe extern "C" fn chunk_id(index: *const Index, n: u32) -> *const u8 {
     (&(*index).chunks)[n as usize].id.as_ptr()
 }
 
-// Writes (chunk index, skip bytes, take bytes) triples. The last chunk is clipped
-// to the range's end, and the first is found with the same bisection as desync.
+
+
 #[no_mangle]
 pub unsafe extern "C" fn read_plan(
     index: *const Index,
@@ -176,8 +176,8 @@ pub unsafe extern "C" fn verify_chunk(
     u32::from(digest.as_slice() == chunk.id)
 }
 
-// Reuse ruzstd's decoder, bounded to one indexed chunk.
-// Returns a decoded buffer pointer, or null; the caller frees exactly `expected`.
+
+
 #[no_mangle]
 pub unsafe extern "C" fn decode_chunk(input: *const u8, len: u32, expected: u32) -> *mut u8 {
     if expected == 0 || expected > 262144 || len > 300000 {

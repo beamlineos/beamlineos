@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""P1 manual runner proof: saved snapshot integrity and a small R2 round trip."""
+HELP = """P1 manual runner proof: saved snapshot integrity and a small R2 round trip."""
 
 import argparse
 import hashlib
@@ -47,7 +47,7 @@ def r2_round_trip(account, bucket, public_url, progress=None):
                     s3_write="pending", s3_read="pending", public_read="pending")
     with tempfile.TemporaryDirectory(prefix="beamline-r2-smoke-") as temp:
         work = Path(temp)
-        # Do not inherit the Mac owner's AWS profiles or credential files.
+                                                                          
         (work / "aws-empty").touch()
         environment.update(AWS_CONFIG_FILE=str(work / "aws-empty"),
                            AWS_SHARED_CREDENTIALS_FILE=str(work / "aws-empty"),
@@ -88,7 +88,7 @@ def r2_round_trip(account, bucket, public_url, progress=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=HELP)
     parser.add_argument("--snapshots-only", action="store_true", help="verify saved inputs without R2 access")
     parser.add_argument("--snapshot-root", type=Path, default=os.environ.get("BEAMLINE_SNAPSHOT_ROOT"))
     parser.add_argument("--report", type=Path, default=ROOT / "out/p1/smoke.json")
@@ -110,7 +110,7 @@ def main():
                           os.environ.get("R2_PUBLIC_URL", "https://store.beamlineos.org"), report["r2"])
         report["result"] = "passed"
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
-        # Avoid publishing local filesystem paths, endpoints, profiles or credential values.
+                                                                                            
         report["error"] = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n")

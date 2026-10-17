@@ -1,8 +1,8 @@
 ; SPDX-License-Identifier: MIT
-;
-; GDM (0.0.4.2 step 4E, docs/decisions.md D96), from the desktop-gnome extension. The daemon and
-; its session workers authenticate users (PAM) and start their sessions: pam_selinux gives every
-; session, the greeter's included, user_t (default_contexts). It runs no session code itself.
+ 
+                                                                                                
+                                                                                                
+                                                                                             
 
 (type xdm_t)
 (type xdm_exec_t)
@@ -12,9 +12,9 @@
 (filecon "/usr/bin/gdm" file (system_u object_r xdm_exec_t lr_platform))
 (typetransition init_t xdm_exec_t process xdm_t)
 (allow xdm_t xdm_exec_t (file (entrypoint)))
-; Sessions enter user_t when the worker executes them. The session keeps the environment GDM sets
-; up (no AT_SECURE: libraries read it with secure_getenv), its signal state and its limits, as
-; before step 4E.
+                                                                                                 
+                                                                                              
+                 
 (allow xdm_t user_t (process (transition noatsecure siginh rlimitinh)))
 
 (allow xdm_t self (capability (chown dac_override dac_read_search fowner fsetid kill setuid setgid
@@ -22,25 +22,25 @@
 (allow xdm_t self (process (setexec)))
 (allow xdm_t self (netlink_audit_socket (create getattr setopt getopt read write nlmsg_relay)))
 (allow xdm_t self (netlink_kobject_uevent_socket (create bind getattr setopt getopt read)))
-; VTs; pam_selinux relabels the session's terminal
+                                                  
 (allow xdm_t device_t (chr_file (getattr open read write ioctl relabelfrom relabelto)))
-; Who is calling, and the sessions it supervises: /proc
+                                                       
 (allow xdm_t beamline_domain (dir (getattr search)))
 (allow xdm_t beamline_domain (file (getattr open read ioctl)))
 (allow xdm_t beamline_domain (lnk_file (getattr read)))
-; PAM: the session keyring (pam_keyinit), homed's descriptors (pam_systemd_home), logind's session
-; (pam_systemd, its varlink socket and the session fifo), the password lock (lckpwdf, /etc/.pwd.lock)
+                                                                                                  
+                                                                                                     
 (allow xdm_t kernel_t (key (search)))
 (allow xdm_t user_t (key (create link write search view read)))
-; The sessions it started: it ends the greeter's when a user signs in, and its workers' children
+                                                                                                
 (allow xdm_t user_t (process (signal sigkill sigstop signull sigchld)))
 (allow xdm_t homed_t (fd (use)))
 (allow xdm_t logind_t (unix_stream_socket (connectto)))
 (allow xdm_t run_t (fifo_file (getattr write)))
 (allow xdm_t etc_t (dir (write add_name)))
 (allow xdm_t etc_runtime_t (file (getattr open create write lock)))
-; Its state: /var/lib/gdm, /run/gdm (the greeter's home), its userdb service
-; (/run/systemd/userdb/org.gnome.DisplayManager), seats and sessions in /run, login records
+                                                                            
+                                                                                           
 (allow xdm_t xdm_var_lib_t (dir (getattr search read open write add_name remove_name create rmdir setattr)))
 (allow xdm_t xdm_var_lib_t (file (getattr open read write create rename unlink setattr)))
 (allow xdm_t xdm_runtime_t (dir (getattr search read open write add_name remove_name create rmdir setattr)))
@@ -53,14 +53,14 @@
 (allow xdm_t run_t (sock_file (getattr create setattr unlink)))
 (allow xdm_t var_log_t (dir (getattr search write add_name create setattr)))
 (allow xdm_t var_log_t (file (getattr open read write append create lock)))
-; Sessions: their runtime directory, their bus, and the session log in the user's home (written
-; down, never read back as code)
+                                                                                               
+                                
 (allow xdm_t user_runtime_t (dir (getattr search)))
 (allow xdm_t user_t (unix_stream_socket (connectto)))
 (allow xdm_t home_root_t (dir (getattr search)))
 (typetransition xdm_t user_home_dir_t dir user_home_t)
 (typetransition xdm_t user_home_dir_t file user_home_t)
-; ... at the session's level, so the session can write what GDM made for it (D99)
+                                                                                 
 (rangetransition xdm_t user_home_dir_t dir lr_session)
 (rangetransition xdm_t user_home_dir_t file lr_session)
 (rangetransition xdm_t user_home_t dir lr_session)
@@ -69,6 +69,6 @@
 (allow xdm_t user_home_t (dir (getattr search write add_name create setattr)))
 (allow xdm_t user_home_t (file (getattr open create write append setattr)))
 
-; GDM serves userdb records for its greeter users (/run/systemd/userdb/org.gnome.DisplayManager), so
-; every confined service's user lookups may reach it
+                                                                                                    
+                                                    
 (allow beamline_confined_service xdm_t (unix_stream_socket (connectto)))

@@ -1,9 +1,9 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Prepare a build host.
-#   macOS: create/start the Lima builder VM, then bootstrap inside it.
-#   Linux: install BuildStream and the QEMU/firmware used by nested boots (Fedora only).
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -43,11 +43,11 @@ $SUDO dnf install -y --setopt=install_weak_deps=False \
     buildstream buildbox bubblewrap \
     git-core lzip patch python3 python3-dulwich python3-tomlkit ShellCheck \
     qemu-img $qemu_packages
-# buildstream-plugins must be importable by the system Python bst runs under (its shebang
-# uses -sP, so user site-packages are ignored): gnome-build-meta's freedesktop-sdk-extra
-# junction loads its simple_mirror source-mirror plugin from the buildstream-plugins package
-# metadata (origin: pip), not from Beamline's own plugin junction (D73). The dnf package is
-# the pinned 2.8.0, matching junctions/buildstream-plugins.bst.
+
+
+
+
+
 # shellcheck disable=SC2086
 $SUDO dnf install -y --setopt=install_weak_deps=False buildstream-plugins
 

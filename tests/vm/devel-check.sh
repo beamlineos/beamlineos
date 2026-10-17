@@ -1,6 +1,6 @@
 #!/usr/bin/sh
 # SPDX-License-Identifier: MIT
-# Exercise the independent development environment in P0, including execution of its output.
+
 set -eu
 fail() {
     status=$?
@@ -10,10 +10,10 @@ trap fail EXIT
 read -r context < /proc/self/attr/current || [ -n "$context" ]
 case "$context" in user_u:user_r:user_t:*) ;; *) exit 1 ;; esac
 if [ -r "${CREDENTIALS_DIRECTORY:-}/beamline.test.combo" ]; then
-    # ci/test-combos: posix-devel next to the merged desktop (and possibly posix, printing).
+    
     test -e /usr/lib/extension-release.d/extension-release.desktop-gnome
 else
-    # ci/test-devel: posix-devel over the base alone.
+    
     test ! -e /run/extensions/posix.raw
     test ! -e /run/extensions/desktop-gnome.raw
     test ! -e /usr/lib/extension-release.d/extension-release.posix
@@ -48,7 +48,7 @@ hello: main.c libanswer.a
 EOF
 make
 test "$(./hello)" = 42
-# This non-login service has no activated home; debug the ELF directly.
+
 gdb --batch -ex 'set startup-with-shell off' -ex 'file hello' -ex run > debugger.log 2>&1 || { cat debugger.log; exit 1; }
 grep 'exited normally' debugger.log
 ctags -f tags answer.c

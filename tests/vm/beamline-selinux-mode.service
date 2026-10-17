@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/boot, docs/security.md §7.1, docs/decisions.md D59): report SELinux's mode before
-# the boot marker; the production boot must enforce. Injected through a systemd.extra-unit
-# credential; never part of an image, so it may use dash.
+
+
+
+
 
 [Unit]
 Description=Report the SELinux mode on the console

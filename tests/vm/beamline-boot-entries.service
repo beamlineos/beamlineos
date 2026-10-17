@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/test-boot-entries, docs/decisions.md D48, D59): walk the boot entries. The default
-# boot must be the production UKI (no enforcing=0), and enforce; it selects the development UKI
-# for the next boot. The development boot must carry enforcing=0 and be permissive; it selects
-# the RecoveryOS stub,
-# which reports BEAMLINE_RECOVERY_STUB from its initrd and powers off. Injected through a
-# systemd.extra-unit credential; never part of an image, so it may use dash.
+
+
+
+
+
+
+
 
 [Unit]
 Description=Walk the boot entries: production, development, RecoveryOS stub

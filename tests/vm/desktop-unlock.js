@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-//
-// VM test (ci/test-desktop, docs/decisions.md D105): unlock dev's session as GNOME Shell's lock
-// screen does. GDM starts the reauthentication worker from the session's own worker; it must run
-// in xdm_t (it switches to the user), not in the session's user_t. Run as a module by
-// beamline-desktop-unlock-check.service.
+
+
+
+
+
 
 import Gdm from 'gi://Gdm';
 import GLib from 'gi://GLib';
@@ -21,7 +21,7 @@ function finish(code, message) {
 }
 
 const verifier = new Gdm.Client().open_reauthentication_channel_sync(user, null);
-// The test accounts' passwords equal their names (tools/qemu-test.py).
+
 verifier.connect('secret-info-query', (v, name) => v.call_answer_query(name, user, null, null));
 verifier.connect('problem', (v, name, problem) => print(`gdm problem: ${problem}`));
 verifier.connect('service-unavailable', (v, name, message) =>

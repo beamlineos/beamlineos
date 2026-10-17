@@ -8,8 +8,8 @@ export class HttpError extends Error {
 export const sha256 = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
   byte => byte.toString(16).padStart(2, '0')).join('');
 
-// Cache only successfully verified immutable metadata. Neither failures nor a
-// mutable HTML index enter these caches. In-flight loads are shared and bounded.
+
+
 class Cache {
   constructor(limit) { this.limit = limit; this.bytes = 0; this.entries = new Map(); this.pending = new Map(); }
   async get(key, load) {
@@ -48,8 +48,8 @@ function storeUrl(env, key) {
 
 export async function getBytes(env, key, limit, { missing = 502, signal, cacheTtl = 31536000 } = {}) {
   const deadline = new AbortController();
-  // Clear completed deadlines: a full image has >10,000 chunk fetches, while
-  // workerd permits only 10,000 simultaneously active timers.
+  
+  
   const timer = setTimeout(() => deadline.abort(), 30000);
   try {
     const response = await fetch(storeUrl(env, key), { redirect: 'manual',

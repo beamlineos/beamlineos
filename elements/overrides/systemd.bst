@@ -1,16 +1,16 @@
 # SPDX-FileCopyrightText: Freedesktop-SDK Developers
 # SPDX-License-Identifier: MIT
-#
-# Override of FDSDK components/systemd.bst: the systemd filter over
-# overrides/systemd-base.bst, without the runtime dependencies of the features the base
-# disables (docs/spec.md §5.2).
-#
-# Copied from: freedesktop-sdk c67967f99ce9aafd75bf5b3091f5d2da094bdd61
-#   elements/components/systemd.bst
-# Changes from the original: dependencies carry the junction prefix (the build dependency
-# is the systemd-base override), target_arch conditions use arch, libapparmor and
-# libmicrohttpd are dropped from runtime-depends, libselinux is added to them (SELinux is
-# enabled, docs/security.md §19.2), and project_licensedir keeps FDSDK's path.
+
+
+
+
+
+
+
+
+
+
+
 
 kind: filter
 description: |
@@ -40,7 +40,7 @@ runtime-depends:
 - junctions/freedesktop-sdk.bst:components/shadow.bst
 - junctions/freedesktop-sdk.bst:components/util-linux-libfdisk.bst
 - junctions/freedesktop-sdk.bst:components/util-linux-libs.bst
-# systemd services exist that call `agetty`, `fsck`, `mkswap` from util-linux-full.
+
 - junctions/freedesktop-sdk.bst:components/util-linux-full.bst
 - junctions/freedesktop-sdk.bst:components/libidn2.bst
 - junctions/freedesktop-sdk.bst:components/libseccomp.bst
@@ -58,7 +58,7 @@ runtime-depends:
       - junctions/freedesktop-sdk.bst:components/systemd-hwdb-maybe.bst
 
 variables:
-  # Keep FDSDK's license directory, as in overrides/systemd-base.bst.
+  
   project_licensedir: '%{licensedir}/freedesktop-sdk'
 
 config:

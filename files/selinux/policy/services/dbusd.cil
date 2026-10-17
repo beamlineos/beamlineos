@@ -1,11 +1,11 @@
 ; SPDX-License-Identifier: MIT
-;
-; dbus-broker, the system bus (0.0.4.2 step 4B, docs/decisions.md D93). It routes every message
-; between sessions and platform services and asks the policy about each one (the dbus class), so it
-; is where P0 meets P3. Confined, it reads its configuration from SYSTEM, asks PID 1 to start
-; activatable services, and writes nothing on DATA. A name on the bus takes the bus's own context
-; (dbus_contexts names none), so owning a name means acquire_svc on dbusd_t. The session buses run
-; the same binaries in the session's own domain.
+ 
+                                                                                               
+                                                                                                   
+                                                                                             
+                                                                                                 
+                                                                                                  
+                                                
 
 (type dbusd_t)
 (type dbusd_exec_t)
@@ -17,35 +17,35 @@
 (allow dbusd_t dbusd_exec_t (file (entrypoint)))
 (allow user_t dbusd_exec_t (file (execute execute_no_trans)))
 
-; The launcher drops to the bus's own user; the broker raises its socket buffers and sends its
-; access decisions to the audit log (USER_AVC)
+                                                                                              
+                                              
 (allow dbusd_t self (capability (setuid setgid net_admin audit_write)))
 (allow dbusd_t self (netlink_audit_socket (create getattr setopt getopt read write nlmsg_relay)))
-; Its log, a memfd the launcher shares with the broker
+                                                      
 (allow dbusd_t tmpfs_t (file (getattr read write map)))
-; The bus's own messages, and activation: the launcher asks PID 1 to start a service's unit
+                                                                                           
 (allow dbusd_t self (dbus (send_msg)))
 (allow dbusd_t init_t (dbus (send_msg)))
 (allow dbusd_t init_t (system (status)))
 (allow dbusd_t beamline_immutable_file_type (service (start status)))
-; The machine ID (/etc/machine-id, which systemd mounts from /run until it is committed)
+                                                                                        
 (allow dbusd_t run_t (file (getattr open read)))
-; Descriptors passed in messages. The kernel checks that the bus may hold each descriptor it relays:
-; logind's device and session-fifo descriptors, the terminal run0 hands to PID 1, files sessions
-; pass to services (ICC profiles to colord), memfds.
+                                                                                                    
+                                                                                                
+                                                    
 (allow dbusd_t beamline_domain (fd (use)))
 (allow dbusd_t device_t (chr_file (getattr read write)))
 (allow dbusd_t devpts_t (chr_file (getattr read write)))
 (allow dbusd_t run_t (fifo_file (getattr read write)))
 (allow dbusd_t beamline_domain (fifo_file (getattr read write)))
-; ... and sockets: Flatpak's system helper hands its client a socket for revokefs-fuse
+                                                                                      
 (allow dbusd_t beamline_domain (unix_stream_socket (getattr read write)))
 (allow dbusd_t beamline_domain (unix_dgram_socket (getattr read write)))
 (allow dbusd_t beamline_user_owned_type (file (getattr read write)))
 
-; Confined services on the bus: they connect, own names (a name takes the bus's context), and send
-; to any client (replies, signals, agents' callbacks). Which names and members, the bus's own
-; policy decides; services answer only after polkit.
+                                                                                                  
+                                                                                             
+                                                    
 (typeattribute beamline_bus_service)
 (allow beamline_bus_service dbusd_t (unix_stream_socket (connectto)))
 (allow beamline_bus_service dbusd_t (dbus (acquire_svc send_msg)))

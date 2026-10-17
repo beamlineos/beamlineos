@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-#
-# Applied when the desktop-gnome extension is built (docs/decisions.md D38). The Virt
-# profile keeps systemd-networkd: NetworkManager and ModemManager ship only because
-# GNOME Shell and Settings link their libraries.
+
+
+
+
 
 disable NetworkManager.service
 disable NetworkManager-dispatcher.service

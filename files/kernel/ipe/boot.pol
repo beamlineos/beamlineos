@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: MIT
-#
-# IPE's boot policy (docs/security.md §12.2, docs/decisions.md D102), compiled into the kernel
-# (CONFIG_IPE_BOOT_POLICY). It covers what the kernel itself reads: modules, firmware, kexec
-# images, policies and certificates. They load only from the initramfs or from a dm-verity volume
-# whose root hash signature the kernel verified: SYSTEM (D101) and the signed extension images
-# (D53). Executing files stays allowed everywhere; there is no global execute deny (§12.2), so
-# P0 code and Flatpak keep working. No policy can replace this one at runtime (security §12.2;
-# the SELinux policy forbids writing IPE's securityfs files).
+
+
+
+
+
+
+
+
 policy_name=beamline_boot policy_version=0.0.1
 DEFAULT action=ALLOW
 

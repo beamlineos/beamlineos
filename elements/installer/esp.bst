@@ -34,7 +34,7 @@ config:
     install -m644 "%{secure-boot}/shim/fb${arch}.efi" "%{esp}/EFI/BOOT/fb${arch}.efi"
     install -m644 "%{secure-boot}/shim/mm${arch}.efi" "%{esp}/EFI/BOOT/mm${arch}.efi"
     install -m644 "%{secure-boot}/beamline.der" "%{esp}/beamline.der"
-    # The fallback reads UCS-2 with a byte order mark: loader,label,options,description.
+    
     python3 - "%{esp}/EFI/Beamline/BOOT${ARCH}.CSV" "${arch}" <<'PY'
     import sys
     path, arch = sys.argv[1:]

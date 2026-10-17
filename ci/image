@@ -1,14 +1,14 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Build what a snapshot is made of and check it out to out/<arch>/virt/ (docs/decisions.md D113):
-#   install/install.raw          the installer medium; installed disks are made from it
-#   update/                      the update channel (D52), which an installed system fetches its
-#                                extensions from, and what an integration cycle publishes
-#   firmware/provision.raw       test only: provisions a VM's UEFI variables with Microsoft's keys
-#   extensions/posix.sysext.raw  for ci/test-posix' tampered copies
-# There is no disk image: ci/test-install installs one from the medium, and the other VM tests
-# boot overlays of it.
+
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

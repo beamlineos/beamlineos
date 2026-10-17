@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: MIT
-#
-# initrd only (docs/spec.md §14, docs/decisions.md D56): rebuild /etc's mutable layer from the
-# allowlist alone, before it is merged. DATA is not verity-protected: a file put into the layer
-# by an offline edit of the disk, or written during a permissive development boot, must not
-# become part of /etc. Each allowlisted file is copied aside, the layer is removed and
-# recreated, and the allowlisted files are copied back; anything else is gone. Copies carry no
-# SELinux label (the initrd has no policy); the host relabels them by path (10-data-labels.conf).
-# The layer's root is the merged /etc's root, so it gets /etc's label (etc_t) here, while no
-# policy is loaded and root may set any label: systemd-confext does not relabel it when no
-# extension is merged, and an unlabelled /etc would be unreadable to confined domains
-# (docs/decisions.md D58).
+
+
+
+
+
+
+
+
+
+
+
 
 [Unit]
 Description=Keep only allowlisted files in /etc's mutable layer

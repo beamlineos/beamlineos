@@ -1,4 +1,4 @@
-#%PAM-1.0
+
 auth       [success=ok default=1] pam_gdm.so
 -auth      optional    pam_oo7.so
 auth       sufficient  pam_permit.so

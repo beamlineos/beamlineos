@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-# ci/test-shell: Alice's record names the stub (beamline-default-shell@alice sets it on the
-# reference disk, D113). Login activates her home and selects it; inactive homed accounts
-# deliberately advertise a fallback shell through NSS.
-# dev keeps dash to drive the refusal assertions before Alice's login.
+
+
+
+
 
 expect [a-z0-9-]+ login:
 send dev\n

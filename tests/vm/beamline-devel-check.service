@@ -8,7 +8,7 @@ Type=oneshot
 User=dev
 SELinuxContext=user_u:user_r:user_t:s0:c0
 ImportCredential=beamline.test.devel
-# Present only under ci/test-combos, where the desktop is merged too.
+
 ImportCredential=beamline.test.combo
 StandardOutput=journal+console
 StandardError=journal+console

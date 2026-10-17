@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Create a UTM machine for 0.0.4.1 daily-driver sessions (docs/decisions.md D75).
+HELP = """Create a UTM machine for 0.0.4.1 daily-driver sessions (docs/decisions.md D75).
 
   tools/utm-machine.py [--snapshot ID] [--out DIR] [--name NAME] ...
 
@@ -61,8 +61,8 @@ def verify(path):
 
 
 def channel_credential(url, path):
-    """The transfer definitions pointed at url, as a tmpfiles.extra credential that writes them to
-    /run/sysupdate.d (as ci/lib-install.sh does for the tests)."""
+                                                                                                  
+                                                                  
     src = os.path.join(REPO, "files", "base", "sysupdate.d")
     with open(path, "w", encoding="utf-8") as out:
         for name in sorted(os.listdir(src)):
@@ -127,7 +127,7 @@ def config(args, disk_name, medium_name, arguments):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=HELP.splitlines()[0])
     parser.add_argument("--snapshot", help="snapshot ID (default: out/snapshots/latest.json)")
     parser.add_argument("--out", default=os.path.join(REPO, "out", ARCH, "daily"),
                         help="directory for the bundle (default: out/<arch>/daily)")

@@ -1,21 +1,21 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Upgrade and rollback test (docs/spec.md §16, docs/security.md §14.1, §15; docs/decisions.md
-# D52, D113). Installs the snapshot `latest` from its published medium and prepares it with its own
-# channel, as ci/test-install does (ci/lib-install.sh, on firmware without Secure Boot), then boots
-# it and serves the candidate's update artifacts
-# (out/<arch>/virt/update, a signed channel directory) over HTTP on this host. The old system
-# updates itself with systemd-sysupdate and reboots into the candidate, which must find DATA
-# intact and its own extensions. The candidate's boots are then made to fail, until boot
-# counting falls back to the old snapshot. Neither image is modified (§28).
-#
-# A `latest` without update artifacts predates sysupdate support: the test is skipped, and
-# says so in its log.
-#   ./ci/test-update
-#   ./ci/test-update --from 20261015.1247 --to 20261015.1430 \
-#       --snapshot-root out/p1/snapshots --channel-url https://images.beamlineos.org/snapshots/20261015.1430/aarch64/update/ \
-#       --log-dir out/p1/update-public
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -73,8 +73,8 @@ else
     [ -z "$requested_new" ] || [ "$new" = "$requested_new" ] || die "saved target channel has a different version"
 fi
 if [ "$new" = dev ]; then
-    # Outside an integration cycle the candidate's version is `dev`, which version ordering puts
-    # before every snapshot (digits sort after letters): sysupdate finds nothing newer.
+    
+    
     log "update: SKIPPED, the candidate is a development build (dev); integration cycles run this test"
     echo "SKIPPED: the candidate is a development build (dev); integration cycles run this test" > "$log_file"
     exit 0
@@ -111,8 +111,8 @@ if [ -z "$candidate_url" ]; then
 fi
 log "update: candidate channel $candidate_url"
 
-# The candidate's transfer definitions, pointed at this host (QEMU's user network reaches it as
-# 10.0.2.2), as a tmpfiles.extra credential that writes them to /run/sysupdate.d.
+
+
 python3 "$REPO/tools/update_transfers.py" render "$REPO/files/base/sysupdate.d" "$candidate_url" \
     --predecessor "$snapshots/$old/update" --candidate "$work/tmpfiles-new.conf" > "$work/tmpfiles.extra"
 
@@ -129,9 +129,9 @@ ImportCredential=beamline.test.update-transfers
 ExecStart=/usr/bin/systemd-tmpfiles --create %d/beamline.test.update-transfers
 EOF
 
-# Every boot of the candidate fails, so boot counting falls back to the old snapshot. A boot is
-# good once boot-complete.target is reached (systemd-bless-boot then removes the counter), so
-# that target must require the failing unit; on the old snapshot its condition skips it.
+
+
+
 printf '[Unit]\nRequires=beamline-update-fail.service\nAfter=beamline-update-fail.service\n' \
     > "$work/boot-complete.dropin"
 cat > "$work/beamline-update-fail.service" <<EOF

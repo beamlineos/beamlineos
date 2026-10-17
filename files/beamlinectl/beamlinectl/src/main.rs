@@ -23,7 +23,7 @@ impl Agent {
                 .stdout(Stdio::from(OwnedFd::from(notify)))
                 .spawn()?,
         );
-        // pkttyagent closes the notification descriptor once registration is complete.
+        
         let mut byte = [0u8];
         while ready.read(&mut byte)? != 0 {}
         if agent.0.try_wait()?.is_some() {

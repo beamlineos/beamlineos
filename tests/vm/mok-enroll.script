@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: MIT
-#
-# Serial script for ci/test-install (docs/decisions.md D113): on firmware holding only Microsoft's
-# keys, the medium's shim refuses systemd-boot and starts MokManager. Enroll beamline.der from the
-# ESP as a person would: view the key, enroll it, reboot. shim then starts systemd-boot. Items are
-# chosen by name: the order of a FAT directory's entries is not the order of their names. Never
-# part of an image.
+
+
+
+
+
+
 expect Verification failed
 sleep 1
 send {enter}
 expect Press any key to perform MOK management
 send {enter}
 choose Enroll key from disk
-# The volumes, by label.
+
 choose ESP
 choose beamline\.der
 choose View key 0

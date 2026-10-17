@@ -1,13 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Escalation test on the checked-out Virt image (docs/spec.md §18.1, §19; docs/security.md
-# §9.4; docs/decisions.md D55), scripted on the serial console (tests/vm/run0.script): dev
-# (wheel) runs a command through run0 after polkit asks for dev's password, and it runs as
-# root in admin_t; run0 without a command opens dev's shell as root, also in admin_t; alice is
-# refused; a root console login fails. Extensions are not merged, as in ci/boot. The image itself is never
-# modified.
-#   ./ci/test-run0 [path/to/installed.qcow2]
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

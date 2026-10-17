@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: MIT
-#
-# Override of gnome-build-meta core-deps/evolution-data-server.bst without WebKitGTK
-# (docs/spec.md §7.1, docs/decisions.md D29): its GTK4 OAuth2 sign-in window is the only
-# path to WebKitGTK and JavaScriptCoreGTK in the desktop. GNOME Online Accounts signs in
-# through the browser instead.
-#
-# Copied from: gnome-build-meta f871a508609cced5e6607f9518b018084c558149
-#   elements/core-deps/evolution-data-server.bst
-# Changes from the original: the source ref lives in project.refs (ref-storage),
-# dependencies carry junction prefixes, gbm's recc include is replaced by its gcc
-# dependency (recc is passthrough here), sdk/webkitgtk.bst is dropped and
-# -DENABLE_OAUTH2_WEBKITGTK4=OFF is added.
+
+
+
+
+
+
+
+
+
+
+
+
 
 kind: cmake
 

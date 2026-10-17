@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
-#
-# The desktop-gnome sysext image built with the snapshot (docs/decisions.md D50). DATA keeps two
-# snapshots' images, so after a rollback the older SYSTEM finds its own.
+
+
+
 
 [Transfer]
 ProtectVersion=%A

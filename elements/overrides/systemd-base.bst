@@ -1,22 +1,22 @@
 # SPDX-FileCopyrightText: Freedesktop-SDK Developers
 # SPDX-License-Identifier: MIT
-#
-# Override of FDSDK components/_private/systemd-base.bst, tracking systemd `main`
-# (docs/spec.md §2.2, §31). Every FDSDK systemd element (systemd, systemd-libs,
-# systemd-ukify, systemd-kernel-install) is a filter over this one.
-#
-# Copied from: freedesktop-sdk c67967f99ce9aafd75bf5b3091f5d2da094bdd61
-#   elements/components/_private/systemd-base.bst
-# Changes from the original: dependencies carry the junction prefix, target_arch
-# conditions use arch, the source is inline, tracks main and uses the classic git source
-# (it was elements/include/systemd.yml, git_repo, track v*; decisions D33), the preset file
-# is a local copy,
-# project_licensedir keeps FDSDK's path (FDSDK's systemd filters whitelist overlaps there),
-# features the base does not use are disabled with their build dependencies removed
-# (docs/spec.md §5.2): AppArmor, QR codes, xkbcommon, journal-remote/upload (microhttpd),
-# and SELinux is enabled with libselinux as a build dependency (docs/security.md §19.2).
-# Three downstream patches apply, each explained beside it in files/patches: the transient-context
-# bound (D70, D72), the unit file load check (D97) and sysinstall's `--boot-loader=no` (D113).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 kind: meson
 
@@ -39,7 +39,7 @@ build-depends:
 - junctions/freedesktop-sdk.bst:components/zstd.bst
 - junctions/freedesktop-sdk.bst:components/util-linux-libfdisk.bst
 - junctions/freedesktop-sdk.bst:components/util-linux-libs.bst
-# systemd services exist that call `agetty`, `fsck`, `mkswap` from util-linux-full.
+
 - junctions/freedesktop-sdk.bst:components/util-linux-full.bst
 - junctions/freedesktop-sdk.bst:components/libarchive.bst
 - junctions/freedesktop-sdk.bst:components/linux-pam.bst
@@ -62,8 +62,8 @@ build-depends:
 - junctions/freedesktop-sdk.bst:components/llvm.bst
 
 variables:
-  # %{project-name} is "beamline" here; keep FDSDK's license directory so the overlap
-  # whitelists of FDSDK's systemd filter elements still match.
+  
+  
   project_licensedir: '%{licensedir}/freedesktop-sdk'
 
   efi: 'false'

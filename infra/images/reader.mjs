@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 import module from './reader.wasm';
 
-// Each active download owns its index and decoder. HEAD/304 do not instantiate
-// WASM. Streams release the index on completion, cancellation and failure.
+
+
 export class Reader {
   constructor(bytes, size) {
     this.w = new WebAssembly.Instance(module, {}).exports;

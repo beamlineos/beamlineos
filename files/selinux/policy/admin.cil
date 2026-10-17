@@ -1,12 +1,12 @@
 ; SPDX-License-Identifier: MIT
-;
-; admin_t, P2: run0 sessions (docs/security.md §9.4, §16; docs/decisions.md D55, D58). pam_selinux
-; gives a run0 session admin_u:admin_r:admin_t. The domain manages units and the allowlisted
-; settings, and reads the system. It never:
-;   - changes enforcement or the policy, or loads kernel modules (policy.cil);
-;   - writes SYSTEM or /etc types outside the allowlist (policy.cil);
-;   - executes DATA, home or temporary content (policy.cil);
-;   - writes kernel tunables, raw disks, or traces platform processes (below).
+ 
+                                                                                                    
+                                                                                            
+                                           
+                                                                              
+                                                                     
+                                                            
+                                                                              
 
 (typeattribute beamline_admin_entry_type)
 (typeattributeset beamline_admin_entry_type (bin_t usr_t))
@@ -18,9 +18,9 @@
 (typeattributeset beamline_kernel_interface_type (proc_t proc_sys_user_t proc_sys_net_t sysfs_t securityfs_t debugfs_t tracefs_t
     bpf_t configfs_t efivarfs_t))
 
-; --- Entry and its own processes --------------------------------------------------------
+                                                                                          
 
-; run0 executes the command directly, or root's shell (nologin) when there is none.
+                                                                                   
 (allow admin_t beamline_admin_entry_type (file (entrypoint)))
 (allow admin_t self (process (and (all) (not (dyntransition setcurrent execmem execstack execheap)))))
 (allow admin_t self (capability (and (all) (not (sys_module sys_rawio)))))
@@ -35,7 +35,7 @@
 (allow admin_t self (key (all)))
 (allow admin_t self (dbus (all)))
 
-; --- The system: read everything, execute SYSTEM code -----------------------------------
+                                                                                          
 
 (allow admin_t beamline_any_type (dir (getattr search read open ioctl lock watch)))
 (allow admin_t beamline_any_type (file (getattr read open ioctl lock map watch)))
@@ -46,55 +46,55 @@
 (allow admin_t beamline_immutable_file_type (file (execute execute_no_trans)))
 (allow admin_t init_exec_t (file (execute execute_no_trans)))
 
-; --- What it may change -----------------------------------------------------------------
+                                                                                          
 
-; The allowlisted settings, in place or replaced in /etc.
+                                                         
 (allow admin_t etc_t (dir (write add_name remove_name)))
 (allow admin_t beamline_etc_setting_type (file (create write append unlink rename link setattr)))
 (allow admin_t beamline_etc_setting_type (lnk_file (create unlink rename setattr)))
-; Its own temporary and runtime files.
+                                      
 (allow admin_t beamline_admin_scratch_type (dir (all)))
 (allow admin_t beamline_admin_scratch_type (file (and (all) (not (execute execute_no_trans entrypoint execmod)))))
 (allow admin_t beamline_admin_scratch_type (lnk_file (all)))
 (allow admin_t beamline_admin_scratch_type (sock_file (all)))
 (allow admin_t beamline_admin_scratch_type (fifo_file (all)))
 
-; --- Terminals and devices --------------------------------------------------------------
+                                                                                          
 
 (allow admin_t beamline_terminal_type (chr_file (getattr open read write append ioctl lock)))
-; Disks may be read (fdisk, blkid: 0.0.4.1 K22, D84), never written (the assertion below).
+                                                                                          
 (allow admin_t device_t (blk_file (getattr open read ioctl lock)))
 
-; --- The platform's interfaces ----------------------------------------------------------
+                                                                                          
 
-; Units, through PID 1 (polkit already decided who; this decides what).
+                                                                       
 (allow admin_t init_t (system (halt reboot status start stop enable disable reload undefined)))
 (allow admin_t beamline_any_type (service (start stop status reload kill load enable disable)))
 (allow admin_t kernel_t (system (syslog_read)))
-; D-Bus and varlink services, the journal, and descriptors the platform passes on.
+                                                                                  
 (allow admin_t beamline_platform_domain (dbus (send_msg)))
 (allow admin_t beamline_platform_domain (unix_stream_socket (connectto getattr getopt read write ioctl)))
 (allow admin_t beamline_platform_domain (unix_dgram_socket (sendto)))
 (allow admin_t beamline_platform_domain (fd (use)))
 (allow admin_t beamline_platform_domain (fifo_file (getattr read write ioctl)))
 (allow admin_t run_t (sock_file (getattr write)))
-; The terminal run0 passes from the caller's session.
+                                                     
 (allow admin_t beamline_user_domain (fd (use)))
-; systemd's password agent marks the terminal it asks on (/run/systemd/ask-password-block).
+                                                                                           
 (allow admin_t run_t (dir (create write add_name remove_name)))
 (allow admin_t run_t (fifo_file (create open read write getattr unlink)))
-; Signals to sessions; a liveness check of platform processes (services stop through PID 1).
+                                                                                            
 (allow admin_t beamline_user_domain (process (signal sigkill sigstop signull sigchld)))
 (allow admin_t beamline_platform_domain (process (signull sigchld)))
-; The session's PAM holder, (sd-pam), a fork of PID 1 that stays in init_t.
+                                                                           
 (allow admin_t init_t (process (signal)))
 
-; --- Assertions -------------------------------------------------------------------------
+                                                                                          
 
 (neverallow admin_t self (capability (sys_module sys_rawio)))
 (neverallow admin_t self (capability2 (mac_admin mac_override)))
 (neverallow admin_t self (process (execmem)))
-; Kernel tunables could name a usermode helper the kernel runs as kernel_t.
+                                                                           
 (neverallow admin_t beamline_kernel_interface_type (file (write append)))
 (neverallow admin_t beamline_any_type (blk_file (write append)))
 (neverallow admin_t beamline_any_type (filesystem (mount remount)))
