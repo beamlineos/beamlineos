@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 import argparse
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 
@@ -31,7 +33,7 @@ EXTENSIONS = ("posix", "posix-devel", "desktop-gnome", "printing-scanning")
 STATE = ("project.refs", "junction.refs", "include/kernel/linux-commit.yml",
          "include/posix-devel/emacs-commit.yml", "include/snapshot.yml")
 SAFE_ENV = ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_SHA", "GITHUB_REPOSITORY",
-            "GITHUB_ACTOR", "GITHUB_EVENT_NAME", "GITHUB_REF", "GITHUB_ACTIONS")
+            "GITHUB_ACTOR", "GITHUB_EVENT_NAME", "GITHUB_REF", "GITHUB_ACTIONS", "BUILD_MODE")
 SECRET_ENV = ("R2_ACCOUNT_ID", "R2_BUCKET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
 
 
@@ -71,8 +73,10 @@ def context():
     identity()
     expected = {"source": os.environ["GITHUB_SHA"], "run": os.environ["GITHUB_RUN_ID"],
                 "attempt": os.environ["GITHUB_RUN_ATTEMPT"], "arch": "aarch64", "prefix": PREFIX}
-    if value.get("schema") != 1 or any(value.get(k) != v for k, v in expected.items()):
+    if value.get("schema") != 2 or "seed" in value or any(value.get(k) != v for k, v in expected.items()):
         raise RuntimeError("Context belongs to another source, run or architecture")
+    if value.get("mode") not in ("preflight", "full") or value["mode"] != os.environ.get("BUILD_MODE"):
+        raise RuntimeError("Context belongs to another workflow mode")
     if not re.fullmatch(r"\d{8}\.\d{4}", value.get("snapshot", "")):
         raise RuntimeError("Invalid snapshot identity")
     if value.get("baseline") != BASELINE or value.get("tree") != git("rev-parse", "HEAD^{tree}"):
@@ -81,7 +85,7 @@ def context():
 
 
 def stamp(value):
-    return {k: value[k] for k in ("source", "tree", "run", "attempt", "snapshot", "arch", "prefix")}
+    return {k: value[k] for k in ("source", "tree", "run", "attempt", "snapshot", "arch", "prefix", "mode")}
 
 
 def checked_report(path, value, phase):
@@ -131,14 +135,12 @@ def apply_context(value):
     clean_checkout()
 
 
-def config(base, remote, cache=None):
-    data = {"cachedir": str(cache or base / "cache"), "logdir": str(base / "logs"),
+def config(base, remote):
+    data = {"cachedir": str(base / "cache"), "sourcedir": str(base / "sources"), "logdir": str(base / "logs"),
             "cache": {"quota": "60G", "cache-buildtrees": "never", "pull-buildtrees": False},
             "scheduler": {"network-retries": 1, "fetchers": 8, "pushers": 2, "builders": 1},
             "artifacts": {"override-project-caches": True, "servers": []},
             "source-caches": {"override-project-caches": True, "servers": []}}
-    if cache is not None:
-        data["cache"]["quota"] = "infinity"
     if remote:
         data["artifacts"]["servers"].append(
             {"url": "http://127.0.0.1:50051", "push": True, "type": "all"})
@@ -154,27 +156,32 @@ def bst(config_path, *args, **kwargs):
 
 def graph(config_path):
     from ruamel.yaml import YAML
-    format_ = "RECORD %{name}|%{state}|%{full-key}\nBUILD\n%{build-deps}\nRUN\n%{runtime-deps}\nEND"
+    from buildstream.element import _compose_artifact_name, _get_normal_name
+    format_ = "RECORD %{name}|%{state}|%{full-key}\nBUILD\n%{build-deps}\nRUN\n%{runtime-deps}\nVARS\n%{vars}\nEND"
     output = bst(config_path, "show", "--deps", "all", "--format", format_, *TARGETS,
                  stdout=subprocess.PIPE, text=True).stdout
     result, yaml = {}, YAML(typ="safe")
     for block in output.split("RECORD ")[1:]:
         header, rest = block.split("\nBUILD\n", 1)
         build, rest = rest.split("\nRUN\n", 1)
-        runtime, _ = rest.split("\nEND", 1)
+        runtime, rest = rest.split("\nVARS\n", 1)
+        variables, _ = rest.split("\nEND", 1)
         name, state, key = header.split("|")
         if not re.fullmatch(r"[0-9a-f]{64}", key):
             raise RuntimeError("Incomplete source selection: " + name)
-        result[name] = {"key": key, "state": state, "build": yaml.load(build) or [],
+        variables = yaml.load(variables)
+        result[name] = {"key": key, "state": state,
+                        "artifact": _compose_artifact_name(variables["project-name"], _get_normal_name(variables["element-name"]), key),
+                        "build": yaml.load(build) or [],
                         "run": [n for n in (yaml.load(runtime) or []) if n != name]}
     if not set(TARGETS).issubset(result):
         raise RuntimeError("Incomplete image dependency graph")
     return result
 
 
-def seed_frontier(nodes):
+def prerequisite_frontier(nodes, available):
     forced = {n for targets in GROUPS.values() for n in targets} | set(TARGETS)
-    seed, seen = set(), set()
+    selected, seen = set(), set()
     def visit(name):
         if name in seen:
             return
@@ -182,17 +189,17 @@ def seed_frontier(nodes):
         row = nodes[name]
         for dep in row["run"]:
             visit(dep)
-        if row["state"] == "cached" and name not in forced and not name.startswith(("image/", "extensions/")):
-            seed.add(name)
+        if name in available and name not in forced and not name.startswith(("image/", "extensions/")):
+            selected.add(name)
         else:
             for dep in row["build"]:
                 visit(dep)
     for target in TARGETS:
         visit(target)
-    return sorted(seed)
+    return sorted(selected)
 
 
-def group_plan(nodes, seed, targets):
+def group_plan(nodes, prerequisites, targets):
     inputs, outputs, seen = set(), [], set()
     def visit(name):
         if name in seen:
@@ -201,7 +208,7 @@ def group_plan(nodes, seed, targets):
         row = nodes[name]
         for dep in row["run"]:
             visit(dep)
-        if name in seed:
+        if name in prerequisites:
             inputs.add(name)
             return
         for dep in row["build"]:
@@ -212,52 +219,69 @@ def group_plan(nodes, seed, targets):
     return {"inputs": sorted(inputs), "outputs": outputs, "targets": targets}
 
 
-def artifact_records(config_path, nodes, names, audit=False):
+def artifact_record(name, key, payload):
     from buildstream._protos.buildstream.v2 import artifact_pb2
-    from buildstream._protos.build.bazel.remote.execution.v2 import remote_execution_pb2 as execution
+    value = artifact_pb2.Artifact.FromString(payload)
+    if not value.build_success or value.strong_key != key or not value.files.hash:
+        raise RuntimeError("Artifact does not match its successful strong key: " + name)
+    return {"element": name, "key": key,
+            "files": {"hash": value.files.hash, "size": value.files.size_bytes}}
+
+
+def artifact_records(config_path, nodes, names):
     cache = Path(read(config_path)["cachedir"])
     refs = defaultdict(list)
     for path in (cache / "artifacts/refs").rglob("*"):
         if path.is_file():
             refs[path.name].append(path)
-    records, objects, directories = [], {}, set()
-    def blob(value):
-        if not value.hash or value.hash in objects:
-            return
-        path = cache / "cas/objects" / value.hash[:2] / value.hash[2:]
-        if not path.is_file() or path.stat().st_size != value.size_bytes:
-            raise RuntimeError("Missing or truncated required cached object: " + value.hash)
-        objects[value.hash] = value.size_bytes
-    def directory(value):
-        if not value.hash or value.hash in directories:
-            return
-        directories.add(value.hash)
-        blob(value)
-        path = cache / "cas/objects" / value.hash[:2] / value.hash[2:]
-        node = execution.Directory.FromString(path.read_bytes())
-        for item in node.files:
-            blob(item.digest)
-        for item in node.directories:
-            directory(item.digest)
+    records = []
     for name in names:
         key = nodes[name]["key"]
         candidates = sorted(refs[key])
         if not candidates:
             raise RuntimeError("Artifact is not cached: " + name)
-        value = artifact_pb2.Artifact.FromString(candidates[0].read_bytes())
-        if not value.build_success or value.strong_key != key:
-            raise RuntimeError("Cached artifact does not match its strong key: " + name)
-        records.append({"element": name, "key": key,
-                        "files": {"hash": value.files.hash, "size": value.files.size_bytes}})
-        if audit:
-            directory(value.files)
-            for field in ("public_data", "low_diversity_meta", "high_diversity_meta"):
-                blob(getattr(value, field))
-            for log in value.logs:
-                blob(log.digest)
-            if any(getattr(value, field).hash for field in ("buildtree", "sources", "buildroot")):
-                raise RuntimeError("Refusing to seed optional cached build/source trees: " + name)
-    return records, {"objects": len(objects), "bytes": sum(objects.values()), "missing": 0, "size_mismatches": 0}
+        records.append(artifact_record(name, key, candidates[0].read_bytes()))
+    return records
+
+
+def remote_records(nodes):
+                                                                                 
+                                                                               
+    import grpc
+    from buildstream._artifactcache import REMOTE_ASSET_ARTIFACT_URN_TEMPLATE
+    from buildstream._protos.build.bazel.remote.asset.v1 import remote_asset_pb2 as asset
+    from buildstream._protos.build.bazel.remote.asset.v1 import remote_asset_pb2_grpc as asset_grpc
+    from buildstream._protos.google.bytestream import bytestream_pb2 as stream
+    from buildstream._protos.google.bytestream import bytestream_pb2_grpc as stream_grpc
+    with grpc.insecure_channel("127.0.0.1:50051") as channel:
+        fetch, blobs = asset_grpc.FetchStub(channel), stream_grpc.ByteStreamStub(channel)
+        def load(item):
+            name, node = item
+            try:
+                response = fetch.FetchBlob(asset.FetchBlobRequest(
+                    uris=[REMOTE_ASSET_ARTIFACT_URN_TEMPLATE.format(node["artifact"])]), timeout=60)
+            except grpc.RpcError as error:
+                if error.code() == grpc.StatusCode.NOT_FOUND:
+                    return None
+                raise
+            if response.status.code == 5:
+                return None
+            if response.status.code:
+                raise RuntimeError("Remote metadata query failed: " + name)
+            blob = response.blob_digest
+            if not re.fullmatch(r"[0-9a-f]{64}", blob.hash) or not 0 < blob.size_bytes <= 1024 * 1024:
+                raise RuntimeError("Invalid remote artifact metadata: " + name)
+            resource = f"blobs/{blob.hash}/{blob.size_bytes}"
+            data = bytearray()
+            for part in blobs.Read(stream.ReadRequest(resource_name=resource), timeout=60):
+                data.extend(part.data)
+                if len(data) > blob.size_bytes:
+                    raise RuntimeError("Oversized remote artifact metadata: " + name)
+            if len(data) != blob.size_bytes or hashlib.sha256(data).hexdigest() != blob.hash:
+                raise RuntimeError("Remote artifact metadata digest mismatch: " + name)
+            return artifact_record(name, node["key"], data)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            return [row for row in pool.map(load, sorted(nodes.items())) if row is not None]
 
 
 def compare_artifacts(actual, expected):
@@ -282,42 +306,31 @@ def push(config_path, names):
         bst(config_path, "artifact", "push", "--deps", "none", *names)
 
 
-def check_keys(actual, planned):
-    if set(actual) != set(planned) or any(actual[n]["key"] != planned[n]["key"] for n in planned):
-        raise RuntimeError("Worker source graph differs from prepared keys")
+def graph_difference(actual, planned):
+    added, missing = sorted(set(actual) - set(planned)), sorted(set(planned) - set(actual))
+    changed = {name: {"expected": planned[name]["key"], "actual": actual[name]["key"]}
+               for name in sorted(set(actual) & set(planned)) if actual[name]["key"] != planned[name]["key"]}
+    roots = [name for name in changed if not any(
+        dep in changed for dep in set(actual[name]["build"] + actual[name]["run"] +
+                                     planned[name]["build"] + planned[name]["run"]))]
+    return {"added": added, "missing": missing, "changed": changed, "first_divergent": roots,
+            "matches": not (added or missing or changed)}
 
 
-def seed_vm():
-    os.environ.update(json.loads(sys.stdin.read()))
-    run_id = identity()
-    if platform.system() != "Linux" or platform.machine() != "aarch64":
-        raise RuntimeError("Seed requires the native ARM Linux builder")
-    base = Path.home() / ".cache/beamline/hosted-seed" / run_id
-    base.mkdir(parents=True, exist_ok=False)
-    output, evidence, _ = paths()
-    evidence.mkdir(parents=True)
-    local = config(base, False, Path.home() / ".cache/buildstream")
-    remote = config(base, True, Path.home() / ".cache/buildstream")
-    previous = Path(os.environ["BEAMLINE_SNAPSHOT_ROOT"]) / BASELINE / "manifest.json"
-    baseline = read(previous)
-    if baseline.get("snapshot") != BASELINE or baseline.get("result") != "green":
-        raise RuntimeError("Invalid preserved baseline")
-    dest = ROOT / "out/snapshots" / BASELINE
-    dest.mkdir(parents=True)
-    shutil.copyfile(previous, dest / "manifest.json")
-    write_json(ROOT / "out/snapshots/latest.json", {"snapshot": BASELINE})
-    run_logged([sys.executable, "tools/integrate.py", "--arch", "aarch64", "resolve", "--frozen"],
-               evidence / "prepare.log", cwd=ROOT)
-    snapshot = (ROOT / "out/integrations/current").read_text().strip()
-    nodes = graph(local)
-    seed = seed_frontier(nodes)
-    records, audit = artifact_records(local, nodes, seed, audit=True)
-    value = {"schema": 1, "source": os.environ["GITHUB_SHA"], "tree": git("rev-parse", "HEAD^{tree}"),
-             "run": os.environ["GITHUB_RUN_ID"], "attempt": os.environ["GITHUB_RUN_ATTEMPT"],
-             "snapshot": snapshot, "arch": "aarch64", "prefix": PREFIX, "baseline": BASELINE,
-             "graph": nodes, "seed": records, "groups": {name: group_plan(nodes, set(seed), targets)
-                                                       for name, targets in GROUPS.items()}}
-    context_dir = output / "context"
+def check_keys(actual, planned, evidence=None):
+    difference = graph_difference(actual, planned)
+    if evidence is not None:
+        write_json(evidence / "graph-actual.json", actual)
+        write_json(evidence / "graph-expected.json", planned)
+        write_json(evidence / "graph-difference.json", difference)
+    if not difference["matches"]:
+        print(json.dumps(difference, indent=2), flush=True)
+        raise RuntimeError("Worker source graph differs from prepared keys; see graph-difference.json")
+
+
+def save_context(value):
+    context_dir = paths()[0] / "context"
+    snapshot = value["snapshot"]
     state_files = list(STATE) + ["out/integrations/current", "out/snapshots/latest.json",
                                f"out/snapshots/{BASELINE}/manifest.json",
                                f"out/integrations/{snapshot}/manifest.json"]
@@ -329,34 +342,67 @@ def seed_vm():
         shutil.copyfile(ROOT / name, target)
         value["state_files"][name] = digest(target)
     write_json(context_dir / "context.json", value)
-    report = {"phase": "seed", "identity": stamp(value), "artifacts": len(records), "audit": audit,
-              "started": time.time(), "transferred": os.environ.get("SEED_LOCAL") == "true", "passed": False}
-    write_json(evidence / "result.json", report)
-    print(json.dumps(report, indent=2), flush=True)
-    try:
-        if report["transferred"]:
-            with serve_cache(base, "aarch64", PREFIX, evidence, disk=True):
-                push(remote, seed)
-        clean_checkout()
-        report.update(passed=True, finished=time.time())
-        write_json(evidence / "result.json", report)
-    finally:
-        shutil.rmtree(base / "fast", ignore_errors=True)
 
 
-def seed_local():
-    run_id = identity()
-    if platform.system() != "Darwin":
-        raise RuntimeError("Seed runs on the registered Mac runner")
-    source = Path(os.environ["BEAMLINE_SNAPSHOT_ROOT"]).resolve().parent / "hosted-build" / run_id / "seed-source"
-    source.parent.mkdir(parents=True, exist_ok=False)
-    clone(source)
-    values = {key: os.environ.get(key, "") for key in (*SAFE_ENV, *SECRET_ENV, "BEAMLINE_SNAPSHOT_ROOT", "SEED_LOCAL")}
-    try:
-        lima(source, "seed-vm", values)
-    finally:
-        if (source / "out/hosted-build").exists():
-            shutil.copytree(source / "out/hosted-build", paths()[0], dirs_exist_ok=True)
+def prepare():
+    identity()
+    native = Path("/build-state")
+    local = config(native, False)
+    config(native, True)
+    previous = ROOT / "infra/hosted/baseline.json"
+    baseline = read(previous)
+    if baseline.get("snapshot") != BASELINE or baseline.get("result") != "green":
+        raise RuntimeError("Invalid frozen baseline selection")
+    dest = ROOT / "out/snapshots" / BASELINE
+    dest.mkdir(parents=True)
+    shutil.copyfile(previous, dest / "manifest.json")
+    write_json(ROOT / "out/snapshots/latest.json", {"snapshot": BASELINE})
+    env = dict(os.environ, BEAMLINE_BST_CONFIG=str(local))
+    run_logged([sys.executable, "tools/integrate.py", "--arch", "aarch64", "resolve", "--frozen"],
+               paths()[1] / "prepare.log", cwd=ROOT, env=env)
+    nodes = graph(local)
+    records = remote_records(nodes)
+    available = {row["element"]: row for row in records}
+    prerequisites = prerequisite_frontier(nodes, available)
+    value = {"schema": 2, "source": os.environ["GITHUB_SHA"], "tree": git("rev-parse", "HEAD^{tree}"),
+             "run": os.environ["GITHUB_RUN_ID"], "attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+             "snapshot": (ROOT / "out/integrations/current").read_text().strip(),
+             "mode": os.environ["BUILD_MODE"], "arch": "aarch64", "prefix": PREFIX, "baseline": BASELINE,
+             "graph": nodes, "prerequisites": [available[name] for name in prerequisites],
+             "groups": {name: group_plan(nodes, set(prerequisites), targets) for name, targets in GROUPS.items()}}
+    save_context(value)
+    write_json(paths()[1] / "graph-actual.json", nodes)
+    write_json(paths()[1] / "result.json", {"phase": "prepare", "identity": stamp(value),
+                                          "metadata_only": True, "prerequisites": len(prerequisites), "passed": True})
+    clean_checkout()
+
+
+def diagnose():
+                                                                                
+                                                                              
+    reference = read(paths()[2] / "reference/context.json")
+    if (reference.get("source") != "21421220aa713f0e0dfa22b4f662c075319e3217"
+            or reference.get("snapshot") != "20261017.1441" or reference.get("run") != "39041828212"):
+        raise RuntimeError("Unexpected failed-run reference")
+    for name in STATE:
+        source = paths()[2] / "reference/state" / name
+        if digest(source) != reference["state_files"][name]:
+            raise RuntimeError("Failed-run selection was altered")
+        shutil.copyfile(source, ROOT / name)
+    local = config(Path("/build-state"), False)
+    actual = graph(local)
+    difference = graph_difference(actual, reference["graph"])
+    for name, data in (("graph-actual", actual), ("graph-expected", reference["graph"]), ("graph-difference", difference)):
+        write_json(paths()[1] / (name + ".json"), data)
+    first = difference["first_divergent"]
+    if first:
+        run_logged(["bst", "--no-colors", "--strict", "--config", local, "--option", "arch", "aarch64",
+                    "show", "--deps", "none", "--format", "%{name}\n%{vars}\n%{environment}\n%{config}\n%{sources}", *first],
+                   paths()[1] / "first-divergent.log", cwd=ROOT)
+    print(json.dumps(difference, indent=2), flush=True)
+    write_json(paths()[1] / "result.json", {"phase": "diagnose", "reference_run": reference["run"],
+                                          "comparison_complete": True, "matches": difference["matches"]})
+    clean_checkout()
 
 
 def run_logged(args, path, cwd=None, env=None):
@@ -376,12 +422,16 @@ def run_logged(args, path, cwd=None, env=None):
 
 
 def worker_dockerfile(publisher=False):
-    packages = ("python3 python3-ruamel-yaml git-core gnupg2 zstd awscli2" if publisher else
+    packages = ("python3 python3-ruamel-yaml git-core gnupg2 zstd awscli2 shadow-utils" if publisher else
                 f"buildstream-{VERSIONS['buildstream']} buildbox-{VERSIONS['buildbox']} "
                 "buildstream-plugins-2.8.0 git-core lzip patch python3-dulwich "
-                "python3-requests python3-tomlkit bubblewrap fuse3 ShellCheck")
+                "python3-requests python3-tomlkit bubblewrap fuse3 ShellCheck shadow-utils")
     return (f"FROM {VERSIONS['fedora']}\nRUN dnf install -y --setopt=install_weak_deps=False {packages} "
-            "&& dnf clean all && git config --system --add safe.directory /work\n")
+            "&& dnf clean all && git config --system --add safe.directory /work\n"
+            "ARG BUILDER_UID\nARG BUILDER_GID\n"
+            "RUN (getent group $BUILDER_GID || groupadd --gid $BUILDER_GID beamline) "
+            "&& useradd --non-unique --uid $BUILDER_UID --gid $BUILDER_GID "
+            "--home-dir /build-state/home --no-create-home beamline\n")
 
 
 def worker(group):
@@ -393,14 +443,19 @@ def worker(group):
         raise RuntimeError("Hosted worker must start with an empty cache")
     local, remote = config(native, False), config(native, True)
     nodes = graph(local)
-    check_keys(nodes, value["graph"])
+    check_keys(nodes, value["graph"], evidence)
+    if value["mode"] == "preflight":
+        write_json(evidence / "result.json", {"identity": stamp(value), "phase": group,
+                                            "cold_cache": True, "keys_match": True, "passed": True,
+                                            "payloads_pulled": False, "compiled": False})
+        return
     plan = value["groups"][group] if group != "assemble" else {"targets": TARGETS}
     producer = []
     if group == "assemble":
         for name in GROUPS:
             report = checked_report(inputs / "workers" / ("build-worker-" + name) / "result.json", value, name)
             producer.extend(report["outputs"])
-        selected = sorted({r["element"] for r in value["seed"] + producer})
+        selected = sorted({r["element"] for r in value["prerequisites"] + producer})
     else:
         selected = plan["inputs"]
     report = {"identity": stamp(value), "phase": group, "cold_cache": True,
@@ -408,8 +463,8 @@ def worker(group):
     write_json(evidence / "result.json", report)
     report["pull_started"] = time.time()
     pull(remote, selected)
-    recovered, _ = artifact_records(local, nodes, selected)
-    wanted = {r["element"]: r for r in value["seed"] + producer}
+    recovered = artifact_records(local, nodes, selected)
+    wanted = {r["element"]: r for r in value["prerequisites"] + producer}
     compare_artifacts(recovered, [wanted[n] for n in selected])
     refreshed = graph(local)
     if any(refreshed[name]["state"] == "cached" for name in plan["targets"]):
@@ -420,11 +475,11 @@ def worker(group):
     if group == "assemble":
         for command in ("check", "test-base", "image"):
             run_logged([ROOT / "ci" / command], evidence / (command + ".log"), cwd=ROOT, env=env)
-        report["outputs"], _ = artifact_records(local, nodes, TARGETS)
+        report["outputs"] = artifact_records(local, nodes, TARGETS)
         report["image_manifest_sha256"] = digest(package_images(value))
     else:
         bst(local, "build", *plan["targets"])
-        report["outputs"], _ = artifact_records(local, nodes, plan["outputs"])
+        report["outputs"] = artifact_records(local, nodes, plan["outputs"])
     report["build_finished"] = time.time()
     if group != "assemble":
         push(remote, [r["element"] for r in report["outputs"]])
@@ -636,6 +691,8 @@ def verify_worker_downloads(snapshot_root, snapshot, evidence):
 
 def publish_images():
     value = context()
+    if value["mode"] != "full":
+        raise RuntimeError("Only a full build can publish")
     apply_context(value)
     manifest = restore_images(value)
     base, evidence, inputs = paths()
@@ -685,38 +742,45 @@ def host(phase, group=None):
     dockerfile = base / "Dockerfile"
     dockerfile.write_text(worker_dockerfile(phase == "publish"))
     (base / ".dockerignore").write_text("*\n!Dockerfile\n")
-    run(["docker", "build", "--tag", "beamline-hosted-build", "--file", dockerfile, base])
-    native = base / "container"
-    native.mkdir()
+    run(["docker", "build", "--tag", "beamline-hosted-build", "--file", dockerfile,
+         "--build-arg", f"BUILDER_UID={os.getuid()}", "--build-arg", f"BUILDER_GID={os.getgid()}", base])
+    native = Path(tempfile.mkdtemp(prefix="beamline-hosted-", dir=os.environ.get("RUNNER_TEMP", "/tmp")))
+    state, service = native / "state", native / "service"
+    (state / "home").mkdir(parents=True)
+    service.mkdir()
+    write_json(evidence / "host.json", {"uid": os.getuid(), "gid": os.getgid(),
+                                       "native_state": str(state), "source": str(ROOT)})
     command = ["docker", "run", "--rm", "--network", "host"]
     if phase != "publish":
         command.append("--privileged")
     for key in (*SAFE_ENV, *(SECRET_ENV if phase == "publish" else ())):
         command += ["--env", key]
-    command += ["--mount", f"type=bind,src={ROOT},dst=/work", "--mount", f"type=bind,src={native},dst=/build-state",
+    command += ["--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/build-state/home",
+                "--mount", f"type=bind,src={ROOT},dst=/work", "--mount", f"type=bind,src={state},dst=/build-state",
                 "--workdir", "/work", "beamline-hosted-build", "python3", "-u", "/work/tools/hosted_build.py",
                 "container-" + phase]
     if group:
         command += ["--group", group]
-    if phase == "publish":
+    if phase in ("publish", "diagnose"):
         run_logged(command, evidence / "worker.log")
     else:
-        with serve_cache(base, "aarch64", PREFIX, evidence, disk=True):
+        with serve_cache(service, "aarch64", PREFIX, evidence, disk=True):
             run_logged(command, evidence / "worker.log")
     clean_checkout()
 
 
 def main():
     parser = argparse.ArgumentParser(description=HELP)
-    parser.add_argument("phase", choices=("seed-local", "seed-vm", "worker", "assemble", "test", "publish",
-                                          "container-worker", "container-assemble", "container-publish", "prepare-vm", "evidence-vm"))
+    parser.add_argument("phase", choices=("prepare", "diagnose", "worker", "assemble", "test", "publish",
+                                          "container-prepare", "container-diagnose", "container-worker", "container-assemble",
+                                          "container-publish", "prepare-vm", "evidence-vm"))
     parser.add_argument("--group", choices=GROUPS)
     args = parser.parse_args()
     try:
-        if args.phase == "seed-local":
-            seed_local()
-        elif args.phase == "seed-vm":
-            seed_vm()
+        if args.phase == "container-prepare":
+            prepare()
+        elif args.phase == "container-diagnose":
+            diagnose()
         elif args.phase == "container-worker":
             if args.group is None:
                 parser.error("worker requires --group")
@@ -740,7 +804,11 @@ def main():
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as exc:
         evidence = paths()[1]
         evidence.mkdir(parents=True, exist_ok=True)
-        write_json(evidence / "failure.json", {"phase": args.phase, "group": args.group, "error": str(exc)})
+        filename = "container-failure.json" if args.phase.startswith("container-") else "host-failure.json"
+        try:
+            write_json(evidence / filename, {"phase": args.phase, "group": args.group, "error": str(exc)})
+        except OSError as recording_error:
+            print("Could not record failure: " + str(recording_error), file=sys.stderr, flush=True)
         raise
 
 

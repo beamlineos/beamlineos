@@ -1,0 +1,368 @@
+{
+  "snapshot": "20261015.1430",
+  "generated": "2026-10-15T14:30:06Z",
+  "result": "green",
+  "arch": [
+    "aarch64"
+  ],
+  "sources": {
+    "freedesktop-sdk": {
+      "tracking": "master",
+      "head_at_resolution": "57f827eac6085dc8d40df197f2605f8864e987d6",
+      "lag_commits": 2,
+      "status": "HEAD",
+      "selection": "newest upstream CI-green commit",
+      "selected_ref": "freedesktop-sdk-26.08rc.2-362-g68f19b31373b057d2261024a872be0c81107a9a6",
+      "commit": "68f19b31373b057d2261024a872be0c81107a9a6",
+      "nearest_tag": "freedesktop-sdk-26.08rc.2-362-g68f19b31373b"
+    },
+    "gnome-build-meta": {
+      "tracking": "master",
+      "head_at_resolution": "da92614f7d3389245f8e9072aae69bbddc68741d",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selection": "newest upstream CI-green commit",
+      "selected_ref": "49-branchpoint-1342-gda92614f7d3389245f8e9072aae69bbddc68741d",
+      "commit": "da92614f7d3389245f8e9072aae69bbddc68741d",
+      "nearest_tag": "49-branchpoint-1342-gda92614f7d33"
+    },
+    "linux": {
+      "tracking": "master",
+      "head_at_resolution": "0fcb05b72344f40806cbe810de8872f1698bf053",
+      "lag_commits": 0,
+      "archive": "github.com/torvalds/linux",
+      "status": "HEAD",
+      "selected_ref": "0fcb05b72344f40806cbe810de8872f1698bf053",
+      "commit": "0fcb05b72344f40806cbe810de8872f1698bf053",
+      "nearest_tag": null,
+      "source": "https://github.com/torvalds/linux/archive/0fcb05b72344f40806cbe810de8872f1698bf053.tar.gz",
+      "archive_sha256": "8eb7a420ccf3a83f0a2f4c97adf4dc7f0e4abc98d10ea545d1fd8913eaad5c05"
+    },
+    "systemd": {
+      "tracking": "main",
+      "head_at_resolution": "f784e20540ab14f085d648cfb4c90748ff483547",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "v262-641-gf784e20540ab14f085d648cfb4c90748ff483547",
+      "commit": "f784e20540ab14f085d648cfb4c90748ff483547",
+      "nearest_tag": "v262-641-gf784e20540ab"
+    },
+    "dash": {
+      "tracking": "master",
+      "head_at_resolution": "037bbdfd330017c368caf6242f977974123239b5",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "v0.5.13.5-0-g037bbdfd330017c368caf6242f977974123239b5",
+      "commit": "037bbdfd330017c368caf6242f977974123239b5",
+      "nearest_tag": "v0.5.13.5-0-g037bbdfd3300"
+    },
+    "uutils": {
+      "tracking": "main",
+      "head_at_resolution": "2fb77e8b927b5614438d288b0c72827a87106663",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "0.12.0-508-g2fb77e8b927b5614438d288b0c72827a87106663",
+      "commit": "2fb77e8b927b5614438d288b0c72827a87106663",
+      "nearest_tag": "0.12.0-508-g2fb77e8b927b"
+    },
+    "uutils-findutils": {
+      "tracking": "main",
+      "head_at_resolution": "2b15f5d9b38cb8d42cab3ae764355e79e7507b54",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "0.10.0-76-g2b15f5d9b38cb8d42cab3ae764355e79e7507b54",
+      "commit": "2b15f5d9b38cb8d42cab3ae764355e79e7507b54",
+      "nearest_tag": "0.10.0-76-g2b15f5d9b38c"
+    },
+    "uutils-diffutils": {
+      "tracking": "main",
+      "head_at_resolution": "8af2bedef1f82771d8479b0d021e29b6bb321262",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "latest-commit-79-g8af2bedef1f82771d8479b0d021e29b6bb321262",
+      "commit": "8af2bedef1f82771d8479b0d021e29b6bb321262",
+      "nearest_tag": "latest-commit-79-g8af2bedef1f8"
+    },
+    "uutils-grep": {
+      "tracking": "main",
+      "head_at_resolution": "01fb6c3abc2572758b42f9de21ed7f582f536424",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "0.2.0-25-g01fb6c3abc2572758b42f9de21ed7f582f536424",
+      "commit": "01fb6c3abc2572758b42f9de21ed7f582f536424",
+      "nearest_tag": "0.2.0-25-g01fb6c3abc25"
+    },
+    "uutils-sed": {
+      "tracking": "main",
+      "head_at_resolution": "58608af612e49fb6951fb84aad3be4b5cb6180b5",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "0.2.0-61-g58608af612e49fb6951fb84aad3be4b5cb6180b5",
+      "commit": "58608af612e49fb6951fb84aad3be4b5cb6180b5",
+      "nearest_tag": "0.2.0-61-g58608af612e4"
+    },
+    "uutils-awk": {
+      "tracking": "main",
+      "head_at_resolution": "91b6c10c489d9b5afd60d96c58346bf7e815520a",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "latest-commit-271-g91b6c10c489d9b5afd60d96c58346bf7e815520a",
+      "commit": "91b6c10c489d9b5afd60d96c58346bf7e815520a",
+      "nearest_tag": "latest-commit-271-g91b6c10c489d"
+    },
+    "uutils-bsdutils": {
+      "tracking": "main",
+      "head_at_resolution": "3ba11da4ddf49141b2266cec1f956f79db84d3b3",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "0.0.1-194-g3ba11da4ddf49141b2266cec1f956f79db84d3b3",
+      "commit": "3ba11da4ddf49141b2266cec1f956f79db84d3b3",
+      "nearest_tag": "0.0.1-194-g3ba11da4ddf4"
+    },
+    "selinux": {
+      "tracking": "main",
+      "head_at_resolution": "37344cd06d84c77c1ae1616ba8d30033c777c996",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "3.11-272-g37344cd06d84c77c1ae1616ba8d30033c777c996",
+      "commit": "37344cd06d84c77c1ae1616ba8d30033c777c996",
+      "nearest_tag": "3.11-272-g37344cd06d84"
+    },
+    "gnu-ctags": {
+      "tracking": "master",
+      "head_at_resolution": "d11b70dd95fba48b94a8ec7918890a520727317d",
+      "lag_commits": 0,
+      "archive": "github.com/emacs-mirror/emacs",
+      "status": "HEAD",
+      "selected_ref": "d11b70dd95fba48b94a8ec7918890a520727317d",
+      "commit": "d11b70dd95fba48b94a8ec7918890a520727317d",
+      "nearest_tag": null,
+      "source": "https://github.com/emacs-mirror/emacs/archive/d11b70dd95fba48b94a8ec7918890a520727317d.tar.gz",
+      "archive_sha256": "6c17ffebb349394b5ec3fbc5a9953d9dcb1977f6553068100560628dcd9cb61e"
+    },
+    "gnu-time": {
+      "tracking": "master",
+      "head_at_resolution": "401c6a4d21b33506fb0c193a5faeda451690d5ce",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "v1.10-17-g401c6a4d21b33506fb0c193a5faeda451690d5ce",
+      "commit": "401c6a4d21b33506fb0c193a5faeda451690d5ce",
+      "nearest_tag": "v1.10-17-g401c6a4d21b3"
+    },
+    "gnu-sharutils": {
+      "tracking": "master",
+      "head_at_resolution": "81ce3ccf93e5252c40e7e2515fe7dc800ad9ac30",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "v4.15.2-7-g81ce3ccf93e5252c40e7e2515fe7dc800ad9ac30",
+      "commit": "81ce3ccf93e5252c40e7e2515fe7dc800ad9ac30",
+      "nearest_tag": "v4.15.2-7-g81ce3ccf93e5"
+    },
+    "gnulib": {
+      "tracking": "master",
+      "head_at_resolution": "685bfe8e6106574eef8e07bdb7b2f0f054921509",
+      "lag_commits": 0,
+      "status": "HEAD",
+      "selected_ref": "v1.0-3398-g685bfe8e6106574eef8e07bdb7b2f0f054921509",
+      "commit": "685bfe8e6106574eef8e07bdb7b2f0f054921509",
+      "nearest_tag": "v1.0-3398-g685bfe8e6106"
+    }
+  },
+  "archives": {
+    "pax": {
+      "url": "https://mbsd.evolvis.org/MirOS/dist/mir/cpio/paxmirabilis-20201030.tgz",
+      "sha256": "1cc892c9c8ce265d28457bab4225eda71490d93def0a1d2271430c2863b728dc",
+      "elements": [
+        "posix/pax.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Canonical maintained distribution; the publisher's Git mirror is unavailable. D63.",
+      "status": "FIXED"
+    },
+    "posix-manuals": {
+      "url": "https://cdn.kernel.org/pub/linux/docs/man-pages/man-pages-posix/man-pages-posix-2017-a.tar.xz",
+      "sha256": "ce67bb25b5048b20dad772e405a83f4bc70faf051afa289361c81f9660318bc3",
+      "elements": [
+        "posix/manuals.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Latest published manual corpus (2017); utility coverage independently follows POSIX.1-2024. D63.",
+      "status": "FIXED"
+    },
+    "bootstrap-gc": {
+      "url": "https://github.com/bdwgc/bdwgc/releases/download/v8.2.10/gc-8.2.10.tar.gz",
+      "sha256": "832cf4f7cf676b59582ed3b1bbd90a8d0e0ddbc3b11cb3b2096c5177ce39cc47",
+      "elements": [
+        "build-tools/gc.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Deliberately fixed build-only bootstrap for AutoGen/Guile, never installed. D63.",
+      "status": "FIXED"
+    },
+    "bootstrap-guile": {
+      "url": "https://ftp.gnu.org/gnu/guile/guile-2.2.7.tar.xz",
+      "sha256": "cdf776ea5f29430b1258209630555beea6d2be5481f9da4d64986b077ff37504",
+      "elements": [
+        "build-tools/guile.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Build-only AutoGen requires the Guile 2.2 API; deliberate bootstrap input, never installed. D63.",
+      "status": "FIXED"
+    },
+    "bootstrap-autogen": {
+      "url": "https://ftp.gnu.org/gnu/autogen/rel5.18.16/autogen-5.18.16.tar.xz",
+      "sha256": "f8a13466b48faa3ba99fe17a069e71c9ab006d9b1cfabe699f8c60a47d5bb49a",
+      "elements": [
+        "build-tools/autogen.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Fixed build-only parser generator for sharutils HEAD, never installed. D63.",
+      "status": "FIXED"
+    },
+    "debian-shim-signed": {
+      "url": "https://deb.debian.org/debian/pool/main/s/shim-signed/shim-signed_1.51~1+deb13u1+16.1-2~deb13u1_arm64.deb",
+      "sha256": "e228a68b298865e0f1b35f93dac8fc9644a47bde3487419efe305777e2d4a1f0",
+      "elements": [
+        "boot/debian-shim-signed.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Debian's Microsoft-signed shim (trixie, arm64), the first stage of Beamline's Secure Boot chain; replaced by Debian's next signed release deliberately. D113.",
+      "status": "FIXED"
+    },
+    "debian-shim-helpers": {
+      "url": "https://deb.debian.org/debian/pool/main/s/shim-helpers-arm64-signed/shim-helpers-arm64-signed_1+16.1+2~deb13u1_arm64.deb",
+      "sha256": "0563a90af1f9990a592a79f52845747daff51c1d345769adc07830d2547da325",
+      "elements": [
+        "boot/debian-shim-helpers.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "MokManager and fallback matching the shim above (Debian trixie, arm64). D113.",
+      "status": "FIXED"
+    },
+    "microsoft-uefi-ca-2011": {
+      "url": "https://www.microsoft.com/pkiops/certs/MicCorUEFCA2011_2011-06-27.crt",
+      "sha256": "48e99b991f57fc52f76149599bff0a58c47154229b9f8d603ac40d3500248507",
+      "elements": [
+        "boot/microsoft-uefi-ca-2011.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Public certificate: verifies shim's signature and goes into the test firmware's db. D113.",
+      "status": "FIXED"
+    },
+    "microsoft-uefi-ca-2023": {
+      "url": "https://www.microsoft.com/pkiops/certs/microsoft%20uefi%20ca%202023.crt",
+      "sha256": "f6124e34125bee3fe6d79a574eaa7b91c0e7bd9d929c1a321178efd611dad901",
+      "elements": [
+        "boot/microsoft-uefi-ca-2023.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Public certificate: verifies shim's signature and goes into the test firmware's db. D113.",
+      "status": "FIXED"
+    },
+    "microsoft-kek-ca-2011": {
+      "url": "https://www.microsoft.com/pkiops/certs/MicCorKEKCA2011_2011-06-24.crt",
+      "sha256": "a1117f516a32cefcba3f2d1ace10a87972fd6bbe8fe0d0b996e09e65d802a503",
+      "elements": [
+        "boot/microsoft-kek-ca-2011.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Public certificate for the test firmware's KEK, as on a PC sold with Microsoft's keys. D113.",
+      "status": "FIXED"
+    },
+    "microsoft-kek-ca-2023": {
+      "url": "https://www.microsoft.com/pkiops/certs/microsoft%20corporation%20kek%202k%20ca%202023.crt",
+      "sha256": "3cd3f0309edae228767a976dd40d9f4affc4fbd5218f2e8cc3c9dd97e8ac6f9d",
+      "elements": [
+        "boot/microsoft-kek-ca-2023.bst"
+      ],
+      "refs": "project.refs",
+      "reason": "Public certificate for the test firmware's KEK, as on a PC sold with Microsoft's keys. D113.",
+      "status": "FIXED"
+    }
+  },
+  "inherited_recipes": {
+    "gnome-shell": {
+      "component": "gnome-build-meta",
+      "junction": "junctions/gnome-build-meta.bst",
+      "upstream_element": "core/gnome-shell.bst",
+      "element": "overrides/gnome-shell.bst",
+      "refs": "project.refs",
+      "junction_commit": "da92614f7d3389245f8e9072aae69bbddc68741d",
+      "sources": [
+        {
+          "ref": "51.0-39-g6dbeb30f3f8effcb7d1ee9feade7b5f9ab9de066"
+        },
+        {
+          "ref": "d2442f455844e5292cb4a74ffc66ecc8d7595a9f"
+        },
+        {
+          "ref": "d16afc40412b565d2bbecf80335f54a19a978009"
+        },
+        {}
+      ]
+    },
+    "gnome-control-center": {
+      "component": "gnome-build-meta",
+      "junction": "junctions/gnome-build-meta.bst",
+      "upstream_element": "core/gnome-control-center.bst",
+      "element": "overrides/gnome-control-center.bst",
+      "refs": "project.refs",
+      "junction_commit": "da92614f7d3389245f8e9072aae69bbddc68741d",
+      "sources": [
+        {
+          "ref": "51.0-70-g3e31eb79723b2cd168c6b52403a6bf8d9096599e"
+        },
+        {
+          "ref": "d2442f455844e5292cb4a74ffc66ecc8d7595a9f"
+        },
+        {
+          "ref": "df896e3412b749947bc6f62a91a1aac8e6b6d19b"
+        },
+        {}
+      ]
+    },
+    "gdm": {
+      "component": "gnome-build-meta",
+      "junction": "junctions/gnome-build-meta.bst",
+      "upstream_element": "core/gdm.bst",
+      "element": "overrides/gdm.bst",
+      "refs": "project.refs",
+      "junction_commit": "da92614f7d3389245f8e9072aae69bbddc68741d",
+      "sources": [
+        {
+          "ref": "51.0-8-g3aad05f7b409c6af182c238b59be6b0b1fee0996"
+        },
+        {}
+      ]
+    },
+    "fuse3": {
+      "component": "freedesktop-sdk",
+      "junction": "junctions/freedesktop-sdk.bst",
+      "upstream_element": "components/fuse3.bst",
+      "element": "overrides/fuse3.bst",
+      "refs": "project.refs",
+      "junction_commit": "68f19b31373b057d2261024a872be0c81107a9a6",
+      "sources": [
+        {
+          "ref": "fuse-3.18.3-0-g3dbcfce64ba0dd529cec7b94305662e7901a991b"
+        },
+        {}
+      ]
+    },
+    "libcupsfilters": {
+      "component": "freedesktop-sdk",
+      "junction": "junctions/freedesktop-sdk.bst",
+      "upstream_element": "components/libcupsfilters.bst",
+      "element": "overrides/libcupsfilters.bst",
+      "refs": "project.refs",
+      "junction_commit": "68f19b31373b057d2261024a872be0c81107a9a6",
+      "sources": [
+        {
+          "ref": "2.2.1-0-g2a00cf6aa4234e2e0ac91b9844ab8990d04c7089"
+        },
+        {}
+      ]
+    }
+  },
+  "selection_manifest_sha256": "12c4c2ccd9b67ec0ae2da0fd5a95f436311ab7330fe6d967dbe826f90d5fb11b"
+}
