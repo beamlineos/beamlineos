@@ -13,6 +13,7 @@ import hosted_experiment as experiment
 class HostedExperimentTest(unittest.TestCase):
     def test_storage_boundary(self):
         prefix = experiment.prefix("123", "2", "aarch64")
+        self.assertEqual(prefix, "build/probes/123-2/aarch64/")
         config = experiment.cache_config(prefix)
         cas, refs = config["stores"]
         self.assertTrue(cas["verify"]["verify_hash"])
@@ -37,10 +38,10 @@ class HostedExperimentTest(unittest.TestCase):
         env = {"AWS_ACCESS_KEY_ID": "key-value", "AWS_SECRET_ACCESS_KEY": "secret-value"}
         text = experiment.redact("failure key-value secret-value", env)
         self.assertEqual(text, "failure [REDACTED] [REDACTED]")
-        self.assertNotIn("secret-value", json.dumps(experiment.cache_config("experiments/test/")))
+        self.assertNotIn("secret-value", json.dumps(experiment.cache_config("build/test/")))
 
     def test_requires_matching_cross_job_evidence_and_overlap(self):
-        result = {"arch": "aarch64", "prefix": "experiments/hosted/1-1/aarch64/",
+        result = {"arch": "aarch64", "prefix": "build/probes/1-1/aarch64/",
                   "run_id": "1", "attempt": "1", "source": "abc", "artifacts": []}
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)

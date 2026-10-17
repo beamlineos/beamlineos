@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import argparse
+from contextlib import contextmanager
 import fcntl
 import hashlib
 import json
@@ -38,13 +39,20 @@ def prefix(run_id, attempt, arch):
         raise ValueError("Expected numeric Actions run identity")
     if arch not in VERSIONS["nativelink_sha256"]:
         raise ValueError("Unsupported native architecture")
-    return f"experiments/hosted/{run_id}-{attempt}/{arch}/"
+    return f"build/probes/{run_id}-{attempt}/{arch}/"
 
 
-def cache_config(object_prefix):
+def cache_config(object_prefix, fast_directory=None):
     def store(suffix):
+        fast = {"memory": {"eviction_policy": {"max_bytes": "128mb"}}}
+        if fast_directory is not None:
+            fast = {"filesystem": {
+                "content_path": str(fast_directory / suffix / "content"),
+                "temp_path": str(fast_directory / suffix / "tmp"),
+                "eviction_policy": {"max_bytes": "2gb"},
+            }}
         return {"fast_slow": {
-            "fast": {"memory": {"eviction_policy": {"max_bytes": "128mb"}}},
+            "fast": fast,
             "slow": {"experimental_cloud_object_store": {
                 "provider": "r2", "account_id": "${R2_ACCOUNT_ID}",
                 "bucket": "${R2_BUCKET}", "access_key_id": "${AWS_ACCESS_KEY_ID}",
@@ -222,6 +230,44 @@ def redact(text, environment):
     return text
 
 
+@contextmanager
+def serve_cache(base, arch, object_prefix, evidence, disk=False):
+    binary = download_nativelink(base, arch)
+    config_path = base / "nativelink.json"
+    write_json(config_path, cache_config(object_prefix, base / "fast" if disk else None))
+    environment = {key: value for key, value in os.environ.items()
+                   if key not in ("RUST_LOG", "RUST_BACKTRACE")}
+    environment["RUST_LOG"] = "warn"
+    raw_log = base / "nativelink.log"
+    with raw_log.open("w") as log:
+        server = subprocess.Popen([binary, config_path], stdout=log, stderr=subprocess.STDOUT,
+                                  env=environment)
+        try:
+            deadline = time.monotonic() + 30
+            while True:
+                if server.poll() is not None:
+                    raise RuntimeError("NativeLink exited before becoming ready")
+                try:
+                    with socket.create_connection(("127.0.0.1", 50051), timeout=1):
+                        break
+                except OSError:
+                    if time.monotonic() > deadline:
+                        raise RuntimeError("NativeLink startup timeout") from None
+                    time.sleep(0.2)
+            yield
+        finally:
+            if server.poll() is None:
+                server.send_signal(signal.SIGTERM)
+                try:
+                    server.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    server.kill()
+                    server.wait()
+            clean_log = redact(raw_log.read_text(), environment)
+            (evidence / "nativelink.log").write_text(clean_log)
+            print(clean_log[-12000:], flush=True)
+
+
 def compare_reports(result, directory):
     reports = [json.loads(path.read_text()) for path in sorted(directory.glob("*/result.json"))]
     if len(reports) != 3:
@@ -268,9 +314,6 @@ def host_phase(phase, writer):
     probe(evidence, arch)
     if phase == "probe":
         return
-    binary = download_nativelink(base, arch)
-    config_path = base / "nativelink.json"
-    write_json(config_path, cache_config(object_prefix))
     dockerfile = base / "Dockerfile"
     dockerfile.write_text(
         f"FROM {VERSIONS['fedora']}\n"
@@ -281,56 +324,28 @@ def host_phase(phase, writer):
     run(["docker", "build", "--tag", "beamline-hosted-experiment", "--file", dockerfile, base])
     container = base / "container"
     container.mkdir()
-    server_env = {key: value for key, value in os.environ.items() if key not in ("RUST_LOG", "RUST_BACKTRACE")}
-    server_env["RUST_LOG"] = "warn"
-    raw_log = base / "nativelink.log"
-    with raw_log.open("w") as log:
-        server = subprocess.Popen([binary, config_path], stdout=log, stderr=subprocess.STDOUT,
-                                  env=server_env)
-        try:
-            deadline = time.monotonic() + 30
-            while True:
-                if server.poll() is not None:
-                    raise RuntimeError("NativeLink exited before becoming ready")
-                try:
-                    with socket.create_connection(("127.0.0.1", 50051), timeout=1):
-                        break
-                except OSError:
-                    if time.monotonic() > deadline:
-                        raise RuntimeError("NativeLink startup timeout") from None
-                    time.sleep(0.2)
-            args = ["docker", "run", "--rm", "--network", "host",
-                    "--mount", f"type=bind,src={ROOT},dst=/work,readonly",
-                    "--mount", f"type=bind,src={container},dst=/experiment",
-                    "--workdir", "/experiment", "beamline-hosted-experiment",
-                    "python3", "/work/tools/hosted_experiment.py", "container", phase,
-                    "--writer", writer]
-                                                                                             
-            with (evidence / "buildstream.log").open("w") as build_log:
-                try:
-                    run(args, stdout=build_log, stderr=subprocess.STDOUT)
-                finally:
-                    print((evidence / "buildstream.log").read_text(), flush=True)
-            result = json.loads((container / "result.json").read_text())
-            result.update({"arch": arch, "prefix": object_prefix,
-                           "run_id": os.environ["GITHUB_RUN_ID"],
-                           "attempt": os.environ["GITHUB_RUN_ATTEMPT"],
-                           "source": os.environ["GITHUB_SHA"]})
-            if phase == "verify":
-                compare_reports(result, ROOT / "out/hosted-inputs")
-            write_json(evidence / "result.json", result)
-            shutil.copyfile(container / "packages.txt", evidence / "packages.txt")
-        finally:
-            if server.poll() is None:
-                server.send_signal(signal.SIGTERM)
-                try:
-                    server.wait(timeout=15)
-                except subprocess.TimeoutExpired:
-                    server.kill()
-                    server.wait()
-            clean_log = redact(raw_log.read_text(), server_env)
-            (evidence / "nativelink.log").write_text(clean_log)
-            print(clean_log[-12000:], flush=True)
+    with serve_cache(base, arch, object_prefix, evidence):
+        args = ["docker", "run", "--rm", "--network", "host",
+                "--mount", f"type=bind,src={ROOT},dst=/work,readonly",
+                "--mount", f"type=bind,src={container},dst=/experiment",
+                "--workdir", "/experiment", "beamline-hosted-experiment",
+                "python3", "/work/tools/hosted_experiment.py", "container", phase,
+                "--writer", writer]
+                                                                                         
+        with (evidence / "buildstream.log").open("w") as build_log:
+            try:
+                run(args, stdout=build_log, stderr=subprocess.STDOUT)
+            finally:
+                print((evidence / "buildstream.log").read_text(), flush=True)
+        result = json.loads((container / "result.json").read_text())
+        result.update({"arch": arch, "prefix": object_prefix,
+                       "run_id": os.environ["GITHUB_RUN_ID"],
+                       "attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                       "source": os.environ["GITHUB_SHA"]})
+        if phase == "verify":
+            compare_reports(result, ROOT / "out/hosted-inputs")
+        write_json(evidence / "result.json", result)
+        shutil.copyfile(container / "packages.txt", evidence / "packages.txt")
 
 
 def main():
