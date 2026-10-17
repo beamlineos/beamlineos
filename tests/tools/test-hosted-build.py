@@ -71,6 +71,7 @@ class HostedBuildTest(unittest.TestCase):
             self.assertEqual(config["source-caches"]["servers"], [])
             self.assertEqual(config["scheduler"]["builders"], 1)
             self.assertEqual(config["cache"]["quota"], "60G")
+            self.assertEqual(config["build"]["max-jobs"], 8)
             config = json.loads(build.config(Path(temp), True).read_text())
             self.assertEqual(config["artifacts"]["servers"][0]["url"], "http://127.0.0.1:50051")
 
