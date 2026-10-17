@@ -4,13 +4,15 @@ name: build
 on:
   workflow_dispatch:
     inputs:
-      seed_local:
-        description: Seed matching full-image prerequisites from the existing native cache
-        type: boolean
-        default: false
+      mode:
+        description: Diagnose the failed graph, check startup, or build and publish
+        type: choice
+        options: [preflight, full, diagnose]
+        default: preflight
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: beamline-hosted-build
@@ -21,21 +23,20 @@ env:
   R2_BUCKET: ${{ vars.R2_BUCKET }}
 
 jobs:
-  seed:
+  prepare:
     if: >-
       github.repository == 'beamlineos/beamlineos' &&
       github.event_name == 'workflow_dispatch' &&
-      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, macOS, ARM64, beamline-aarch64]
-    timeout-minutes: 180
+      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main' && inputs.mode != 'diagnose'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
-    - run: ./ci/build-hosted seed-local
+    - run: ./ci/build-hosted prepare
       env:
-        SEED_LOCAL: ${{ inputs.seed_local }}
-        BEAMLINE_SNAPSHOT_ROOT: ${{ vars.BEAMLINE_SNAPSHOT_ROOT }}
+        BUILD_MODE: ${{ inputs.mode }}
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     - uses: actions/upload-artifact@v4
@@ -47,14 +48,14 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: build-seed
+        name: build-prepare
         path: out/hosted-build/evidence/
         if-no-files-found: error
         retention-days: 30
 
   workers:
-    needs: seed
-    if: ${{ !cancelled() && needs.seed.result == 'success' }}
+    needs: prepare
+    if: ${{ !cancelled() && needs.prepare.result == 'success' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
     strategy:
@@ -72,6 +73,7 @@ jobs:
         path: out/hosted-build-input/context/
     - run: ./ci/build-hosted worker --group "$BUILD_GROUP"
       env:
+        BUILD_MODE: ${{ inputs.mode }}
         BUILD_GROUP: ${{ matrix.group }}
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -84,8 +86,8 @@ jobs:
         retention-days: 30
 
   assemble:
-    needs: [seed, workers]
-    if: ${{ !cancelled() && needs.seed.result == 'success' && needs.workers.result == 'success' }}
+    needs: [prepare, workers]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.workers.result == 'success' && inputs.mode == 'full' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
     steps:
@@ -102,6 +104,7 @@ jobs:
         path: out/hosted-build-input/workers/
     - run: ./ci/build-hosted assemble
       env:
+        BUILD_MODE: ${{ inputs.mode }}
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     - uses: actions/upload-artifact@v4
@@ -161,8 +164,8 @@ jobs:
         retention-days: 30
 
   test:
-    needs: [seed, assemble]
-    if: ${{ !cancelled() && needs.seed.result == 'success' && needs.assemble.result == 'success' }}
+    needs: [prepare, assemble]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.assemble.result == 'success' }}
     runs-on: [self-hosted, macOS, ARM64, beamline-aarch64]
     timeout-minutes: 240
     steps:
@@ -180,6 +183,7 @@ jobs:
         path: out/hosted-build-input/images/
     - run: ./ci/build-hosted test
       env:
+        BUILD_MODE: ${{ inputs.mode }}
         BEAMLINE_SNAPSHOT_ROOT: ${{ vars.BEAMLINE_SNAPSHOT_ROOT }}
     - uses: actions/upload-artifact@v4
       if: always()
@@ -190,8 +194,8 @@ jobs:
         retention-days: 30
 
   publish:
-    needs: [seed, assemble, test]
-    if: ${{ !cancelled() && needs.seed.result == 'success' && needs.assemble.result == 'success' && needs.test.result == 'success' }}
+    needs: [prepare, assemble, test]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.assemble.result == 'success' && needs.test.result == 'success' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
     steps:
@@ -217,12 +221,41 @@ jobs:
         path: out/hosted-build-input/vm/
     - run: ./ci/build-hosted publish
       env:
+        BUILD_MODE: ${{ inputs.mode }}
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: build-publication
+        path: out/hosted-build/evidence/
+        if-no-files-found: error
+        retention-days: 30
+
+  diagnose:
+    if: >-
+      github.repository == 'beamlineos/beamlineos' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main' && inputs.mode == 'diagnose'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: build-context
+        run-id: 39041828212
+        github-token: ${{ github.token }}
+        path: out/hosted-build-input/reference/
+    - run: ./ci/build-hosted diagnose
+      env:
+        BUILD_MODE: diagnose
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-diagnose
         path: out/hosted-build/evidence/
         if-no-files-found: error
         retention-days: 30

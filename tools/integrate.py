@@ -276,7 +276,8 @@ def inherited_recipes(policy, sources, previous, frozen, arch):
         selected = sources[entry["component"]]
         with tempfile.TemporaryDirectory(prefix="beamline-recipes-") as scratch:
             checkout = os.path.join(scratch, "source")
-            subprocess.run(["bst", "--no-colors", "--option", "arch", arch,
+            configuration = ["--config", os.environ["BEAMLINE_BST_CONFIG"]] if os.environ.get("BEAMLINE_BST_CONFIG") else []
+            subprocess.run(["bst", "--no-colors", *configuration, "--option", "arch", arch,
                             "source", "checkout", "--deps", "none", "--directory", checkout,
                             entry["junction"]], cwd=REPO, check=True, stdout=subprocess.DEVNULL)
             suffix = os.path.join("elements", entry["upstream_element"])

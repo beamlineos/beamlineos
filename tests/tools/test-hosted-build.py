@@ -18,7 +18,7 @@ from hosted_experiment import cache_config
 
 class HostedBuildTest(unittest.TestCase):
     def value(self):
-        return {"source": "a" * 40, "tree": "b" * 40, "run": "1", "attempt": "1",
+        return {"mode": "full", "source": "a" * 40, "tree": "b" * 40, "run": "1", "attempt": "1",
                 "snapshot": "20261018.0001", "arch": "aarch64", "prefix": build.PREFIX}
 
     def bundle(self, root):
@@ -85,11 +85,59 @@ class HostedBuildTest(unittest.TestCase):
             "uncached-bootstrap.bst": node("fetch needed"),
         }
         with patch.object(build, "TARGETS", ["image/install-virt.bst"]):
-            seed = build.seed_frontier(nodes)
-        self.assertEqual(seed, ["compiler.bst", "library.bst"])
-        plan = build.group_plan(nodes, set(seed), ["desktop/gnome.bst"])
+            prerequisites = build.prerequisite_frontier(nodes, {"library.bst", "compiler.bst", "desktop/gnome.bst"})
+        self.assertEqual(prerequisites, ["compiler.bst", "library.bst"])
+        plan = build.group_plan(nodes, set(prerequisites), ["desktop/gnome.bst"])
         self.assertEqual(plan["inputs"], ["library.bst"])
         self.assertEqual(plan["outputs"], ["desktop/gnome.bst"])
+
+    def test_graph_difference_keeps_first_divergent_inputs_and_both_graphs(self):
+        def node(key, dependencies=()):
+            return {"key": key, "build": list(dependencies), "run": []}
+        expected = {"input": node("old"), "target": node("old-target", ["input"]), "removed": node("same")}
+        actual = {"input": node("new"), "target": node("new-target", ["input"]), "added": node("new")}
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with self.assertRaisesRegex(RuntimeError, "graph-difference.json"):
+                build.check_keys(actual, expected, root)
+            report = build.read(root / "graph-difference.json")
+            self.assertEqual(report["first_divergent"], ["input"])
+            self.assertEqual(report["changed"]["input"], {"expected": "old", "actual": "new"})
+            self.assertEqual(report["missing"], ["removed"])
+            self.assertEqual(report["added"], ["added"])
+            self.assertEqual(build.read(root / "graph-actual.json"), actual)
+            self.assertEqual(build.read(root / "graph-expected.json"), expected)
+                                                                              
+        self.assertTrue(build.graph_difference(actual, dict(actual, input=dict(actual["input"], state="cached")))["matches"])
+
+    def test_context_rejects_old_schema_and_seed_records(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "context").mkdir()
+            good = dict(self.value(), schema=2, baseline=build.BASELINE, prerequisites=[])
+            env = {"GITHUB_SHA": good["source"], "GITHUB_RUN_ID": good["run"],
+                   "GITHUB_RUN_ATTEMPT": good["attempt"], "BUILD_MODE": "full"}
+            with patch.object(build, "paths", return_value=(None, None, root)), \
+                    patch.object(build, "identity"), patch.object(build, "git", return_value=good["tree"]), \
+                    patch.dict(os.environ, env):
+                build.write_json(root / "context/context.json", good)
+                self.assertEqual(build.context(), good)
+                for bad in (dict(good, schema=1), dict(good, seed=[]), dict(good, mode="preflight")):
+                    build.write_json(root / "context/context.json", bad)
+                    with self.assertRaises(RuntimeError):
+                        build.context()
+
+    def test_failure_reporting_cannot_replace_the_original_error(self):
+        original = RuntimeError("original container error")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with patch.object(sys, "argv", ["build-hosted", "prepare"]), \
+                    patch.object(build, "host", side_effect=original), \
+                    patch.object(build, "paths", return_value=(root, root, root)), \
+                    patch.object(build, "write_json", side_effect=PermissionError("unwritable report")):
+                with self.assertRaises(RuntimeError) as caught:
+                    build.main()
+                self.assertIs(caught.exception, original)
 
     def test_artifact_recovery_rejects_key_and_tree_drift(self):
         report = [{"element": "target.bst", "key": "a", "files": {"hash": "b", "size": 1}}]
@@ -191,7 +239,11 @@ class HostedBuildTest(unittest.TestCase):
         from ruamel.yaml import YAML
         workflow = YAML(typ="safe").load((build.ROOT / ".github/workflows/build.yml").read_text())
         jobs = workflow["jobs"]
-        self.assertNotIn("inputs.seed_local", jobs["seed"]["if"])
+        self.assertNotIn("seed", jobs)
+        self.assertNotIn("seed_local", workflow["on"]["workflow_dispatch"]["inputs"])
+        self.assertEqual(jobs["prepare"]["runs-on"], "ubuntu-24.04-arm")
+        self.assertNotIn("BEAMLINE_SNAPSHOT_ROOT", json.dumps(jobs["prepare"]))
+        self.assertIn("inputs.mode == 'full'", jobs["assemble"]["if"])
         for name in ("workers", "assemble", "test", "publish"):
             self.assertIn("!cancelled()", jobs[name]["if"])
             self.assertIn("success", jobs[name]["if"])
