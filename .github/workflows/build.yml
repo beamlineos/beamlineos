@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: MIT
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed_local:
+        description: Seed audited build dependencies from the Mac's existing native cache
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beamline-hosted-build
+  cancel-in-progress: false
+
+env:
+  R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+  R2_BUCKET: ${{ vars.R2_BUCKET }}
+
+jobs:
+  seed:
+    if: >-
+      github.repository == 'beamlineos/beamlineos' &&
+      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main' && inputs.seed_local
+    runs-on: [self-hosted, macOS, ARM64, beamline-aarch64]
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - run: ./ci/build-hosted seed-local
+      env:
+        BEAMLINE_SNAPSHOT_ROOT: ${{ vars.BEAMLINE_SNAPSHOT_ROOT }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-seed
+        path: out/hosted-build/evidence/
+        if-no-files-found: error
+        retention-days: 14
+
+  compile:
+    needs: seed
+    if: >-
+      always() && !cancelled() && github.repository == 'beamlineos/beamlineos' &&
+      github.actor == 'c-lin-chunyi' && github.ref == 'refs/heads/main' &&
+      (!inputs.seed_local || needs.seed.result == 'success')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      if: inputs.seed_local
+      with:
+        name: build-seed
+        path: out/hosted-build-input/
+    - run: ./ci/build-hosted compile
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-compile
+        path: out/hosted-build/evidence/
+        if-no-files-found: error
+        retention-days: 14
+
+  recover:
+    needs: compile
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: build-compile
+        path: out/hosted-build-input/
+    - run: ./ci/build-hosted recover
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-recover
+        path: out/hosted-build/evidence/
+        if-no-files-found: error
+        retention-days: 14
