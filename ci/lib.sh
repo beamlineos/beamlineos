@@ -33,5 +33,9 @@ in_builder() {
 }
 
 bst_run() {
+    if [ -n "${BEAMLINE_BST_CONFIG:-}" ]; then
+        in_builder bst --config "$BEAMLINE_BST_CONFIG" --option arch "$ARCH" "$@"
+        return
+    fi
     in_builder bst --option arch "$ARCH" "$@"
 }
