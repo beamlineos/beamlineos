@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import { ChunkWindow } from './prefetch.mjs';
+import { allocations } from './profile.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -148,6 +149,7 @@ try {
   check(w.read_plan(handle, (1n << 64n) - 1n, 2n, plan, 1) === -1, 'range integer overflow');
   w.free(plan, 12); w.drop_index(handle); w.free(pointer, rawIndex.length);
   mf = new Miniflare({ cf: false, log: new Log(LogLevel.ERROR), telemetry: { enabled: false },
+    inspectorHost: '127.0.0.1', inspectorPort: 0,
     workers: [{ config: {
       name: 'beamline-images-test', compatibilityDate: configuration.compatibility_date,
       limits: { cpuMs: configuration.limits.cpu_ms, subrequests: configuration.limits.subrequests },
@@ -276,6 +278,11 @@ try {
   }
   w.free(encodedPtr, encoded.length); w.drop_index(microHandle);
   await fs.writeFile(path.join(root, 'out/images-worker-performance.json'), JSON.stringify(performanceReport, null, 2) + '\n');
+  const allocationReport = await allocations(mf, async (scheduling, prefetch) => {
+    const download = await get(good.url, { headers: { 'X-Beamline-Scheduling': scheduling, 'X-Beamline-Prefetch': String(prefetch) } });
+    check(hash(Buffer.from(await download.arrayBuffer())) === digest, 'profiled download preserves exact bytes');
+  });
+  await fs.writeFile(path.join(root, 'out/images-worker-allocations.json'), JSON.stringify(allocationReport, null, 2) + '\n');
 
   response = await get(good.url, { headers: { 'X-Beamline-Transport': 'r2', Range: 'bytes=0-127' } });
   check(response.status === 502, 'missing R2 chunk is rejected');
