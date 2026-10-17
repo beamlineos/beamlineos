@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Persistent choices are data; all boot-time execution stays in native systemd tools.
+
 [Unit]
 Description=Link the %i extension of this snapshot
 DefaultDependencies=no
@@ -18,7 +18,7 @@ RemainAfterExit=yes
 ExecStart=/usr/bin/systemd-tmpfiles --create --inline "L /run/extensions/%i.raw - - - - /var/lib/beamline/extensions/%i_%A.raw" "L /run/confexts/%i.raw - - - - /var/lib/beamline/confexts/%i_%A.raw"
 ExecStop=/usr/bin/systemd-tmpfiles --remove --inline "r /run/extensions/%i.raw" "r /run/confexts/%i.raw"
 
-# Clean up links even if a failed start made only part of the pair.
+
 ExecStopPost=/usr/bin/systemd-tmpfiles --remove --inline "r /run/extensions/%i.raw" "r /run/confexts/%i.raw"
 
 [Install]

@@ -29,7 +29,7 @@ config:
   commands:
   - |
     install -d "%{shim-dir}"
-    # A .deb is an ar archive holding data.tar.*; the signed binaries are usr/lib/shim/*.efi.signed.
+    
     python3 - "%{upstream}" "%{shim-dir}" "%{efi-arch}" <<'PY'
     import io, sys, tarfile
     upstream, out, arch = sys.argv[1:]
@@ -55,14 +55,14 @@ config:
                         open(f"{out}/{target}", "wb").write(tar.extractfile(member).read())
                         wanted.discard(target)
     assert not wanted, f"missing from Debian's packages: {sorted(wanted)}"
-    # shim starts grub<arch>.efi from its own directory; Beamline puts systemd-boot there.
+                                                                                          
     shim = open(f"{out}/shim{arch}.efi", "rb").read()
     assert f"grub{arch}.efi".encode("utf-16-le") in shim, "unexpected second-stage name"
     PY
     chmod 0644 "%{shim-dir}"/*.efi
 
   - |
-    # Microsoft's UEFI CA (2011 or 2023) must have signed shim.
+    
     for ca in microsoft-uefi-ca-2011 microsoft-uefi-ca-2023; do
       openssl x509 -inform DER -in "%{upstream}/${ca}.crt" -out "/tmp/${ca}.pem"
     done

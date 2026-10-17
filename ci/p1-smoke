@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Verify saved P1 inputs and exercise R2 without publishing a snapshot or channel.
+
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
 cd "$REPO"

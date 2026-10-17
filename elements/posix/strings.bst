@@ -12,8 +12,8 @@ config:
   commands:
   - install -Dm755 /binutils/usr/bin/strings "%{install-root}/usr/bin/strings"
   - |
-    # The native strings needs BFD and sframe, without development commands.
-    # runtime-gnu has no find; use explicit SDK library globs instead.
+    
+    
     for file in /binutils%{libdir}/libbfd*.so* /binutils%{libdir}/libsframe*.so*; do
       [ -e "$file" ] || [ -L "$file" ] || continue
       path="${file#/binutils}"

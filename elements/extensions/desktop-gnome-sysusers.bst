@@ -8,10 +8,10 @@ description: |
 
 build-depends:
 - junctions/freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
-# cmp: runtime-gnu has no diffutils. Without it every comparison failed and the base's own
-# files were borrowed too (found in 0.0.4.2 step 1).
+
+
 - junctions/freedesktop-sdk.bst:bootstrap/diffutils.bst
-# The extension's prune lists (D88): users of removed services are not created.
+
 - junctions/freedesktop-sdk.bst:components/python3.bst
 - image/image-tools.bst
 - filename: extensions/desktop-gnome-tree.bst

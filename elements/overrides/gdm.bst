@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: MIT
-# Copied from: gnome-build-meta 23c598b45f510cc0bb2161b5cc06742c45bbb00b
-#   elements/core/gdm.bst
-# Changes: junction prefixes, local GCC instead of recc, sources inherited by integration
-# (policy/tracking.toml [recipe.gdm]; files/gdm is gnome-build-meta's files/gdm at the same commit),
-# and SELinux support (-Dselinux=enabled, libselinux; D105). With it, a session's worker clears the
-# exec context pam_selinux set for the session once the session has started. Without it, the worker
-# that GDM starts from there to unlock the screen ran in the session's user_t and could not switch
-# to the user.
+
+
+
+
+
+
+
+
 
 kind: meson
 
@@ -52,7 +52,7 @@ config:
 
     - mkdir -p %{install-root}%{pamdir}
     - |
-      # Our configuration is similar to redhat but without selinux
+      
       for conffile in `find gdm-config/ -name "*.pam"`; do
         install -m 644 $conffile %{install-root}%{pamdir}/$(basename ${conffile%.pam})
       done

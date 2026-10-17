@@ -3,5 +3,5 @@ kind: stack
 description: POSIX.1-2024 userspace and system tools, activated on demand (§7.2, D63)
 depends:
 - posix/content.bst
-# strings only; full development binutils belong in the independent posix-devel image.
+
 - posix/strings.bst

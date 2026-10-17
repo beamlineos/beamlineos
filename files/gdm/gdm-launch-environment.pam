@@ -1,4 +1,4 @@
-#%PAM-1.0
+
 auth       required    pam_env.so
 auth       required    pam_permit.so
 auth       include     postlogin

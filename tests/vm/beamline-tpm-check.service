@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/boot, 0.0.4.3 step 1, docs/decisions.md D106): with the harness's swtpm attached, the
-# kernel finds the TPM, systemd reports full TPM 2.0 support (firmware, driver, system), and a
-# credential sealed with the TPM decrypts again, as systemd-sysinstall seals the installed system's.
-# Injected through a systemd.extra-unit credential; never part of an image, so it may use dash.
+
+
+
+
+
 
 [Unit]
 Description=Report TPM 2.0 support on the console

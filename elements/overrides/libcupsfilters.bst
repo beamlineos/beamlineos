@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: Freedesktop-SDK Developers
 # SPDX-License-Identifier: MIT
-# Copied from Freedesktop SDK 809013202493a2676672959850587e5013ae59e4,
-# elements/components/libcupsfilters.bst. Changes: junction prefixes; upstream's unreleased fix
-# e14bad4061 as a patch, without which every raster job fails (0.0.4.1 K2, D84); built in the
-# source tree with the plugin's defaults, as erofs-utils is, so FDSDK's config.h link for its
-# out-of-tree build is dropped; project_licensedir keeps FDSDK's path. The source stays
-# FDSDK's selection (policy/tracking.toml [recipe.libcupsfilters]). Drop this override once FDSDK
-# selects a libcupsfilters release that contains the fix.
+
+
+
+
+
+
+
 
 kind: autotools
 

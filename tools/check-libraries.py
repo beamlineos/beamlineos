@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Check that every ELF object finds the shared libraries it needs (docs/decisions.md D88).
+HELP = """Check that every ELF object finds the shared libraries it needs (docs/decisions.md D88).
 
   check-libraries.py --root ROOT... [--check DIR]... [--allow LIST]
 
@@ -35,7 +35,7 @@ SHT_DYNAMIC = 6
 
 
 def needed(path):
-    """(needed sonames, search paths) of an ELF executable or shared object; None otherwise."""
+                                                                                               
     try:
         with open(path, "rb") as f:
             ident = f.read(16)
@@ -49,7 +49,7 @@ def needed(path):
             else:
                 head = struct.unpack(order + "HHIIIIIHHHHHH", f.read(36))
             e_type, shoff, shentsize, shnum = head[0], head[5], head[10], head[11]
-            if e_type not in (2, 3) or not shoff or not shnum:   # ET_EXEC, ET_DYN
+            if e_type not in (2, 3) or not shoff or not shnum:                    
                 return None
             sections = []
             for i in range(shnum):
@@ -58,7 +58,7 @@ def needed(path):
                     sh = struct.unpack(order + "IIQQQQIIQQ", f.read(64))
                 else:
                     sh = struct.unpack(order + "IIIIIIIIII", f.read(40))
-                sections.append(sh)   # name, type, flags, addr, offset, size, link, info, align, entsize
+                sections.append(sh)                                                                      
             dynamic = [s for s in sections if s[1] == SHT_DYNAMIC]
             if not dynamic:
                 return None
@@ -90,12 +90,12 @@ def needed(path):
 
 
 def find(roots, path):
-    """The host path of an image path in the first root that has it."""
+                                                                       
     return next((root + path for root in roots if os.path.lexists(root + path)), None)
 
 
 def linker_dirs(roots):
-    """The dynamic linker's search directories: ld.so.conf (with includes), then defaults."""
+                                                                                             
     dirs, seen = [], set()
 
     def read(conf):
@@ -128,7 +128,7 @@ def linker_dirs(roots):
 
 
 def exists(roots, path):
-    """Whether an image path exists in the layered roots, following symlinks across them."""
+                                                                                            
     for _ in range(40):
         full = find(roots, path)
         if not full:
@@ -154,7 +154,7 @@ def read_allow(paths):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--root", action="append", required=True)
     parser.add_argument("--check", action="append", default=[], metavar="DIR")
     parser.add_argument("--allow", action="append", default=[], metavar="LIST")
@@ -178,8 +178,8 @@ def main():
                 objects += 1
                 names, search = found
                 origin = os.path.dirname(path)
-                # The object's own directory too: a private library set (systemd's, Samba's) finds its
-                # siblings because the executable that loads them already did, by soname.
+                                                                                                      
+                                                                                         
                 candidates = [s.replace("$ORIGIN", origin).replace("${ORIGIN}", origin) for s in search] \
                     + dirs + [origin]
                 for soname in names:

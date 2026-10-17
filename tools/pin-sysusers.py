@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Pin system UIDs and GIDs (docs/decisions.md D106, step 0).
+HELP = """Pin system UIDs and GIDs (docs/decisions.md D106, step 0).
 
   pin-sysusers.py apply TABLE SYSUSERS_DIR   write the table's numbers into every u/g line
   pin-sysusers.py check TABLE ROOT           compare ROOT/etc/passwd and /etc/group with the table
@@ -39,8 +39,8 @@ def pinned_id(kind, name, current, users, groups):
         if name not in users:
             return None
         uid, gid = users[name]
-        # A bare UID makes sysusers create the user's own group with the same number;
-        # UID:GID means joining a group that already exists.
+                                                                                     
+                                                            
         want = str(uid) if uid == gid else f"{uid}:{gid}"
         if current not in ("-", str(uid), f"{uid}:{gid}"):
             sys.exit(f"user {name}: sysusers.d says {current}, the table {want}")
@@ -105,7 +105,7 @@ def check(table, root):
 
 def main():
     if len(sys.argv) != 4 or sys.argv[1] not in ("apply", "check"):
-        sys.exit(__doc__)
+        sys.exit(HELP)
     (apply if sys.argv[1] == "apply" else check)(sys.argv[2], sys.argv[3])
 
 

@@ -1,22 +1,22 @@
 # SPDX-License-Identifier: MIT
-#
-# File modes that BuildStream artifacts cannot carry: they keep only the executable bit, so
-# every other file arrives 0644 and every directory 0755 (docs/decisions.md D31). The
-# elements that create filesystems apply this list to a copy of the tree, just before mkfs.
-#
-# <octal mode> <absolute path>
 
-# sysusers creates these 0000; 0400 is still root-only, and readable by the build sandbox.
+
+
+
+
+
+
+
 0400 /etc/shadow
 0400 /etc/gshadow
 
-# systemd installs its credential stores 0700.
+
 0700 /etc/credstore
 0700 /etc/credstore.encrypted
 
-# fwupd keeps its configuration 0640 (it may hold credentials) and otherwise corrects the mode
-# at startup, which /etc's immutability refuses (docs/decisions.md D58).
+
+
 0640 /etc/fwupd/fwupd.conf
 
-# The sole temporary setuid exception, confined by fusermount_t (§22, D68).
+
 4755 /usr/bin/fusermount3

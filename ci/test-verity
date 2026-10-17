@@ -1,11 +1,11 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Integrity test on the checked-out Virt image (docs/spec.md §13, §14; docs/security.md §15,
-# "P0 modifies verified /usr contents: denied or integrity failure"): corrupt the first block
-# of SYSTEM-A in the throwaway overlay and expect dm-verity to refuse it. The image itself is
-# never modified.
-#   ./ci/test-verity [path/to/installed.qcow2]
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

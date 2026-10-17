@@ -34,8 +34,8 @@ build-depends:
 variables:
   extension-name: posix-devel
   extension-posix-scope: posix-devel
-  # What the base removes for posix-devel alone stays here; posix's interactive and documentation
-  # content goes (D88).
+  
+  
   extension-prune: >-
     %{image-tools}/prune/base.txt
     %{image-tools}/prune/posix-devel.txt

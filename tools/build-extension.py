@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Compose a system extension and its configuration extension (docs/spec.md §8,
+HELP = """Compose a system extension and its configuration extension (docs/spec.md §8,
 docs/decisions.md D36).
 
   build-extension.py --name NAME --tree DIR --base DIR --content-tree DIR [--exclude-tree DIR]
@@ -31,17 +31,17 @@ import sys
 import uuid
 
 SYSEXT_TOPS = ("usr", "opt")
-# An image carrying units makes systemd-sysext/confext reload the service manager after
-# merging (EXTENSION_RELOAD_MANAGER=1); otherwise PID 1 never sees them.
+                                                                                       
+                                                                        
 UNIT_DIRS = ("usr/lib/systemd/system/", "usr/lib/systemd/user/", "etc/systemd/system/", "etc/systemd/user/")
 CONFEXT_TOPS = ("etc",)
-# Integration may legitimately leave these behind in a composed tree; they belong to
-# neither the base nor the extension.
+                                                                                    
+                                     
 IGNORED_TOPS = ("var", "run", "tmp", "dev", "proc", "sys", "home", "root", "srv", "mnt", "data")
 
 
 def walk(root):
-    """Relative paths of every file and symlink under root (directories are implied)."""
+                                                                                        
     for dirpath, dirnames, filenames in os.walk(root):
         for name in filenames + [d for d in dirnames if os.path.islink(os.path.join(dirpath, d))]:
             yield os.path.relpath(os.path.join(dirpath, name), root)
@@ -71,7 +71,7 @@ def release_file(path, fields):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--name", required=True)
     parser.add_argument("--tree", required=True)
     parser.add_argument("--base", required=True)
@@ -145,7 +145,7 @@ def main():
                      [("ID", args.os_id), ("CONFEXT_LEVEL", args.level), ("CONFEXT_SCOPE", "system"),
                       ("ARCHITECTURE", args.architecture)] + reload("confext"))
     for kind in trees:
-        # Reproducible, distinct filesystem UUIDs per image.
+                                                            
         with open(os.path.join(args.out, f"uuid-{kind}"), "w", encoding="utf-8") as f:
             f.write(f"{uuid.uuid5(uuid.NAMESPACE_URL, f'{args.os_id}:{args.name}:{kind}:{args.level}')}\n")
 

@@ -123,7 +123,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    // Malformed frames, disconnects and client timeouts must not mark the system degraded.
+    
     if let Err(e) = serve(stream, &state) {
         eprintln!("beamlinectld: connection closed: {e}");
     }

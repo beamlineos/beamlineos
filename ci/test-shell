@@ -1,8 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# A homed account created without a shell gets the C stub (§6, §18.3, D62).
-# Console login prints its instructions and exits; interpreter use is refused.
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

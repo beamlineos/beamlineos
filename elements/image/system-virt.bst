@@ -27,14 +27,14 @@ build-depends:
     location: /sysroot
 
 variables:
-  # Fixed seed: anything repart does not derive from the content is derived from it, keeping
-  # the image reproducible. The verity partitions' UUIDs come from the root hash.
+  
+  
   system-seed: 2f9a6c1e-5b3d-4e8f-9a07-6d1c8b4e2a35
 
 environment:
   SOURCE_DATE_EPOCH: '%{source-date-epoch}'
-  # SYSTEM is labelled when it is created (docs/security.md §19.1); repart passes this to
-  # mkfs.erofs.
+  
+  
   SYSTEMD_REPART_MKFS_OPTIONS_EROFS: --file-contexts=%{image-scratch}/root/etc/selinux/beamline/contexts/files/file_contexts
   TMPDIR: '%{image-scratch}/tmp'
 
@@ -63,7 +63,7 @@ config:
       "%{image-scratch}/system.root.raw" "%{image-scratch}/system.root-verity.raw"
     python3 - "%{install-root}/system.json" <<'EOF'
     import json, sys
-    # Both partitions of the verity set report its root hash.
+                                                             
     hashes = {p["roothash"] for p in json.load(open(sys.argv[1])) if p.get("roothash") not in (None, "", "-")}
     assert len(hashes) == 1, hashes
     print("SYSTEM root hash:", *hashes)

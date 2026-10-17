@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Publication format and signature checks shared by upload and directory generation."""
+                                                                                        
 
 import json
 from pathlib import Path, PurePosixPath

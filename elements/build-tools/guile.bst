@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# AutoGen 5.18.16 uses the Guile 2.2 API. Build-only, never in an image (D63).
+
 kind: autotools
 build-depends:
 - junctions/freedesktop-sdk.bst:public-stacks/buildsystem-autotools.bst

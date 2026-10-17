@@ -15,7 +15,7 @@ function selection(request, size, hash, type, filename) {
   let start = 0, length = size, status = 200;
   const range = request.headers.get('Range');
   if (request.method === 'GET' && range && (!request.headers.has('If-Range') || request.headers.get('If-Range') === etag)) {
-    // Unsupported units/multipart ranges are ignored; invalid byte bounds get 416.
+    
     const match = /^bytes=(\d*)-(\d*)$/.exec(range);
     if (match) {
       let end;
@@ -72,8 +72,8 @@ async function artifact(request, env, release, file, filename) {
         return plain.subarray(parts[position * 3 + 1], parts[position * 3 + 1] + parts[position * 3 + 2]);
       } finally { active.delete(controller); }
     };
-    // Resolve the first chunk before sending headers, so an immediately broken
-    // publication can return 502. A later failure aborts the response stream.
+    
+    
     const first = await chunk(0);
     pending.set(0, Promise.resolve({ data: first })); scheduled = 1;
     const body = new ReadableStream({

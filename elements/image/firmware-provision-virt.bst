@@ -29,7 +29,7 @@ build-depends:
 variables:
   uki-keys: '%{datadir}/%{os-id}/keys/uki'
   secure-boot: '%{datadir}/%{os-id}/secure-boot'
-  # Microsoft's owner GUID in its signature lists.
+  
   microsoft-owner: 77fa9abd-0359-4d32-bd60-28f4e78f784b
   provision-seed: 5f2e7c41-8a93-4d6b-b1e0-6c4d2a9f3e17
 

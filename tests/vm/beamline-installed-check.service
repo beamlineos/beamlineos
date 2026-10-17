@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT
-#
-# VM test (ci/test-install, 0.0.4.3 step 3, docs/decisions.md D106, D113): on the system
-# systemd-sysinstall installed, booted alone, report for the harness to check:
-# - the target's partitions (label and size in bytes). Labels come from udev, which reads the
-#   partition table: partitions the first boot's repart adds have no name in sysfs until the next
-#   boot (D110);
-# - the boot entries and Secure Boot state (D111);
-# - the ESP's shim chain, and that SYSTEM carries no installation component (D113).
-# Injected through a systemd.extra-unit credential; never part of an image, so it may use dash.
+
+
+
+
+
+
+
+
+
 
 [Unit]
 Description=Report the installed layout on the console

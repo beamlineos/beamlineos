@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
-#
-# Applied at image build time with `systemctl --root=... preset-all`.
+
+
 
 enable dbus-broker.service
 enable avahi-daemon.service
@@ -17,29 +17,29 @@ enable beamline-printing-start.service
 enable beamline-extension@.service desktop-gnome posix posix-devel printing-scanning
 enable beamline-extensions-start.service
 
-# Boot counting (docs/spec.md §16): a boot is good when boot-complete.target is reached,
-# which requires that no unit failed. systemd-bless-boot is pulled in by its generator.
+
+
 enable systemd-boot-check-no-failures.service
 
-# Human accounts are systemd-homed users (docs/spec.md §18.3, docs/decisions.md D54). The
-# first boot creates them from home.create.* credentials.
+
+
 enable systemd-homed.service
 enable systemd-homed-firstboot.service
-# The first account of an installed system, an administrator, asked for on the console, and the
-# extensions an installation fetches (0.0.4.3 step 5, docs/decisions.md D112)
+
+
 enable beamline-first-user.service
 enable beamline-extensions-fetch.service
 enable systemd-userdbd.socket
 
-# Not part of the base (docs/spec.md §5.2); FDSDK's audit package presets enable them.
+
 disable auditd.service
 disable audit-rules.service
 
-# Updates run when asked (docs/decisions.md D52), not on a timer.
+
 disable systemd-sysupdate*
 
-# systemd-pcrlock predicts PCR policies, so that TPM-sealed secrets survive updates. Beamline
-# seals none that need it: systemd-sysinstall's credentials bind to no PCRs (docs/decisions.md
-# D106, 0.0.4.3 step 1). Left enabled by systemd's presets, it rewrote a TPM NV index and
-# /boot/loader/credentials on every boot, and failed without Secure Boot variables.
+
+
+
+
 disable systemd-pcrlock*

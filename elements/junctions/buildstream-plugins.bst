@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
-#
-# Upstream BuildStream plugins (autotools, meson, ...). Same version FDSDK 26.08.2 uses.
+
+
 
 kind: junction
 

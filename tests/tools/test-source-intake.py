@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Regression checks for source-set migration and frozen first-time intake (D63)."""
+                                                                                    
 import importlib.util
 import copy
 import pathlib
 import tempfile
 import unittest
+import subprocess
+import sys
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('integrate', pathlib.Path(__file__).resolve().parents[2] / 'tools/integrate.py')
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / 'tools'))
 integrate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(integrate)
 
@@ -170,6 +173,48 @@ class SourceIntake(unittest.TestCase):
 
 
 class OverrideMetadata(unittest.TestCase):
+    def test_copied_sources_bind_upstream_and_local_hashes_modes_and_links(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            mirror, source = root / 'upstream', root / 'source'
+            name = 'files/gdm/example.c'
+            upstream = mirror / name
+            local = source / name
+            upstream.parent.mkdir(parents=True)
+            local.parent.mkdir(parents=True)
+            raw = b'/* upstream prose */\nint value = 1;\n'
+            upstream.write_bytes(raw)
+            local.write_bytes(b"\nint value = 1;\n")
+            (source / 'policy').mkdir()
+            upstream_hash = hashlib.sha256(raw).hexdigest()
+            local_hash = hashlib.sha256(local.read_bytes()).hexdigest()
+            (source / 'policy/overrides.toml').write_text(
+                f'[copy."{name}"]\nmode = "100644"\n'
+                f'upstream_sha256 = "{upstream_hash}"\nlocal_sha256 = "{local_hash}"\n')
+            def git(*args):
+                return subprocess.check_output(['git', '-C', str(mirror), *args], stderr=subprocess.PIPE).decode().strip()
+            git('init', '--initial-branch=main')
+            git('add', '.')
+            git('-c', 'commit.gpgsign=false', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'upstream')
+            commit = git('rev-parse', 'HEAD')
+            with patch.object(integrate, 'REPO', str(source)):
+                self.assertFalse(integrate.local_copy_differs(str(mirror), commit, 'files/gdm'))
+                upstream.write_bytes(raw.replace(b'upstream prose', b'changed upstream prose'))
+                git('add', '.')
+                git('-c', 'commit.gpgsign=false', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'prose')
+                commit = git('rev-parse', 'HEAD')
+                self.assertTrue(integrate.local_copy_differs(str(mirror), commit, 'files/gdm'))
+                commit = git('rev-parse', 'HEAD^')
+                local.write_bytes(b'\nint value = 2;\n')
+                self.assertTrue(integrate.local_copy_differs(str(mirror), commit, 'files/gdm'))
+                local.write_bytes(b"\nint value = 1;\n")
+                local.chmod(0o755)
+                self.assertTrue(integrate.local_copy_differs(str(mirror), commit, 'files/gdm'))
+                local.unlink()
+                local.symlink_to('missing.c')
+                self.assertTrue(integrate.local_copy_differs(str(mirror), commit, 'files/gdm'))
+
     def test_junction_overrides_are_read_without_comment_markers(self):
         with tempfile.TemporaryDirectory() as temporary:
             junction = pathlib.Path(temporary) / 'sdk.bst'

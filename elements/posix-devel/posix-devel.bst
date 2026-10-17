@@ -2,7 +2,7 @@
 kind: stack
 description: Independent POSIX userspace plus C/software development and native SDK tools (§7.3, D69)
 depends:
-# This is a content stack, never a dependency on the posix extension image.
+
 - posix/content.bst
 - junctions/freedesktop-sdk.bst:components/gcc.bst
 - junctions/freedesktop-sdk.bst:components/binutils.bst

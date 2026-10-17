@@ -19,7 +19,7 @@ variables:
 config:
   build-commands:
   - make -C libsepol/src libsepol.a
-  # libselinux/Makefile normally exports the PCRE2 flags to src/.
+  
   - |
     make -C libselinux/src libselinux.a CPPFLAGS="-I$(pwd)/libsepol/include" \
       PCRE_CFLAGS="-DUSE_PCRE2 -DPCRE2_CODE_UNIT_WIDTH=8"

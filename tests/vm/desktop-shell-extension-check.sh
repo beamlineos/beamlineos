@@ -1,6 +1,6 @@
 #!/usr/bin/sh
 # SPDX-License-Identifier: MIT
-# A valid, installed user extension must never be discovered, enabled or downloaded.
+
 set -eu
 report_failure() {
     status=$?
@@ -15,12 +15,12 @@ fixture=beamline-test@example.test
 test -f "/home/dev/.local/share/gnome-shell/extensions/$fixture/extension.js"
 test -r "/home/dev/.local/share/gnome-shell/extensions/$fixture/metadata.json"
 test -r "/home/dev/.local/share/gnome-shell/extensions/$fixture/extension.js"
-# These native Shell services require the retained gjs command.
+
 busctl --user call org.gnome.Shell.Notifications /org/freedesktop/Notifications org.freedesktop.DBus.Peer Ping
 busctl --user call org.gnome.ScreenSaver /org/gnome/ScreenSaver org.freedesktop.DBus.Peer Ping
-# The previous green desktop lacks vp8enc/webmmux, so upstream's Screencast helper
-# exits without owning its bus name. Keep that limitation explicit; any other missing
-# requirement or interpreter failure is a test failure (D66).
+
+
+
 gst_status=0
 gjs -c '
 const Gst = imports.gi.Gst;
@@ -56,7 +56,7 @@ test ! -e /usr/bin/gnome-extensions
 test ! -e /usr/bin/lua
 test ! -e /usr/bin/wpexec
 test ! -e /usr/bin/gjs-console
-# The unprivileged document portal must mount its actual FUSE filesystem (D68).
+
 test -u /usr/bin/fusermount3
 busctl --user call org.freedesktop.portal.Documents /org/freedesktop/portal/documents org.freedesktop.portal.Documents GetMountPoint
 mounted=false

@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Generate the kernel-defined part of the Beamline CIL policy (docs/decisions.md D35).
+                                                                                       
 
-The object classes, their permissions and the initial SIDs are defined by the kernel the
-policy is loaded into, not by the policy author. They are read from the headers the
-project's kernel build installs (classmap.h, initial_sid_to_string.h, security.h), so the
-policy always matches the kernel it ships with.
+                                                                                        
+                                                                                   
+                                                                                         
+                                               
 
-  kernel-cil.py --headers DIR --out kernel.cil --policy-version-file FILE
+                                                                         
 
-Emits: classes, classorder, initial SIDs and sidorder, the MCS sensitivity and categories,
-the broad allow rules of the platform domains not yet confined (every class except `security`, which policy.cil
-grants selectively so that the setenforce/load_policy neverallow holds), and the user
-domains' rules on their own sockets.
+                                                                                          
+                                                                                                               
+                                                                                     
+                                    
 
-Standard library only.
-"""
+                      
+   
 
 import argparse
 import os
@@ -24,9 +24,9 @@ import sys
 
 CATEGORIES = 1024
 
-# Userspace object managers ask the policy about their own classes (docs/decisions.md D35):
-# dbus-broker (dbus) and systemd (service, plus its permissions on the kernel's system
-# class). Undeclared, libselinux reports "Unknown class" and an object manager may refuse.
+                                                                                           
+                                                                                      
+                                                                                          
 USERSPACE_CLASSES = {
     "dbus": ["acquire_svc", "send_msg"],
     "service": ["start", "stop", "status", "reload", "kill", "load", "enable", "disable"],
@@ -47,7 +47,7 @@ def classes(classmap):
     macros = dict(re.findall(r"^#define\s+(COMMON_\w+)\s+(.+)$", text, flags=re.M))
     body = text[text.index("secclass_map[]"):]
     body = body[body.index("{") + 1:body.index("};")]
-    for _ in range(5):                      # COMMON_FILE_PERMS uses COMMON_FILE_SOCK_PERMS
+    for _ in range(5):                                                                     
         for name, value in macros.items():
             body = re.sub(rf"\b{name}\b", value, body)
     result = []
@@ -70,7 +70,7 @@ def initial_sids(table):
         m = re.match(r'"([a-z_]+)"', line) or re.match(r"NULL,\s*/\*\s*([a-z_]+)", line)
         if m:
             sids.append((m.group(1), line.startswith('"')))
-    sids = sids[1:]                         # index 0 is the unused zero placeholder
+    sids = sids[1:]                                                                 
     if not sids or sids[0][0] != "kernel":
         sys.exit("kernel-cil: initial_sid_to_string format changed")
     return sids
@@ -86,16 +86,16 @@ def policy_version(security_h):
     return int(value)
 
 
-# Classes of filesystem objects, and what any domain may do to immutable SYSTEM types in them:
-# read and execute, and (directories) change entries, so a settings service can replace its own
-# allowlisted file in /etc (docs/decisions.md D56).
+                                                                                              
+                                                                                               
+                                                   
 FILE_CLASSES = {"file", "dir", "lnk_file", "chr_file", "blk_file", "sock_file", "fifo_file"}
 IMMUTABLE_READ = {"read", "getattr", "open", "map", "execute", "execute_no_trans", "ioctl", "lock",
                   "search", "entrypoint", "audit_access", "watch", "watch_mount", "watch_sb",
                   "watch_with_perm", "watch_reads", "mounton"}
 DIR_ENTRIES = {"write", "add_name", "remove_name"}
-# What platform domains never do to content a lower integrity level can write (DATA, homes,
-# temporary and runtime files): execute it (docs/security.md §6.3, §7.4, Stage 1).
+                                                                                           
+                                                                                    
 EXECUTE = {"execute", "execute_no_trans", "entrypoint", "execmod"}
 
 
@@ -149,7 +149,7 @@ def main():
             allowed = [p for p in perms if p in IMMUTABLE_READ or (name == "dir" and p in DIR_ENTRIES)]
             out.append(f"(allow beamline_platform_broad_domain beamline_immutable_file_type ({name} ({' '.join(allowed)})))")
         elif name == "service":
-            # PID 1 loads unit files only from labels the policy names (D97, platform.cil).
+                                                                                           
             out.append("(allow beamline_platform_broad_domain beamline_any_type (service (and (all) (not (load)))))")
         else:
             out.append(f"(allow beamline_platform_broad_domain beamline_any_type ({name} (all)))")

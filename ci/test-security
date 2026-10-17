@@ -1,15 +1,15 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Negative security tests on the checked-out Virt image (docs/security.md §15, §16; docs/decisions.md
-# D59), on the enforcing production boot: P0 runs its own unsigned ELF; P0 cannot change /usr; P0
-# and admin_t cannot write outside /etc's allowlist, admin_t can write a setting; P0 cannot enter
-# the updater's or the admin domain; the updater cannot execute a helper from /var/tmp; admin_t
-# can neither switch SELinux off nor load a module; alice cannot read dev's home. The tampered and
-# unsigned extensions (ci/test-posix), rollback (ci/test-update) and the unauthorized update
-# request (ci/test-run0) are tested elsewhere. Every denial these checks provoke must be listed in
-# policy/selinux-expected.toml. The image itself is never modified.
-#   ./ci/test-security [path/to/installed.qcow2]
+
+
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -42,6 +42,6 @@ python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
     --fail-on BEAMLINE_SECURITY_FAILED --timeout 600 \
     --log "$OUT/serial-security.log"
 
-# Root's generic AccessDenied reply alone cannot identify the refusing layer. Require
-# the actual userspace SELinux transition audits from the new property check too.
+
+
 python3 "$REPO/tools/check-transition-audits.py" "$OUT/serial-security.log"

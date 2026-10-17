@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Candidate/previous-version update and rollback probe, injected as a credential.
+
 set -eu
 . /usr/lib/os-release
 read -r enforcing < /sys/fs/selinux/enforce || [ -n "$enforcing" ]

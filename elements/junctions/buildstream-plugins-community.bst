@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
-#
-# Community BuildStream plugins (git_repo, patch_queue, ...). Same version FDSDK 26.08.2 uses.
+
+
 
 kind: junction
 

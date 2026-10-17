@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""No two extensions may ship one path with different content (docs/decisions.md D88).
+HELP = """No two extensions may ship one path with different content (docs/decisions.md D88).
 
   extension-paths.py write --out MANIFEST TREE...
   extension-paths.py compare MANIFEST...
@@ -60,7 +60,7 @@ def compare(manifests):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
     w = commands.add_parser("write")
     w.add_argument("--out", required=True)

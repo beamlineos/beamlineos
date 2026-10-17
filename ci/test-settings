@@ -1,13 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-#
-# Scoped mutable /etc on the checked-out Virt image (docs/spec.md §14, docs/decisions.md D56):
-# the first boot changes the hostname, location, timezone and locale, which land in /etc's
-# mutable layer on DATA, and adds a file outside the allowlist. The second boot must start with
-# those settings (the initrd merged the layer, so PID 1 set the hostname) and without that file
-# (the initrd rebuilt the layer from the allowlist). systemd-confext runs; the extension images
-# stay unlinked and system extensions unmerged. The image itself is never modified.
-#   ./ci/test-settings [path/to/installed.qcow2]
+
+
+
+
+
+
+
+
 
 # shellcheck source=ci/lib.sh
 . "$(dirname "$0")/lib.sh"

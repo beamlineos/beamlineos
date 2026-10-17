@@ -1,25 +1,25 @@
 # SPDX-License-Identifier: MIT
-#
-# Upstream tracking policy (docs/spec.md §31). Read by tools/integrate.py.
-#
-# [component.<name>]
-#   url       upstream git repository
-#   branch    designated upstream development branch; the element's `track:` must match
-#   elements  BuildStream elements whose git source (first source) carries this component
-#   refs      file holding those elements' refs: project.refs or junction.refs
-#   select    "head" (default): branch HEAD at resolution time
-#             "gitlab-ci-green": newest branch commit whose upstream pipeline succeeded
-#             (`gitlab_project`, on `gitlab_api`, default https://gitlab.com)
-#             "github-archive": branch HEAD, downloaded as GitHub's archive of that commit
-#             (`github` = owner/repo); the commit goes to `commit_variable` in `commit_file`,
-#             the tarball sha256 to the element's ref
-#
-# [component.<name>.pin] is a temporary, visible exception (§31.2): the integration cycle
-# uses `ref` (github-archive: the commit) instead of the designated HEAD and every manifest
-# reports it as PINNED.
-#   ref, reason, issue
-#
-# [fixed] lists Layer 0 inputs (§31.3): pinned build tooling, recorded as provenance only.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 [lockfile.beamlinectl]
 lockfile = "files/beamlinectl/Cargo.lock"
@@ -35,8 +35,8 @@ select = "gitlab-ci-green"
 gitlab_project = "freedesktop-sdk/freedesktop-sdk"
 
 [component.gnome-build-meta]
-# A recipe library for the GNOME desktop (docs/decisions.md D28): built against Beamline's
-# FDSDK; GNOME component refs come from the selected commit.
+
+
 url = "https://gitlab.gnome.org/GNOME/gnome-build-meta.git"
 branch = "master"
 elements = ["junctions/gnome-build-meta.bst"]
@@ -46,8 +46,8 @@ gitlab_api = "https://gitlab.gnome.org"
 gitlab_project = "GNOME/gnome-build-meta"
 
 [component.linux]
-# The commit is torvalds/linux.git master on git.kernel.org; the tree is GitHub's archive of
-# that commit (docs/spec.md §11.2, docs/decisions.md D32).
+
+
 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
 branch = "master"
 elements = ["kernel/linux-virt.bst", "kernel/selinux-headers.bst"]
@@ -112,14 +112,14 @@ elements = ["posix/uutils-bsdutils.bst"]
 refs = "project.refs"
 
 [component.selinux]
-# Build-time policy tools only (secilc, setfiles); the runtime libselinux is FDSDK's.
+
 url = "https://github.com/SELinuxProject/selinux.git"
 branch = "main"
 elements = ["security/selinux-tools.bst"]
 refs = "project.refs"
 
 [component.gnu-ctags]
-# GNU etags' ctags mode, without installing the editor (D69). GNU Git is authoritative.
+
 url = "https://git.savannah.gnu.org/git/emacs.git"
 branch = "master"
 elements = ["posix-devel/ctags.bst"]
@@ -228,8 +228,8 @@ reason = "Public certificate for the test firmware's KEK, as on a PC sold with M
 "junctions/buildstream-plugins.bst" = "buildstream-plugins 2.8.0 (PyPI sdist)"
 "junctions/buildstream-plugins-community.bst" = "buildstream-plugins-community 2.3.3 (PyPI sdist)"
 
-# The patched Shell inherits the exact GNOME source set, including its two subprojects.
-# It is not a separate HEAD track. The integration resolver writes every inherited ref.
+
+
 [recipe.gnome-shell]
 component = "gnome-build-meta"
 junction = "junctions/gnome-build-meta.bst"
@@ -237,8 +237,8 @@ upstream_element = "core/gnome-shell.bst"
 element = "overrides/gnome-shell.bst"
 refs = "project.refs"
 
-# Settings without parental controls and with the Secure Shell row patch (D89); like Shell, it
-# inherits gnome-build-meta's exact sources, not a separate HEAD track.
+
+
 [recipe.gnome-control-center]
 component = "gnome-build-meta"
 junction = "junctions/gnome-build-meta.bst"
@@ -246,8 +246,8 @@ upstream_element = "core/gnome-control-center.bst"
 element = "overrides/gnome-control-center.bst"
 refs = "project.refs"
 
-# GDM with SELinux support (D105); like Shell, it inherits gnome-build-meta's exact sources. Its
-# local source, files/gdm, is a copy of gnome-build-meta's at the recipe's commit.
+
+
 [recipe.gdm]
 component = "gnome-build-meta"
 junction = "junctions/gnome-build-meta.bst"
@@ -255,7 +255,7 @@ upstream_element = "core/gdm.bst"
 element = "overrides/gdm.bst"
 refs = "project.refs"
 
-# Build-policy override; retain the exact FDSDK-selected libfuse source, not a new track.
+
 [recipe.fuse3]
 component = "freedesktop-sdk"
 junction = "junctions/freedesktop-sdk.bst"
@@ -263,8 +263,8 @@ upstream_element = "components/fuse3.bst"
 element = "overrides/fuse3.bst"
 refs = "project.refs"
 
-# Carries upstream's unreleased raster-printing fix as a patch (D84, K2); retain the exact
-# FDSDK-selected libcupsfilters source, not a new track. Drop once FDSDK selects a release with it.
+
+
 [recipe.libcupsfilters]
 component = "freedesktop-sdk"
 junction = "junctions/freedesktop-sdk.bst"

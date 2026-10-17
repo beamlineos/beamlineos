@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Regression checks for Secure Boot enrollment files (tools/make-enrollment.py, docs/decisions.md D111)."""
+                                                                                                            
 import importlib.util
 from pathlib import Path
 import struct
@@ -14,7 +14,7 @@ spec = importlib.util.spec_from_file_location('enrollment', TOOL)
 enrollment = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(enrollment)
 
-EPOCH = 1320937200  # 2011-11-10 15:00:00 UTC
+EPOCH = 1320937200                           
 
 
 def openssl(*args):
@@ -53,7 +53,7 @@ class Enrollment(unittest.TestCase):
                 self.assertEqual((revision, kind), (0x0200, 0x0EF1))
                 self.assertEqual(blob[24:40], enrollment.PKCS7_GUID)
                 bare, payload = blob[40:16 + length], blob[16 + length:]
-                # Bare SignedData, SHA-256 at the offset UTM's EDK2 checks.
+                                                                           
                 self.assertEqual(bare[:2], b'\x30\x82')
                 self.assertEqual(bare[13:22], enrollment.SHA256_OID)
                 self.assertEqual(payload[:16], enrollment.X509_GUID)
@@ -86,8 +86,8 @@ class Enrollment(unittest.TestCase):
         self.assertEqual(self.make('two'), self.files)
 
     def test_separate_key_exchange_and_database_certificates(self):
-        # The test firmware's set (D113): our certificate as PK and beside another KEK, and only
-        # the other certificate, with its own owner, in db.
+                                                                                                
+                                                           
         other_key, other_cert = self.dir / 'other.key', self.dir / 'other.crt'
         openssl('req', '-new', '-x509', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=Other CA',
                 '-days', '1', '-keyout', other_key, '-out', other_cert)

@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-# Removed from printing-scanning (0.0.4.2 step 2A, docs/decisions.md D88). CUPS, SANE, cups-filters
-# and their Ghostscript and poppler, ippeveprinter (the tests' virtual printer) and the drivers
-# stay. Decisions: docs/testing/0.0.4.2-content-inventory.md ("Decisions").
-# Patterns: see tools/prune-tree.py.
 
-# --- Python (the owner), with system-config-printer's D-Bus service: Settings loses driver
-# suggestions for printers that need a driver; driverless (IPP Everywhere) printers need none ----
+
+
+
+
+
+
 /usr/bin/python
 /usr/bin/python3
 /usr/bin/python3.*
@@ -24,7 +24,7 @@
 /usr/bin/idna
 /usr/bin/normalizer
 
-# --- Build and developer tools (K5) ------------------------------------------------------------
+
 /usr/bin/derb
 /usr/bin/escapesrc
 /usr/bin/g-ir-*
@@ -62,10 +62,10 @@
 /usr/bin/ppdmerge
 /usr/bin/ppdpo
 
-# --- Command-line tools no filter or service runs ------------------------------------------------
-# GNU sed: posix and posix-devel ship uutils' at the same path (K7); no CUPS filter runs it. With it
-# go the only scripts here that call it: Ghostscript's legacy lpr helpers and pdf2dsc, and ICU's
-# build helpers.
+
+
+
+
 /usr/bin/sed
 /usr/bin/lprsetup.sh
 /usr/bin/unix-lpr.sh

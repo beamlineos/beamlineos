@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: MIT
-#
-# Pinned system UIDs and GIDs (0.0.4.3 step 0, docs/decisions.md D86, D106). DATA outlives every
-# update and keeps its owners, so a system account's number never changes once a snapshot has
-# shipped it. image/root-virt.bst writes these numbers into every sysusers.d line before
-# systemd-sysusers runs (tools/pin-sysusers.py), then checks /etc/passwd and /etc/group against
-# this table: an account missing here, or a stale line, fails the build.
-#
-# Seeded from snapshot 20261014.0331's allocation. A new account takes a free number below the
-# lowest one in use (sysusers' own range counts down from 999); never reuse a number.
-#
-#   u NAME UID GID    a user and its primary group of the same name
-#   g NAME GID        a group without a user
+
+
+
+
+
+
+
+
+
+
+
+
 
 u root 0 0
 u nobody 65534 65534

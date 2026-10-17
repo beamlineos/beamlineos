@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# A stop of an already inactive instance does not run ExecStop again. Retry cleanup explicitly.
+
 [Unit]
 Description=Remove the %i extension image links
 After=local-fs.target

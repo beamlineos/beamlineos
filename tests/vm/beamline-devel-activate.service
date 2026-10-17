@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Test-only activation precedes the development workflow, which still runs as dev in P0.
+
 [Unit]
 Description=Activate the development extension for its VM test
 After=beamline-boot-ok.service

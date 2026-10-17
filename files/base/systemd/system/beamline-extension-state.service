@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Freeze the saved choices for this boot. No service or refresh may recopy them later.
+
 [Unit]
 Description=Take the extension choices for this boot
 DefaultDependencies=no

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Regression checks for final-image utility resolution, including absolute symlinks."""
+                                                                                        
 import importlib.util
 import errno
 import stat

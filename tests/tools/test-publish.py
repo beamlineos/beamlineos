@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Immutable publication ordering, retry, format and signature regressions."""
+                                                                              
 
 import copy
 import hashlib
@@ -106,7 +106,7 @@ class Publication(unittest.TestCase):
             self.run_publish(verify=fail)
         self.assertNotIn(self.prefix + "publication.json", self.remote.objects)
         self.assertNotIn(self.prefix + "publication.json.gpg", self.remote.objects)
-        # Retrying reuses partial objects and finishes without rewriting them.
+                                                                              
         previous = dict(self.remote.objects)
         result = self.run_publish()
         self.assertTrue(all(self.remote.objects[k] == v for k, v in previous.items()))

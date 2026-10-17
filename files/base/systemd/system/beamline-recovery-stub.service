@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
-#
-# The RecoveryOS stub (docs/spec.md §20, docs/decisions.md D48): report on the console, then
-# power off. There is nothing to recover with yet; a real RecoveryOS replaces this.
+
+
+
 
 [Unit]
 Description=Beamline RecoveryOS is a stub: nothing to recover with yet, powering off

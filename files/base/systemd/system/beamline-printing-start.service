@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# CUPS ships no enabled socket/path links. Boot and live refresh share this native starter.
+
 [Unit]
 Description=Start printing services from the merged extension
 After=systemd-sysext.service systemd-confext.service

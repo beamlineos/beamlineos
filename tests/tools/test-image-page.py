@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Upload-driven HTML discovery, immutable releases and concurrent refreshes."""
+                                                                                
 import copy
 import hashlib
 from pathlib import Path

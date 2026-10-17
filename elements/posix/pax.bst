@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Canonical maintainer source, with no accessible Git HEAD (D63).
+
 kind: manual
 description: paxmirabilis, the POSIX archive utility
 build-depends:

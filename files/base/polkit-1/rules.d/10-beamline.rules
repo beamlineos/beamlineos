@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
-//
-// Beamline's polkit rules (docs/spec.md §19, docs/security.md §9.4, docs/decisions.md D55).
-// They are platform code: polkit only reads rules from SYSTEM, and /etc/polkit-1/rules.d stays
-// empty.
 
-// Administrators are the members of wheel; an admin prompt asks one of them.
+
+
+
+
+
 polkit.addAdminRule(function(action, subject) {
     return ["unix-group:wheel"];
 });
 
-// The daemon has no root privileges. This rule must precede the general non-wheel refusal.
+
 polkit.addRule(function(action, subject) {
     if (action.id == "org.freedesktop.systemd1.manage-units" && subject.user == "beamline-ctl") {
         var units = ["beamline-extensions-refresh.service", "beamline-extension@desktop-gnome.service",
@@ -22,10 +22,10 @@ polkit.addRule(function(action, subject) {
     }
 });
 
-// run0 and unit management (org.freedesktop.systemd1.manage-units), and updates: members of
-// wheel authenticate with their own password, which is kept for a few minutes; everyone else
-// is refused without a prompt. polkit sees run0 only as a transient unit, never the command;
-// the SELinux domain of run0 sessions decides what the command may do.
+
+
+
+
 polkit.addRule(function(action, subject) {
     if (action.id == "org.freedesktop.systemd1.manage-units" ||
         action.id.indexOf("org.freedesktop.sysupdate1.") == 0 ||

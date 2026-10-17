@@ -1,9 +1,9 @@
 ; SPDX-License-Identifier: MIT
-;
-; cupsd (0.0.4.2 step 4D, docs/decisions.md D95), from the printing-scanning extension. It
-; accepts jobs from sessions and the network (IPP), and runs SYSTEM's filters and backends on
-; them, in its own domain for now. Its configuration and state live on DATA (D58) in a type of
-; their own, which only cupsd writes; it executes nothing from DATA.
+ 
+                                                                                          
+                                                                                             
+                                                                                              
+                                                                    
 
 (type cupsd_t)
 (type cupsd_exec_t)
@@ -15,9 +15,9 @@
 (filecon "/usr/bin/cupsd" file (system_u object_r cupsd_exec_t lr_platform))
 (typetransition init_t cupsd_exec_t process cupsd_t)
 (allow cupsd_t cupsd_exec_t (file (entrypoint)))
-; Its state on DATA: ServerRoot and configuration, spool, cache, logs (D58). The printing
-; extension's tmpfiles create and relabel them at every boot, so DATA from an older snapshot gets
-; this type, and a rollback finds a type its own policy treats as unlabelled.
+                                                                                         
+                                                                                                 
+                                                                             
 (filecon "/var/lib/cups(/.*)?" any (system_u object_r cupsd_state_t lr_platform))
 (filecon "/var/spool/cups(/.*)?" any (system_u object_r cupsd_state_t lr_platform))
 (filecon "/var/cache/cups(/.*)?" any (system_u object_r cupsd_state_t lr_platform))
@@ -31,23 +31,23 @@
 (allow cupsd_t cupsd_state_t (lnk_file (getattr read create unlink rename)))
 (allow cupsd_t var_lib_t (dir (getattr search)))
 (allow cupsd_t var_log_t (dir (getattr search)))
-; Directories cupsd creates itself get the type too
+                                                   
 (typetransition cupsd_t var_lib_t dir "cups" cupsd_state_t)
 (typetransition cupsd_t var_t dir "cups" cupsd_state_t)
 (typetransition cupsd_t var_log_t dir "cups" cupsd_state_t)
 
-; It runs filters and backends as lp, with their privileges dropped (cups-exec)
+                                                                               
 (allow cupsd_t self (capability (chown dac_override fsetid setuid setgid net_admin net_bind_service)))
-; IPP: it listens on port 631 and reaches network printers
+                                                          
 (allow cupsd_t self (tcp_socket (create bind connect listen accept getattr getopt setopt read write shutdown)))
 (allow cupsd_t self (udp_socket (create bind connect getattr getopt setopt read write)))
 (allow cupsd_t node_t (tcp_socket (node_bind)))
 (allow cupsd_t port_t (tcp_socket (name_bind name_connect)))
-; /run/cups: the local certificates that authenticate local clients (run_t until /run's state gets
-; types of its own)
+                                                                                                  
+                   
 (allow cupsd_t run_t (dir (getattr search read open write add_name remove_name setattr)))
 (allow cupsd_t run_t (file (getattr open read write create unlink setattr)))
-; Filters' temporary files (Ghostscript, fontconfig) in /tmp, which sessions also write: cupsd
-; writes there but never executes from it (policy.cil)
+                                                                                              
+                                                      
 (allow cupsd_t tmp_t (dir (getattr search read open write add_name remove_name)))
 (allow cupsd_t tmp_t (file (getattr open read write create unlink)))

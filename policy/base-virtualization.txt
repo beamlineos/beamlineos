@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT
-# systemd's virtualization and image services, kept out of the base and of every current extension
-# (0.0.4.2 step 2; docs/decisions.md D76, D85, D87): portabled, machined, importd, nspawn,
-# vmspawn, mountfsd, nsresourced, with their units, D-Bus and polkit files, host-side network
-# configuration, tmpfiles, completions and manuals. systemd still builds them: a later
-# virtualization sysext will ship them.
-# Stay: systemd-pull and systemd-import, which sysupdate runs; import-pubring.pgp (D52);
-# systemd-dissect and mount.ddi, which step 2 does not cover.
-# Exact paths of files and symlinks; emptied directories go with them. Debug files in posix-devel
-# are named by build ID and are not listed.
+
+
+
+
+
+
+
+
+
 /etc/systemd/system/multi-user.target.wants/machines.target
 /etc/systemd/system/sockets.target.wants/systemd-mountfsd.socket
 /etc/systemd/system/sockets.target.wants/systemd-nsresourced.socket

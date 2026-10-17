@@ -1,21 +1,21 @@
 # SPDX-License-Identifier: MIT
-# POSIX.1-2024, Issue 8: the utilities the posix and posix-devel extensions must provide
-# (§7.2, §7.3; docs/decisions.md D63, D69, D88).
-# https://pubs.opengroup.org/onlinepubs/9799919799/idx/utilities.html
-# https://pubs.opengroup.org/onlinepubs/9799919799/xrat/V4_xcu_chap01.html
-# https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap02.html
-# Format: extensions provider utility group.
-#   extensions: posix, posix-devel or both;
-#   provider: command or builtin (builtins are checked in the extension's bash, with no external
-#     commands in PATH);
-#   group: the utility's POSIX option group, from the margin code of its SYNOPSIS: mandatory (none),
-#     UP (User Portability), SD (Software Development), CD (C-Language Development).
-# posix carries the mandatory and UP utilities; posix-devel the mandatory, SD and CD ones (the
-# owner's decision, D88). Recorded exception: man and more (UP) are in posix-devel too, so it keeps
-# manual lookup. bg, fc, fg and jobs remain bash builtins there, just not required.
-# This is a contents check; it does not claim POSIX conformance (§7.2).
-# XSI-only, FR, UU and optional localedef are outside this scope.
-# SCCS and daemon/privilege tools are excluded; lp belongs in printing-scanning.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 both builtin alias mandatory
 both command awk mandatory
 both command basename mandatory
