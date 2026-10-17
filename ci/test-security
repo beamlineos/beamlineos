@@ -44,14 +44,4 @@ python3 "$REPO/tools/qemu-test.py" --arch "$ARCH" --image "$image" \
 
 # Root's generic AccessDenied reply alone cannot identify the refusing layer. Require
 # the actual userspace SELinux transition audits from the new property check too.
-python3 - "$OUT/serial-security.log" <<'PY_AUDIT'
-import re, sys
-lines = open(sys.argv[1], errors='replace').read().splitlines()
-for source in ('user_t', 'admin_t'):
-    pattern = (r'avc:\s+denied\s+\{\s*transition\s*\}.*'
-               r'function="mac_selinux_transient_transition".*'
-               rf'scontext=[^ ]*:{source}:.*tcontext=[^ ]*:init_t:.*tclass=process')
-    if not any(re.search(pattern, line) for line in lines):
-        sys.exit(f'security: missing {source} -> init_t transition refusal audit')
-print('security: both explicit init_t refusals came from the SELinux transition check')
-PY_AUDIT
+python3 "$REPO/tools/check-transition-audits.py" "$OUT/serial-security.log"

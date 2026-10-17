@@ -10,11 +10,15 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+import snapshot
+
 spec = importlib.util.spec_from_file_location("p1_smoke", ROOT / "tools/p1-smoke.py")
 smoke = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(smoke)
@@ -39,10 +43,11 @@ class SnapshotChecks(unittest.TestCase):
                              "sha256": self.raw_digest, "zst": self.compressed,
                              "zst_sha256": smoke.sha256(self.root / self.compressed)}}}
         self.save_manifest()
-        signature = patch.object(smoke, "verify_signature")
+        self.signature_verifier = snapshot.verify_signature
+        signature = patch.object(snapshot, "verify_signature")
         signature.start()
         self.addCleanup(signature.stop)
-        raw = patch.object(smoke, "raw_installer_hash", return_value=self.raw_digest)
+        raw = patch.object(snapshot, "raw_installer_hash", return_value=self.raw_digest)
         raw.start()
         self.addCleanup(raw.stop)
 
@@ -106,7 +111,7 @@ class SnapshotChecks(unittest.TestCase):
             self.manifest[name] = original
 
     def test_uncompressed_installer_hash_is_verified(self):
-        with patch.object(smoke, "raw_installer_hash", return_value="f" * 64):
+        with patch.object(snapshot, "raw_installer_hash", return_value="f" * 64):
             with self.assertRaisesRegex(ValueError, "uncompressed installer hash"):
                 self.verify()
 
@@ -119,10 +124,8 @@ class SnapshotChecks(unittest.TestCase):
     @unittest.skipUnless(shutil.which("gpgv"), "gpgv not installed")
     def test_invalid_signature_is_refused_by_gpgv(self):
         # Bypass the fixture's signature mock to exercise the real verifier.
-        original = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(original)
         with self.assertRaisesRegex(ValueError, "signature verification failed"):
-            original.verify_signature(self.channel, ROOT / "files/keys/dev/update/import-pubring.pgp")
+            self.signature_verifier(self.channel, ROOT / "files/keys/dev/update/import-pubring.pgp")
 
 
 class R2Checks(unittest.TestCase):

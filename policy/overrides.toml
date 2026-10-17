@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: MIT
+
+[override."dbus-broker.bst"]
+project = "freedesktop-sdk"
+commit = "c67967f99ce9aafd75bf5b3091f5d2da094bdd61"
+path = "elements/components/dbus-broker.bst"
+
+[override."erofs-utils.bst"]
+project = "freedesktop-sdk"
+commit = "c67967f99ce9aafd75bf5b3091f5d2da094bdd61"
+path = "elements/components/erofs-utils.bst"
+
+[override."evolution-data-server.bst"]
+project = "gnome-build-meta"
+commit = "f871a508609cced5e6607f9518b018084c558149"
+path = "elements/core-deps/evolution-data-server.bst"
+
+[override."fuse3.bst"]
+project = "freedesktop-sdk"
+commit = "809013202493a2676672959850587e5013ae59e4"
+path = "elements/components/fuse3.bst"
+
+[override."gdm.bst"]
+project = "gnome-build-meta"
+commit = "23c598b45f510cc0bb2161b5cc06742c45bbb00b"
+path = "elements/core/gdm.bst"
+
+[override."gnome-control-center.bst"]
+project = "gnome-build-meta"
+commit = "23c598b45f510cc0bb2161b5cc06742c45bbb00b"
+path = "elements/core/gnome-control-center.bst"
+
+[override."gnome-shell.bst"]
+project = "gnome-build-meta"
+commit = "f871a508609cced5e6607f9518b018084c558149"
+path = "elements/core/gnome-shell.bst"
+
+[override."libcupsfilters.bst"]
+project = "freedesktop-sdk"
+commit = "809013202493a2676672959850587e5013ae59e4"
+path = "elements/components/libcupsfilters.bst"
+
+[override."linux-pam-base.bst"]
+project = "freedesktop-sdk"
+commit = "c67967f99ce9aafd75bf5b3091f5d2da094bdd61"
+path = "elements/components/linux-pam-base.bst"
+
+[override."systemd-base.bst"]
+project = "freedesktop-sdk"
+commit = "c67967f99ce9aafd75bf5b3091f5d2da094bdd61"
+path = "elements/components/_private/systemd-base.bst"
+
+[override."systemd.bst"]
+project = "freedesktop-sdk"
+commit = "c67967f99ce9aafd75bf5b3091f5d2da094bdd61"
+path = "elements/components/systemd.bst"
